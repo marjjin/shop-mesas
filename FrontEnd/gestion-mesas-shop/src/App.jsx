@@ -75,6 +75,7 @@ function FloorPlan({ tables, coworkingTableIds, editingId, onSelect, onEdit, sav
     >
       <em>{table.status === 'occupied' ? '● OCUPADA' : '○ LIBRE'}</em>
       <b>{table.name}</b>
+      {table.status === 'occupied' && table.customerName && <span className="table-customer">{table.customerName}</span>}
       {coworkingTableIds.has(table.id) && <span className="coworking-badge">⚠ SERVICIO COWORKING</span>}
       {table.status === 'occupied' && <div className="table-times"><span><small>SIN CONSUMIR</small><strong>{clock(table.lastConsumptionAt, now)}</strong></span></div>}
     </button>)}
@@ -92,6 +93,7 @@ function FloorPlan({ tables, coworkingTableIds, editingId, onSelect, onEdit, sav
 
 function TableMenu({ table, data, orders, now, api, load, closePanel, editTable, closeTable }) {
   const [search, setSearch] = useState('')
+  const [customerName, setCustomerName] = useState('')
   const results = search.trim() ? data.products.filter((product) => !isCoworkingService(product)).filter((product) => {
     return product.name.toLowerCase().includes(search.toLowerCase())
   }) : []
@@ -100,13 +102,21 @@ function TableMenu({ table, data, orders, now, api, load, closePanel, editTable,
     setSearch('')
     await load()
   }
+  const openTable = async (event) => {
+    event.preventDefault()
+    const name = customerName.trim()
+    if (!name) return
+    await api(`/tables/${table.id}/open`, { method: 'POST', body: JSON.stringify({ customerName: name }) })
+    setCustomerName('')
+    await load()
+  }
 
   return <aside className="account">
     <button type="button" className="close" aria-label="Cerrar detalle" title="Cerrar detalle" onClick={closePanel}>×</button>
     <div className="account-summary">
       <div className="table-menu-toolbar"><em className={table.status}>{table.status === 'occupied' ? '● OCUPADA' : '○ LIBRE'}</em><button type="button" className="move-table-button" onClick={() => editTable(table.id)}>✥ Mover mesa</button></div>
       <h2>{table.name}</h2>
-      {table.status === 'occupied' ? <div className="timers"><div><small>INICIO</small><b>{time(table.openedAt)}</b></div><div><small>TIEMPO EN MESA</small><b>{clock(table.openedAt, now)}</b></div><div><small>SIN CONSUMIR</small><b>{clock(table.lastConsumptionAt, now)}</b></div></div> : <button className="primary wide" onClick={async () => { await api(`/tables/${table.id}/open`, { method: 'POST' }); await load() }}>Abrir mesa</button>}
+      {table.status === 'occupied' ? <><div className="customer-card"><small>CLIENTE</small><strong>{table.customerName || 'Sin nombre'}</strong></div><div className="timers"><div><small>INICIO</small><b>{time(table.openedAt)}</b></div><div><small>TIEMPO EN MESA</small><b>{clock(table.openedAt, now)}</b></div><div><small>SIN CONSUMIR</small><b>{clock(table.lastConsumptionAt, now)}</b></div></div></> : <form className="open-table-form" onSubmit={openTable}><label htmlFor={`customer-${table.id}`}>Nombre del cliente</label><input id={`customer-${table.id}`} maxLength="80" autoComplete="off" autoFocus placeholder="Ej.: Martín" value={customerName} onChange={(event) => setCustomerName(event.target.value)} /><button className="primary wide" disabled={!customerName.trim()}>Abrir mesa</button></form>}
       <h3>Agregar consumo</h3>
       <div className="search-field"><span>⌕</span><input className="product-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar artículo..." /></div>
       {search.trim() && <div className="products search-results">{results.length ? results.map((product) => <button key={product.id} onClick={() => addConsumption(product.id)}><span>{product.name}</span><b>Agregar</b></button>) : <p className="empty-result">No se encontraron artículos.</p>}</div>}

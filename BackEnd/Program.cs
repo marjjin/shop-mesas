@@ -16,6 +16,7 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<RestaurantContext>();
     db.Database.EnsureCreated();
+    db.Database.ExecuteSqlRaw("""ALTER TABLE "Tables" ADD COLUMN IF NOT EXISTS "CustomerName" character varying(80);""");
     if (!db.Users.Any())
     {
         var now = DateTime.UtcNow;
@@ -54,7 +55,7 @@ api.MapGet("/history", async (RestaurantContext db) =>
 api.MapPost("/tables", async (TableRequest request, RestaurantContext db) => { var table = new RestaurantTable { Name = string.IsNullOrWhiteSpace(request.Name) ? $"Mesa {await db.Tables.CountAsync() + 1}" : request.Name, Seats = request.Seats.GetValueOrDefault(4) }; db.Tables.Add(table); await db.SaveChangesAsync(); return Results.Created($"/api/tables/{table.Id}", table); });
 api.MapDelete("/tables", async (RestaurantContext db) => { db.Orders.RemoveRange(db.Orders); db.Tables.RemoveRange(db.Tables); await db.SaveChangesAsync(); return Results.NoContent(); });
 api.MapPatch("/tables/{id:int}", async (int id, TablePatch patch, RestaurantContext db) => { var table = await db.Tables.FindAsync(id); if (table is null) return Results.NotFound(); table.Name = patch.Name ?? table.Name; table.Seats = patch.Seats ?? table.Seats; table.X = patch.X ?? table.X; table.Y = patch.Y ?? table.Y; table.Width = patch.Width ?? table.Width; table.Height = patch.Height ?? table.Height; await db.SaveChangesAsync(); return Results.Ok(table); });
-api.MapPost("/tables/{id:int}/open", async (int id, RestaurantContext db) => { var table = await db.Tables.FindAsync(id); if (table is null) return Results.NotFound(); table.Status = "occupied"; table.OpenedAt = table.LastConsumptionAt = DateTime.UtcNow; await db.SaveChangesAsync(); return Results.Ok(table); });
+api.MapPost("/tables/{id:int}/open", async (int id, OpenTableRequest request, RestaurantContext db) => { var customerName = request.CustomerName.Trim(); if (string.IsNullOrWhiteSpace(customerName) || customerName.Length > 80) return Results.BadRequest(); var table = await db.Tables.FindAsync(id); if (table is null) return Results.NotFound(); table.CustomerName = customerName; table.Status = "occupied"; table.OpenedAt = table.LastConsumptionAt = DateTime.UtcNow; await db.SaveChangesAsync(); return Results.Ok(table); });
 api.MapPost("/tables/{id:int}/close", async (int id, RestaurantContext db) =>
 {
     var table = await db.Tables.FindAsync(id);
@@ -78,6 +79,7 @@ api.MapPost("/tables/{id:int}/close", async (int id, RestaurantContext db) =>
         CreatedAt = order.CreatedAt
     }));
     table.Status = "free";
+    table.CustomerName = null;
     table.OpenedAt = table.LastConsumptionAt = null;
     db.Orders.RemoveRange(orders);
     await db.SaveChangesAsync();

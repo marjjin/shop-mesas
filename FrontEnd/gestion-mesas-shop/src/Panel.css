@@ -4,6 +4,14 @@
 .table-menu-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-right: 28px; }
 .move-table-button { padding: 6px 9px; border: 1px solid #d8d6cf; border-radius: 7px; background: #fff; color: #646560; font-size: 9px; font-weight: 800; letter-spacing: .25px; cursor: pointer; }
 .move-table-button:hover { border-color: #e56743; color: #e56743; }
+.open-table-form label { display: block; color: #646560; font-size: 11px; font-weight: 800; letter-spacing: .3px; text-transform: uppercase; }
+.open-table-form input { width: 100%; margin-top: 7px; padding: 12px 13px; border: 1px solid #d8d6cf; border-radius: 9px; background: #fff; outline: 0; color: #25262a; font-size: 13px; }
+.open-table-form input:focus { border-color: #e56743; box-shadow: 0 0 0 3px rgba(229, 103, 67, .13); }
+.open-table-form .wide { margin-top: 10px; }
+.open-table-form button:disabled { cursor: not-allowed; opacity: .55; }
+.customer-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; padding: 10px 12px; border: 1px solid #f0d6cd; border-radius: 9px; background: #fff6f2; }
+.customer-card small { color: #9b6b5c; font-size: 9px; font-weight: 800; letter-spacing: .5px; }
+.customer-card strong { overflow: hidden; color: #9e3f27; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .search-field { display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid #d8d6cf; border-radius: 10px; background: #fff; box-shadow: 0 2px 8px rgba(37, 38, 42, .05); }
 .search-field:focus-within { border-color: #e56743; box-shadow: 0 0 0 3px rgba(229, 103, 67, .13); }
 .search-field span { color: #e56743; font-size: 22px; line-height: 1; }
@@ -29,6 +37,7 @@
 .table-times > span + span { border-left: 1px solid rgba(229, 103, 67, .18); }
 .table-times small { color: #9b8d86; font-size: 7px; font-weight: 700; letter-spacing: .25px; }
 .table-times strong { color: #e56743; font-size: 9px; line-height: 1.2; }
+.table-customer { display: block; max-width: calc(100% - 12px); overflow: hidden; color: #9e3f27; font-size: 9px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
 
 .table.coworking-alert {
 	border: 3px solid #d93636;
