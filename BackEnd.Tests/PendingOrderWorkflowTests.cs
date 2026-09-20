@@ -42,6 +42,25 @@ public sealed class PendingOrderWorkflowTests
         Assert.False(await fixture.Db.Orders.AnyAsync());
     }
 
+    [Fact]
+    public async Task AssignsPendingOrderWithoutItems()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        fixture.Db.PendingOrderItems.RemoveRange(fixture.Db.PendingOrderItems);
+        await fixture.Db.SaveChangesAsync();
+        var assignedAt = new DateTime(2026, 9, 20, 19, 0, 0, DateTimeKind.Utc);
+
+        var result = await PendingOrderWorkflow.AssignAsync(
+            fixture.Db, fixture.PendingOrderId, fixture.FreeTableId, assignedAt);
+
+        Assert.Equal(PendingOrderAssignmentStatus.Success, result.Status);
+        Assert.Equal("occupied", result.Table!.Status);
+        Assert.Equal("Martín", result.Table.CustomerName);
+        Assert.Equal(assignedAt, result.Table.OpenedAt);
+        Assert.False(await fixture.Db.Orders.AnyAsync());
+        Assert.False(await fixture.Db.PendingOrders.AnyAsync());
+    }
+
     private sealed class TestFixture : IAsyncDisposable
     {
         private readonly SqliteConnection connection;

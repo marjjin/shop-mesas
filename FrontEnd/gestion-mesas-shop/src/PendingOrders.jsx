@@ -70,8 +70,8 @@ function PendingOrderCard({ order, data, api, load, onChooseTable }) {
 
     <div className="pending-assignment">
       <label>Asignar cuando elijan mesa</label>
-      <button type="button" className="primary pending-plan-button" disabled={busy || !items.length || !availableTables.length} onClick={() => onChooseTable(order.id)}>Elegir mesa en el plano →</button>
-      {!items.length && <small>Agregá al menos un artículo antes de asignar.</small>}
+      <button type="button" className="primary pending-plan-button" disabled={busy || !availableTables.length} onClick={() => onChooseTable(order.id)}>Elegir mesa en el plano →</button>
+      {!items.length && <small>Podés asignar la mesa ahora y cargar los artículos después.</small>}
       {!availableTables.length && <small>No hay mesas libres en este momento.</small>}
     </div>
     {error && <p className="pending-error">{error}</p>}

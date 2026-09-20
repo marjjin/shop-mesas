@@ -6,8 +6,7 @@ public enum PendingOrderAssignmentStatus
 {
     Success,
     PendingOrderNotFound,
-    TableNotAvailable,
-    EmptyOrder
+    TableNotAvailable
 }
 
 public sealed record PendingOrderAssignmentResult(PendingOrderAssignmentStatus Status, RestaurantTable? Table = null);
@@ -29,8 +28,6 @@ public static class PendingOrderWorkflow
         var items = await db.PendingOrderItems
             .Where(item => item.PendingOrderId == pendingOrderId)
             .ToListAsync(cancellationToken);
-        if (items.Count == 0)
-            return new(PendingOrderAssignmentStatus.EmptyOrder);
 
         var updatedTables = await db.Tables
             .Where(table => table.Id == tableId && table.Status == "free")
