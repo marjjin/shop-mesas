@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Moveable from 'react-moveable'
 import Catalog from './Catalog.jsx'
 import History from './History.jsx'
+import PendingOrders from './PendingOrders.jsx'
 import { openReceiptPrintWindow, printReceipt, printWelcomeReceipt } from './receipt.js'
 import './App.css'
 import './Panel.css'
@@ -230,7 +231,7 @@ function TableMenu({ table, data, orders, now, api, load, closePanel, editTable,
 function App() {
   const [user, setUser] = useState(() => JSON.parse(sessionStorage.getItem('mesa-user') || 'null'))
   const [login, setLogin] = useState({ username: 'admin', password: 'admin' })
-  const [data, setData] = useState({ tables: [], products: [], categories: [], orders: [] })
+  const [data, setData] = useState({ tables: [], products: [], categories: [], orders: [], pendingOrders: [], pendingOrderItems: [] })
   const [histories, setHistories] = useState([])
   const [selectedId, setSelectedId] = useState(null)
   const [editingId, setEditingId] = useState(null)
@@ -293,6 +294,12 @@ function App() {
     setSelectedId(null)
     await loadHistory()
   }
+  const pendingOrderAssigned = (tableId, printStarted) => {
+    setSection('salon')
+    setEditingId(null)
+    setSelectedId(tableId)
+    if (!printStarted) setMessage('Pedido asignado. Habilitá las ventanas emergentes para imprimir el ticket de bienvenida.')
+  }
   const signOut = () => {
     sessionStorage.removeItem('mesa-user')
     setSelectedId(null)
@@ -314,6 +321,7 @@ function App() {
     <aside className="sidebar">
       <div className="logo">☕ Mesa<span>.</span></div>
       <button className={section === 'salon' ? 'active' : ''} onClick={() => setSection('salon')}>▦ <span>Plano de mesas</span></button>
+      <button className={section === 'pending' ? 'active' : ''} onClick={() => { setSection('pending'); setSelectedId(null); setEditingId(null) }}>⌛ <span>Pedidos pendientes{data.pendingOrders?.length ? ` (${data.pendingOrders.length})` : ''}</span></button>
       <button className={section === 'catalog' ? 'active' : ''} onClick={() => { setSection('catalog'); setSelectedId(null) }}>☷ <span>Artículos</span></button>
       <button className={section === 'history' ? 'active' : ''} onClick={showHistory}>◷ <span>Historial de mesas</span></button>
       <div className="profile"><i>A</i><span><b>{user.name}</b><small>Administrador</small></span><button className="logout-button" title="Cerrar sesión" onClick={signOut}>↪</button></div>
@@ -325,7 +333,7 @@ function App() {
         <div className="add-table"><input placeholder="Nombre de la mesa" value={tableName} onChange={(event) => setTableName(event.target.value)} /><button className="text-button" onClick={async () => { await api('/tables', { method: 'DELETE' }); setSelectedId(null); setEditingId(null); await load() }}>Vaciar salón</button></div>
         {message && <p className="error">{message}</p>}
         <FloorPlan tables={data.tables} coworkingTableIds={coworkingTableIds} editingId={editingId} onSelect={(id) => { setSelectedId(id); setEditingId(null) }} onEdit={(id) => { setSelectedId(null); setEditingId(id) }} saveTable={saveTable} />
-      </> : section === 'catalog' ? <Catalog data={data} api={api} load={load} /> : <History histories={histories} />}
+      </> : section === 'pending' ? <PendingOrders data={data} api={api} load={load} onAssigned={pendingOrderAssigned} /> : section === 'catalog' ? <Catalog data={data} api={api} load={load} /> : <History histories={histories} />}
     </section>
     {selected && <TableMenu key={selected.id} table={selected} data={data} orders={orders} now={now} api={api} load={load} closePanel={() => setSelectedId(null)} editTable={(id) => { setSelectedId(null); setEditingId(id) }} closeTable={closeTable} updateOpenedAt={updateOpenedAt} />}
   </main>

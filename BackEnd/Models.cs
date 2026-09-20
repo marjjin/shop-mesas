@@ -9,8 +9,19 @@ public class RestaurantContext(DbContextOptions<RestaurantContext> options) : Db
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Order> Orders => Set<Order>();
+    public DbSet<PendingOrder> PendingOrders => Set<PendingOrder>();
+    public DbSet<PendingOrderItem> PendingOrderItems => Set<PendingOrderItem>();
     public DbSet<ClosedTableHistory> ClosedTableHistories => Set<ClosedTableHistory>();
     public DbSet<ClosedTableHistoryItem> ClosedTableHistoryItems => Set<ClosedTableHistoryItem>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<PendingOrder>()
+            .HasMany(order => order.Items)
+            .WithOne()
+            .HasForeignKey(item => item.PendingOrderId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
 }
 
 public class User { public int Id { get; set; } public string Username { get; set; } = ""; public string Password { get; set; } = ""; public string Name { get; set; } = ""; }
@@ -18,6 +29,8 @@ public class RestaurantTable { public int Id { get; set; } public string Name { 
 public class Category { public int Id { get; set; } public string Name { get; set; } = ""; public string Color { get; set; } = "#e56743"; }
 public class Product { public int Id { get; set; } public string Name { get; set; } = ""; public decimal Price { get; set; } public int CategoryId { get; set; } }
 public class Order { public int Id { get; set; } public int TableId { get; set; } public int ProductId { get; set; } public int Quantity { get; set; } = 1; public DateTime CreatedAt { get; set; } }
+public class PendingOrder { public int Id { get; set; } public string CustomerName { get; set; } = ""; public DateTime CreatedAt { get; set; } public List<PendingOrderItem> Items { get; set; } = []; }
+public class PendingOrderItem { public int Id { get; set; } public int PendingOrderId { get; set; } public int ProductId { get; set; } public int Quantity { get; set; } = 1; public DateTime CreatedAt { get; set; } }
 public class ClosedTableHistory { public int Id { get; set; } public string TableName { get; set; } = ""; public DateTime OpenedAt { get; set; } public DateTime ClosedAt { get; set; } }
 public class ClosedTableHistoryItem { public int Id { get; set; } public int ClosedTableHistoryId { get; set; } public string ProductName { get; set; } = ""; public int Quantity { get; set; } = 1; public DateTime CreatedAt { get; set; } }
 
@@ -28,5 +41,8 @@ public record OpenTableRequest(string CustomerName);
 public record CategoryRequest(string Name, string? Color);
 public record ProductRequest(string Name);
 public record OrderRequest(int TableId, int ProductId, int Quantity);
+public sealed record CreatePendingOrderRequest(string CustomerName);
+public sealed record AddPendingOrderItemRequest(int ProductId, int Quantity);
+public sealed record AssignPendingOrderRequest(int TableId);
 /// <summary>Datos permitidos para modificar un consumo.</summary>
 public sealed record UpdateOrderRequest(DateTimeOffset CreatedAt);
