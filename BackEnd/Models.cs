@@ -23,7 +23,7 @@ public class ClosedTableHistoryItem { public int Id { get; set; } public int Clo
 
 public record LoginRequest(string Username, string Password);
 public record TableRequest(string? Name, int? Seats);
-public record TablePatch(string? Name, int? Seats, int? X, int? Y, int? Width, int? Height);
+public record TablePatch(string? Name, int? Seats, int? X, int? Y, int? Width, int? Height, DateTimeOffset? OpenedAt);
 public record OpenTableRequest(string CustomerName);
 public record CategoryRequest(string Name, string? Color);
 public record ProductRequest(string Name);

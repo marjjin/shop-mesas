@@ -23,6 +23,13 @@ function time(date) {
   return new Intl.DateTimeFormat('es-AR', { hour: '2-digit', minute: '2-digit' }).format(new Date(utcDate))
 }
 
+function datetimeLocal(date) {
+  if (!date) return ''
+  const utcDate = typeof date === 'number' || /(?:Z|[+-]\d{2}:\d{2})$/.test(date) ? date : `${date}Z`
+  const value = new Date(utcDate)
+  return new Date(value.getTime() - value.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+}
+
 function FloorPlan({ tables, coworkingTableIds, editingId, onSelect, onEdit, saveTable }) {
   const [target, setTarget] = useState(null)
   const [now, setNow] = useState(() => Date.now())
@@ -92,9 +99,13 @@ function FloorPlan({ tables, coworkingTableIds, editingId, onSelect, onEdit, sav
   </div>
 }
 
-function TableMenu({ table, data, orders, now, api, load, closePanel, editTable, closeTable }) {
+function TableMenu({ table, data, orders, now, api, load, closePanel, editTable, closeTable, updateOpenedAt }) {
   const [search, setSearch] = useState('')
   const [customerName, setCustomerName] = useState('')
+  const [openedAt, setOpenedAt] = useState(() => datetimeLocal(table.openedAt))
+  const [savingStart, setSavingStart] = useState(false)
+  const [startError, setStartError] = useState('')
+  const firstOrderTime = orders.reduce((earliest, order) => Math.min(earliest, new Date(/(?:Z|[+-]\d{2}:\d{2})$/.test(order.createdAt) ? order.createdAt : `${order.createdAt}Z`).getTime()), now)
   const results = search.trim() ? data.products.filter((product) => !isCoworkingService(product)).filter((product) => {
     return product.name.toLowerCase().includes(search.toLowerCase())
   }) : []
@@ -111,13 +122,33 @@ function TableMenu({ table, data, orders, now, api, load, closePanel, editTable,
     setCustomerName('')
     await load()
   }
+  const saveOpenedAt = async (event) => {
+    event.preventDefault()
+    setSavingStart(true)
+    setStartError('')
+    try {
+      await updateOpenedAt(table.id, new Date(openedAt).toISOString())
+    } catch {
+      setStartError('El inicio no puede ser futuro ni posterior al primer consumo.')
+    } finally {
+      setSavingStart(false)
+    }
+  }
 
   return <aside className="account">
     <button type="button" className="close" aria-label="Cerrar detalle" title="Cerrar detalle" onClick={closePanel}>×</button>
     <div className="account-summary">
       <div className="table-menu-toolbar"><em className={table.status}>{table.status === 'occupied' ? '● OCUPADA' : '○ LIBRE'}</em><button type="button" className="move-table-button" onClick={() => editTable(table.id)}>✥ Mover mesa</button></div>
       <h2>{table.name}</h2>
-      {table.status === 'occupied' ? <><div className="customer-card"><small>CLIENTE</small><strong>{table.customerName || 'Sin nombre'}</strong></div><div className="timers"><div><small>INICIO</small><b>{time(table.openedAt)}</b></div><div><small>TIEMPO EN MESA</small><b>{clock(table.openedAt, now)}</b></div><div><small>SIN CONSUMIR</small><b>{clock(table.lastConsumptionAt, now)}</b></div></div></> : <form className="open-table-form" onSubmit={openTable}><label htmlFor={`customer-${table.id}`}>Nombre del cliente</label><input id={`customer-${table.id}`} maxLength="80" autoComplete="off" autoFocus placeholder="Ej.: Martín" value={customerName} onChange={(event) => setCustomerName(event.target.value)} /><button className="primary wide" disabled={!customerName.trim()}>Abrir mesa</button></form>}
+      {table.status === 'occupied' ? <>
+        <div className="customer-card"><small>CLIENTE</small><strong>{table.customerName || 'Sin nombre'}</strong></div>
+        <div className="timers"><div><small>INICIO</small><b>{time(table.openedAt)}</b></div><div><small>TIEMPO EN MESA</small><b>{clock(table.openedAt, now)}</b></div><div><small>SIN CONSUMIR</small><b>{clock(table.lastConsumptionAt, now)}</b></div></div>
+        <form className="start-time-form" onSubmit={saveOpenedAt}>
+          <label htmlFor={`opened-at-${table.id}`}>Modificar inicio</label>
+          <div><input id={`opened-at-${table.id}`} type="datetime-local" required max={datetimeLocal(firstOrderTime)} value={openedAt} onChange={(event) => setOpenedAt(event.target.value)} /><button type="submit" disabled={savingStart}>{savingStart ? 'Guardando…' : 'Guardar'}</button></div>
+          {startError && <small className="start-time-error">{startError}</small>}
+        </form>
+      </> : <form className="open-table-form" onSubmit={openTable}><label htmlFor={`customer-${table.id}`}>Nombre del cliente</label><input id={`customer-${table.id}`} maxLength="80" autoComplete="off" autoFocus placeholder="Ej.: Martín" value={customerName} onChange={(event) => setCustomerName(event.target.value)} /><button className="primary wide" disabled={!customerName.trim()}>Abrir mesa</button></form>}
       <h3>Agregar consumo</h3>
       <div className="search-field"><span>⌕</span><input className="product-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar artículo..." /></div>
       {search.trim() && <div className="products search-results">{results.length ? results.map((product) => <button key={product.id} onClick={() => addConsumption(product.id)}><span>{product.name}</span><b>Agregar</b></button>) : <p className="empty-result">No se encontraron artículos.</p>}</div>}
@@ -174,6 +205,10 @@ function App() {
     const saved = await api(`/tables/${id}`, { method: 'PATCH', body: JSON.stringify(patch) })
     setData((old) => ({ ...old, tables: old.tables.map((table) => table.id === id ? saved : table) }))
   }
+  const updateOpenedAt = async (id, openedAt) => {
+    const saved = await api(`/tables/${id}`, { method: 'PATCH', body: JSON.stringify({ openedAt }) })
+    setData((old) => ({ ...old, tables: old.tables.map((table) => table.id === id ? saved : table) }))
+  }
   const closeTable = async (id) => {
     const printWindow = openReceiptPrintWindow()
     try {
@@ -226,7 +261,7 @@ function App() {
         <FloorPlan tables={data.tables} coworkingTableIds={coworkingTableIds} editingId={editingId} onSelect={(id) => { setSelectedId(id); setEditingId(null) }} onEdit={(id) => { setSelectedId(null); setEditingId(id) }} saveTable={saveTable} />
       </> : section === 'catalog' ? <Catalog data={data} api={api} load={load} /> : <History histories={histories} />}
     </section>
-    {selected && <TableMenu table={selected} data={data} orders={orders} now={now} api={api} load={load} closePanel={() => setSelectedId(null)} editTable={(id) => { setSelectedId(null); setEditingId(id) }} closeTable={closeTable} />}
+    {selected && <TableMenu key={selected.id} table={selected} data={data} orders={orders} now={now} api={api} load={load} closePanel={() => setSelectedId(null)} editTable={(id) => { setSelectedId(null); setEditingId(id) }} closeTable={closeTable} updateOpenedAt={updateOpenedAt} />}
   </main>
 }
 
