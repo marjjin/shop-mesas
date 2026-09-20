@@ -84,7 +84,25 @@ api.MapPost("/tables/{id:int}/close", async (int id, RestaurantContext db) =>
     db.Orders.RemoveRange(orders);
     await db.SaveChangesAsync();
     await transaction.CommitAsync();
-    return Results.Ok(new { table, historyId = history.Id });
+    return Results.Ok(new
+    {
+        table,
+        historyId = history.Id,
+        history = new
+        {
+            history.Id,
+            history.TableName,
+            history.OpenedAt,
+            history.ClosedAt,
+            items = orders.Select(order => new
+            {
+                order.Id,
+                ProductName = products.TryGetValue(order.ProductId, out var product) ? product.Name : "Artículo eliminado",
+                order.Quantity,
+                order.CreatedAt
+            })
+        }
+    });
 });
 api.MapPost("/categories", async (CategoryRequest request, RestaurantContext db) => { var category = new Category { Name = request.Name, Color = request.Color ?? "#e56743" }; db.Categories.Add(category); await db.SaveChangesAsync(); return Results.Created($"/api/categories/{category.Id}", category); });
 api.MapDelete("/categories/{id:int}", async (int id, RestaurantContext db) => { var category = await db.Categories.FindAsync(id); if (category is null) return Results.NotFound(); if (category.Name == CoworkingBilling.CategoryName) return Results.Conflict(); var productIds = await db.Products.Where(product => product.CategoryId == id).Select(product => product.Id).ToListAsync(); db.Orders.RemoveRange(db.Orders.Where(order => productIds.Contains(order.ProductId))); db.Products.RemoveRange(db.Products.Where(product => product.CategoryId == id)); db.Categories.Remove(category); await db.SaveChangesAsync(); return Results.NoContent(); });

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Moveable from 'react-moveable'
 import Catalog from './Catalog.jsx'
 import History from './History.jsx'
+import { openReceiptPrintWindow, printReceipt } from './receipt.js'
 import './App.css'
 import './Panel.css'
 
@@ -174,9 +175,17 @@ function App() {
     setData((old) => ({ ...old, tables: old.tables.map((table) => table.id === id ? saved : table) }))
   }
   const closeTable = async (id) => {
-    await api(`/tables/${id}/close`, { method: 'POST' })
-    setSelectedId(null)
-    await Promise.all([load(), loadHistory()])
+    const printWindow = openReceiptPrintWindow()
+    try {
+      const result = await api(`/tables/${id}/close`, { method: 'POST' })
+      setSelectedId(null)
+      const printStarted = printReceipt(result.history, printWindow)
+      await Promise.all([load(), loadHistory()])
+      if (!printStarted) setMessage('Mesa cerrada. Habilitá las ventanas emergentes para imprimir el ticket automáticamente.')
+    } catch (error) {
+      printWindow?.close()
+      setMessage(error.message)
+    }
   }
   const showHistory = async () => {
     setSection('history')
