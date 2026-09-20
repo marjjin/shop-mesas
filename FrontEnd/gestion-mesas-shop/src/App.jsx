@@ -31,7 +31,7 @@ function datetimeLocal(date) {
   return new Date(value.getTime() - value.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
 }
 
-function FloorPlan({ tables, coworkingTableIds, editingId, onSelect, onEdit, saveTable }) {
+function FloorPlan({ tables, coworkingTableIds, editingId, assignmentOrder, assigningTable, onSelect, onEdit, onAssign, saveTable }) {
   const [target, setTarget] = useState(null)
   const [now, setNow] = useState(() => Date.now())
   const origin = useRef({ x: 0, y: 0 })
@@ -43,10 +43,14 @@ function FloorPlan({ tables, coworkingTableIds, editingId, onSelect, onEdit, sav
     return () => { clearInterval(timer); clearTimeout(clickTimer.current) }
   }, [])
 
-  const selectTable = (event, id) => {
+  const selectTable = (event, table) => {
     event.stopPropagation()
     clearTimeout(clickTimer.current)
-    clickTimer.current = setTimeout(() => onSelect(id), 220)
+    if (assignmentOrder) {
+      if (table.status === 'free' && !assigningTable) onAssign(table.id)
+      return
+    }
+    clickTimer.current = setTimeout(() => onSelect(table.id), 220)
   }
   const editTable = (event, id) => {
     event.stopPropagation()
@@ -71,16 +75,17 @@ function FloorPlan({ tables, coworkingTableIds, editingId, onSelect, onEdit, sav
     })
   }
 
-  return <div className="floor" onClick={() => onSelect(null)}>
-    <small>SALÓN · UN CLIC OPERA · DOBLE CLIC EDITA UBICACIÓN Y TAMAÑO</small>
+  return <div className={`floor ${assignmentOrder ? 'assignment-mode' : ''}`} onClick={() => { if (!assignmentOrder) onSelect(null) }}>
+    <small>{assignmentOrder ? `ELEGÍ UNA MESA LIBRE PARA ${assignmentOrder.customerName.toUpperCase()}` : 'SALÓN · UN CLIC OPERA · DOBLE CLIC EDITA UBICACIÓN Y TAMAÑO'}</small>
     {tables.map((table) => <button
       key={table.id}
       type="button"
       ref={table.id === editingId ? setTarget : null}
-      className={`table ${table.status} ${coworkingTableIds.has(table.id) ? 'coworking-alert' : ''} ${table.id === editingId ? 'selected' : ''}`}
+      className={`table ${table.status} ${coworkingTableIds.has(table.id) ? 'coworking-alert' : ''} ${table.id === editingId ? 'selected' : ''} ${assignmentOrder && table.status === 'free' ? 'assignment-target' : ''} ${assignmentOrder && table.status !== 'free' ? 'assignment-unavailable' : ''}`}
       style={{ left: table.x, top: table.y, width: table.width, height: table.height }}
-      onClick={(event) => selectTable(event, table.id)}
-      onDoubleClick={(event) => editTable(event, table.id)}
+      aria-disabled={Boolean(assignmentOrder && table.status !== 'free')}
+      onClick={(event) => selectTable(event, table)}
+      onDoubleClick={assignmentOrder ? undefined : (event) => editTable(event, table.id)}
     >
       <em>{table.status === 'occupied' ? '● OCUPADA' : '○ LIBRE'}</em>
       <b>{table.name}</b>
@@ -235,10 +240,13 @@ function App() {
   const [histories, setHistories] = useState([])
   const [selectedId, setSelectedId] = useState(null)
   const [editingId, setEditingId] = useState(null)
+  const [assigningPendingOrderId, setAssigningPendingOrderId] = useState(null)
+  const [assigningTable, setAssigningTable] = useState(false)
   const [section, setSection] = useState('salon')
   const [tableName, setTableName] = useState('')
   const [message, setMessage] = useState('')
   const [now, setNow] = useState(() => Date.now())
+  const assignmentLock = useRef(false)
 
   const api = useCallback(async (path, options = {}) => {
     const response = await fetch(`${API}${path}`, { headers: { 'Content-Type': 'application/json' }, ...options })
@@ -261,6 +269,7 @@ function App() {
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer) }, [])
 
   const selected = data.tables.find((table) => table.id === selectedId)
+  const assigningPendingOrder = data.pendingOrders?.find((order) => order.id === assigningPendingOrderId)
   const orders = useMemo(() => data.orders.filter((order) => order.tableId === selectedId).map((order) => ({ ...order, product: data.products.find((product) => product.id === order.productId) })).filter((order) => order.product), [data, selectedId])
   const coworkingTableIds = useMemo(() => {
     const serviceIds = new Set(data.products.filter(isCoworkingService).map((product) => product.id))
@@ -292,18 +301,45 @@ function App() {
   const showHistory = async () => {
     setSection('history')
     setSelectedId(null)
+    setAssigningPendingOrderId(null)
     await loadHistory()
   }
-  const pendingOrderAssigned = (tableId, printStarted) => {
+  const chooseTableForPendingOrder = (pendingOrderId) => {
     setSection('salon')
+    setAssigningPendingOrderId(pendingOrderId)
     setEditingId(null)
-    setSelectedId(tableId)
-    if (!printStarted) setMessage('Pedido asignado. Habilitá las ventanas emergentes para imprimir el ticket de bienvenida.')
+    setSelectedId(null)
+    setMessage('')
+  }
+  const assignPendingOrderToTable = async (tableId) => {
+    if (!assigningPendingOrder || assigningTable || assignmentLock.current) return
+    const table = data.tables.find((item) => item.id === tableId)
+    if (!table || table.status !== 'free') return
+    assignmentLock.current = true
+    const printWindow = openReceiptPrintWindow()
+    setAssigningTable(true)
+    setMessage('')
+    try {
+      const result = await api(`/pending-orders/${assigningPendingOrder.id}/assign`, { method: 'POST', body: JSON.stringify({ tableId }) })
+      const printStarted = printWelcomeReceipt(result.table, printWindow)
+      setAssigningPendingOrderId(null)
+      await load()
+      setSelectedId(result.table.id)
+      if (!printStarted) setMessage('Pedido asignado. Habilitá las ventanas emergentes para imprimir el ticket de bienvenida.')
+    } catch {
+      printWindow?.close()
+      await load()
+      setMessage('No se pudo asignar esa mesa. Elegí otra mesa libre.')
+    } finally {
+      assignmentLock.current = false
+      setAssigningTable(false)
+    }
   }
   const signOut = () => {
     sessionStorage.removeItem('mesa-user')
     setSelectedId(null)
     setEditingId(null)
+    setAssigningPendingOrderId(null)
     setUser(null)
   }
   const loginSubmit = async (event) => {
@@ -321,19 +357,20 @@ function App() {
     <aside className="sidebar">
       <div className="logo">☕ Mesa<span>.</span></div>
       <button className={section === 'salon' ? 'active' : ''} onClick={() => setSection('salon')}>▦ <span>Plano de mesas</span></button>
-      <button className={section === 'pending' ? 'active' : ''} onClick={() => { setSection('pending'); setSelectedId(null); setEditingId(null) }}>⌛ <span>Pedidos pendientes{data.pendingOrders?.length ? ` (${data.pendingOrders.length})` : ''}</span></button>
-      <button className={section === 'catalog' ? 'active' : ''} onClick={() => { setSection('catalog'); setSelectedId(null) }}>☷ <span>Artículos</span></button>
+      <button className={section === 'pending' ? 'active' : ''} onClick={() => { setSection('pending'); setSelectedId(null); setEditingId(null); setAssigningPendingOrderId(null) }}>⌛ <span>Pedidos pendientes{data.pendingOrders?.length ? ` (${data.pendingOrders.length})` : ''}</span></button>
+      <button className={section === 'catalog' ? 'active' : ''} onClick={() => { setSection('catalog'); setSelectedId(null); setAssigningPendingOrderId(null) }}>☷ <span>Artículos</span></button>
       <button className={section === 'history' ? 'active' : ''} onClick={showHistory}>◷ <span>Historial de mesas</span></button>
       <div className="profile"><i>A</i><span><b>{user.name}</b><small>Administrador</small></span><button className="logout-button" title="Cerrar sesión" onClick={signOut}>↪</button></div>
     </aside>
     <section className="page">
       {section === 'salon' ? <>
         <header><div><p className="eyebrow">OPERACIÓN EN VIVO</p><h1>Salón principal</h1><p>Un clic abre el menú. Usá “Mover mesa” o doble clic para editar su ubicación.</p></div><button className="primary" onClick={async () => { await api('/tables', { method: 'POST', body: JSON.stringify({ name: tableName || null, seats: 4 }) }); setTableName(''); await load() }}>+ Nueva mesa</button></header>
+        {assigningPendingOrder && <div className="table-assignment-notice" role="status"><div><strong>Elegí una mesa para {assigningPendingOrder.customerName}</strong><span>Las mesas libres están resaltadas en verde. Al elegir una se abrirá y se imprimirá el ticket.</span></div><button type="button" disabled={assigningTable} onClick={() => setAssigningPendingOrderId(null)}>Cancelar</button></div>}
         {coworkingTables.length > 0 && <div className="coworking-notice" role="alert"><strong>⚠ Alerta de coworking</strong><span>{coworkingTables.map((table) => table.name).join(', ')} {coworkingTables.length === 1 ? 'tiene' : 'tienen'} un servicio de coworking cargado.</span></div>}
         <div className="add-table"><input placeholder="Nombre de la mesa" value={tableName} onChange={(event) => setTableName(event.target.value)} /><button className="text-button" onClick={async () => { await api('/tables', { method: 'DELETE' }); setSelectedId(null); setEditingId(null); await load() }}>Vaciar salón</button></div>
         {message && <p className="error">{message}</p>}
-        <FloorPlan tables={data.tables} coworkingTableIds={coworkingTableIds} editingId={editingId} onSelect={(id) => { setSelectedId(id); setEditingId(null) }} onEdit={(id) => { setSelectedId(null); setEditingId(id) }} saveTable={saveTable} />
-      </> : section === 'pending' ? <PendingOrders data={data} api={api} load={load} onAssigned={pendingOrderAssigned} /> : section === 'catalog' ? <Catalog data={data} api={api} load={load} /> : <History histories={histories} />}
+        <FloorPlan tables={data.tables} coworkingTableIds={coworkingTableIds} editingId={editingId} assignmentOrder={assigningPendingOrder} assigningTable={assigningTable} onSelect={(id) => { setSelectedId(id); setEditingId(null) }} onEdit={(id) => { setSelectedId(null); setEditingId(id) }} onAssign={assignPendingOrderToTable} saveTable={saveTable} />
+      </> : section === 'pending' ? <PendingOrders data={data} api={api} load={load} onChooseTable={chooseTableForPendingOrder} /> : section === 'catalog' ? <Catalog data={data} api={api} load={load} /> : <History histories={histories} />}
     </section>
     {selected && <TableMenu key={selected.id} table={selected} data={data} orders={orders} now={now} api={api} load={load} closePanel={() => setSelectedId(null)} editTable={(id) => { setSelectedId(null); setEditingId(id) }} closeTable={closeTable} updateOpenedAt={updateOpenedAt} />}
   </main>

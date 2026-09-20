@@ -1,12 +1,10 @@
 import { useState } from 'react'
-import { openReceiptPrintWindow, printWelcomeReceipt } from './receipt.js'
 import './PendingOrders.css'
 
 const isCoworkingService = (product) => product.name.startsWith('Servicio Coworking ')
 
-function PendingOrderCard({ order, data, api, load, onAssigned }) {
+function PendingOrderCard({ order, data, api, load, onChooseTable }) {
   const [search, setSearch] = useState('')
-  const [tableId, setTableId] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const items = (data.pendingOrderItems || [])
@@ -51,24 +49,6 @@ function PendingOrderCard({ order, data, api, load, onAssigned }) {
     }
   }
 
-  const assignTable = async () => {
-    if (!tableId || !items.length) return
-    const printWindow = openReceiptPrintWindow()
-    setBusy(true)
-    setError('')
-    try {
-      const result = await api(`/pending-orders/${order.id}/assign`, { method: 'POST', body: JSON.stringify({ tableId: Number(tableId) }) })
-      const printStarted = printWelcomeReceipt(result.table, printWindow)
-      await load()
-      onAssigned(result.table.id, printStarted)
-    } catch {
-      printWindow?.close()
-      setError('La mesa ya no está disponible o el pedido no pudo asignarse.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
   return <article className="pending-card">
     <header className="pending-card-header">
       <div><small>PEDIDO #{order.id}</small><h2>{order.customerName}</h2></div>
@@ -89,21 +69,16 @@ function PendingOrderCard({ order, data, api, load, onAssigned }) {
     </div>
 
     <div className="pending-assignment">
-      <label htmlFor={`pending-table-${order.id}`}>Asignar cuando elijan mesa</label>
-      <div>
-        <select id={`pending-table-${order.id}`} value={tableId} onChange={(event) => setTableId(event.target.value)}>
-          <option value="">Seleccionar mesa libre</option>
-          {availableTables.map((table) => <option key={table.id} value={table.id}>{table.name} · {table.seats} lugares</option>)}
-        </select>
-        <button type="button" className="primary" disabled={busy || !tableId || !items.length} onClick={assignTable}>{busy ? 'Asignando…' : 'Asignar e imprimir'}</button>
-      </div>
+      <label>Asignar cuando elijan mesa</label>
+      <button type="button" className="primary pending-plan-button" disabled={busy || !items.length || !availableTables.length} onClick={() => onChooseTable(order.id)}>Elegir mesa en el plano →</button>
+      {!items.length && <small>Agregá al menos un artículo antes de asignar.</small>}
       {!availableTables.length && <small>No hay mesas libres en este momento.</small>}
     </div>
     {error && <p className="pending-error">{error}</p>}
   </article>
 }
 
-export default function PendingOrders({ data, api, load, onAssigned }) {
+export default function PendingOrders({ data, api, load, onChooseTable }) {
   const [customerName, setCustomerName] = useState('')
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
@@ -134,7 +109,7 @@ export default function PendingOrders({ data, api, load, onAssigned }) {
         <div><input id="pending-customer" maxLength="80" required value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Ej.: Martín" /><button className="primary" disabled={creating || !customerName.trim()}>{creating ? 'Creando…' : '+ Crear pedido'}</button></div>
         {error && <small>{error}</small>}
       </form>
-      {pendingOrders.length ? <div className="pending-grid">{pendingOrders.map((order) => <PendingOrderCard key={order.id} order={order} data={data} api={api} load={load} onAssigned={onAssigned} />)}</div> : <div className="pending-empty"><b>No hay pedidos esperando mesa</b><span>Creá uno cuando llegue un cliente y todavía no sepas dónde se sentará.</span></div>}
+      {pendingOrders.length ? <div className="pending-grid">{pendingOrders.map((order) => <PendingOrderCard key={order.id} order={order} data={data} api={api} load={load} onChooseTable={onChooseTable} />)}</div> : <div className="pending-empty"><b>No hay pedidos esperando mesa</b><span>Creá uno cuando llegue un cliente y todavía no sepas dónde se sentará.</span></div>}
     </section>
   </>
 }

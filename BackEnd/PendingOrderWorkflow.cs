@@ -21,13 +21,10 @@ public static class PendingOrderWorkflow
         DateTime assignedAt,
         CancellationToken cancellationToken = default)
     {
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var pendingOrder = await db.PendingOrders.FindAsync([pendingOrderId], cancellationToken);
         if (pendingOrder is null)
             return new(PendingOrderAssignmentStatus.PendingOrderNotFound);
-
-        var table = await db.Tables.FindAsync([tableId], cancellationToken);
-        if (table is null || table.Status != "free")
-            return new(PendingOrderAssignmentStatus.TableNotAvailable);
 
         var items = await db.PendingOrderItems
             .Where(item => item.PendingOrderId == pendingOrderId)
@@ -35,11 +32,20 @@ public static class PendingOrderWorkflow
         if (items.Count == 0)
             return new(PendingOrderAssignmentStatus.EmptyOrder);
 
-        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-        table.CustomerName = pendingOrder.CustomerName;
-        table.Status = "occupied";
-        table.CoworkingDisabled = false;
-        table.OpenedAt = table.LastConsumptionAt = assignedAt;
+        var updatedTables = await db.Tables
+            .Where(table => table.Id == tableId && table.Status == "free")
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(table => table.CustomerName, pendingOrder.CustomerName)
+                .SetProperty(table => table.Status, "occupied")
+                .SetProperty(table => table.CoworkingDisabled, false)
+                .SetProperty(table => table.OpenedAt, assignedAt)
+                .SetProperty(table => table.LastConsumptionAt, assignedAt), cancellationToken);
+        if (updatedTables == 0)
+            return new(PendingOrderAssignmentStatus.TableNotAvailable);
+
+        var table = await db.Tables.FindAsync([tableId], cancellationToken)
+            ?? throw new InvalidOperationException("La mesa reservada dejó de existir.");
+        await db.Entry(table).ReloadAsync(cancellationToken);
         db.Orders.AddRange(items.Select(item => new Order
         {
             TableId = table.Id,
