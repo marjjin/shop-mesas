@@ -102,7 +102,7 @@ export default function PendingOrders({ data, api, load, onChooseTable }) {
   }
 
   return <>
-    <header><div><p className="eyebrow">ANTES DE ELEGIR MESA</p><h1>Pedidos pendientes</h1><p>Tomá el pedido por nombre y asignalo cuando el cliente elija dónde sentarse.</p></div></header>
+    <header><div><p className="eyebrow">ANTES DE ELEGIR MESA</p><h1>Pedidos</h1><p>Tomá el pedido por nombre y asignalo cuando el cliente elija dónde sentarse.</p></div></header>
     <section className="pending-orders-panel">
       <form className="pending-create" onSubmit={createOrder}>
         <label htmlFor="pending-customer">Nombre del cliente o pedido</label>

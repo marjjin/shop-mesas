@@ -357,7 +357,7 @@ function App() {
     <aside className="sidebar">
       <div className="logo">☕ Mesa<span>.</span></div>
       <button className={section === 'salon' ? 'active' : ''} onClick={() => setSection('salon')}>▦ <span>Plano de mesas</span></button>
-      <button className={section === 'pending' ? 'active' : ''} onClick={() => { setSection('pending'); setSelectedId(null); setEditingId(null); setAssigningPendingOrderId(null) }}>⌛ <span>Pedidos pendientes{data.pendingOrders?.length ? ` (${data.pendingOrders.length})` : ''}</span></button>
+      <button className={section === 'pending' ? 'active' : ''} onClick={() => { setSection('pending'); setSelectedId(null); setEditingId(null); setAssigningPendingOrderId(null) }}>⌛ <span>Pedidos{data.pendingOrders?.length ? ` (${data.pendingOrders.length})` : ''}</span></button>
       <button className={section === 'catalog' ? 'active' : ''} onClick={() => { setSection('catalog'); setSelectedId(null); setAssigningPendingOrderId(null) }}>☷ <span>Artículos</span></button>
       <button className={section === 'history' ? 'active' : ''} onClick={showHistory}>◷ <span>Historial de mesas</span></button>
       <div className="profile"><i>A</i><span><b>{user.name}</b><small>Administrador</small></span><button className="logout-button" title="Cerrar sesión" onClick={signOut}>↪</button></div>
