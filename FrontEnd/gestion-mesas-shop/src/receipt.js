@@ -65,7 +65,7 @@ function welcomeReceiptMarkup(table) {
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <title>Bienvenid@ ${escapeHtml(table.customerName)}</title>
+  <title>Bienvenido/a ${escapeHtml(table.customerName)}</title>
   <style>
     @page { size: 80mm auto; margin: 0; }
     * { box-sizing: border-box; }
@@ -83,7 +83,7 @@ function welcomeReceiptMarkup(table) {
 <body>
   <header><h1>SHOP FAMILY</h1></header>
   <main>
-    <h2>Hola ${escapeHtml(table.customerName)}, bienvenido a Shop Family.</h2>
+    <h2>Hola ${escapeHtml(table.customerName)}, bienvenido/a a Shop Family.</h2>
     <p>Ya registramos tu pedido.</p>
     <div class="conditions">
       <p>Tu tiempo de mesa es de <strong>1 hora</strong>.</p>
