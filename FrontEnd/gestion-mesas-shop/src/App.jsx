@@ -105,6 +105,8 @@ function TableMenu({ table, data, orders, now, api, load, closePanel, editTable,
   const [openedAt, setOpenedAt] = useState(() => datetimeLocal(table.openedAt))
   const [savingStart, setSavingStart] = useState(false)
   const [startError, setStartError] = useState('')
+  const [removingOrderId, setRemovingOrderId] = useState(null)
+  const [orderError, setOrderError] = useState('')
   const firstOrderTime = orders.reduce((earliest, order) => Math.min(earliest, new Date(/(?:Z|[+-]\d{2}:\d{2})$/.test(order.createdAt) ? order.createdAt : `${order.createdAt}Z`).getTime()), now)
   const results = search.trim() ? data.products.filter((product) => !isCoworkingService(product)).filter((product) => {
     return product.name.toLowerCase().includes(search.toLowerCase())
@@ -134,6 +136,19 @@ function TableMenu({ table, data, orders, now, api, load, closePanel, editTable,
       setSavingStart(false)
     }
   }
+  const removeConsumption = async (order) => {
+    if (!window.confirm(`¿Quitar ${order.quantity}× ${order.product.name} de la mesa?`)) return
+    setRemovingOrderId(order.id)
+    setOrderError('')
+    try {
+      await api(`/orders/${order.id}`, { method: 'DELETE' })
+      await load()
+    } catch {
+      setOrderError('No se pudo quitar el artículo. Intentá nuevamente.')
+    } finally {
+      setRemovingOrderId(null)
+    }
+  }
 
   return <aside className="account">
     <button type="button" className="close" aria-label="Cerrar detalle" title="Cerrar detalle" onClick={closePanel}>×</button>
@@ -155,7 +170,17 @@ function TableMenu({ table, data, orders, now, api, load, closePanel, editTable,
       <div className="orders-heading"><h3>Artículos cargados</h3><small>{orders.length} {orders.length === 1 ? 'registro' : 'registros'}</small></div>
     </div>
     <div className="orders-list">
-      {orders.length ? orders.map((order) => <div className={`order ${isCoworkingService(order.product) ? 'coworking-order' : ''}`} key={order.id}><span><small>{order.quantity}×</small>{order.product.name}</span><time dateTime={order.createdAt}>{time(order.createdAt)}</time></div>) : <p className="empty-result">Todavía no hay consumos.</p>}
+      {orderError && <p className="order-error">{orderError}</p>}
+      {orders.length ? orders.map((order) => {
+        const isCoworking = isCoworkingService(order.product)
+        return <div className={`order ${isCoworking ? 'coworking-order' : ''}`} key={order.id}>
+          <span><small>{order.quantity}×</small>{order.product.name}</span>
+          <div className="order-actions">
+            <time dateTime={order.createdAt}>{time(order.createdAt)}</time>
+            {!isCoworking && <button type="button" disabled={removingOrderId === order.id} aria-label={`Quitar ${order.product.name}`} title="Quitar artículo" onClick={() => removeConsumption(order)}>{removingOrderId === order.id ? '…' : '×'}</button>}
+          </div>
+        </div>
+      }) : <p className="empty-result">Todavía no hay consumos.</p>}
     </div>
     <footer>{table.status === 'occupied' && <button className="dark wide" onClick={() => closeTable(table.id)}>Cerrar y liberar mesa</button>}</footer>
   </aside>

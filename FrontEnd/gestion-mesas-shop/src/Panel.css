@@ -38,6 +38,11 @@
 .orders-list .order > span { display: flex; min-width: 0; flex: 1; gap: 5px; line-height: 1.35; }
 .orders-list .order > span small { flex: none; color: #858683; font-size: inherit; }
 .orders-list .order time { flex: none; color: #25262a; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.order-actions { display: flex; flex: none; align-items: center; gap: 8px; }
+.order-actions button { display: grid; width: 23px; height: 23px; place-items: center; padding: 0; border: 1px solid #e4b7aa; border-radius: 6px; background: #fff6f2; color: #b0442d; font-size: 16px; line-height: 1; cursor: pointer; }
+.order-actions button:hover { border-color: #d95436; background: #fff0eb; }
+.order-actions button:disabled { cursor: wait; opacity: .55; }
+.order-error { margin: 0 0 8px; color: #b42318; font-size: 11px; }
 .orders-list .coworking-order { margin: 5px 0; padding: 9px 10px; border: 0; border-radius: 8px; background: #fff1ee; color: #a33b27; }
 .orders-list .coworking-order time { color: #a33b27; }
 .table-times { display: grid; grid-template-columns: 1fr; width: calc(100% - 12px); margin-top: 3px; padding-top: 5px; border-top: 1px solid rgba(229, 103, 67, .18); }

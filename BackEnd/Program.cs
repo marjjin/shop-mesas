@@ -136,6 +136,28 @@ api.MapPost("/products", async (ProductRequest request, RestaurantContext db) =>
 api.MapDelete("/products", async (RestaurantContext db) => { var productIds = await db.Products.Where(product => product.Name != CoworkingBilling.HalfHourProductName && product.Name != CoworkingBilling.HourProductName).Select(product => product.Id).ToListAsync(); db.Orders.RemoveRange(db.Orders.Where(order => productIds.Contains(order.ProductId))); db.Products.RemoveRange(db.Products.Where(product => productIds.Contains(product.Id))); await db.SaveChangesAsync(); return Results.NoContent(); });
 api.MapDelete("/products/{id:int}", async (int id, RestaurantContext db) => { var product = await db.Products.FindAsync(id); if (product is null) return Results.NotFound(); if (product.Name is CoworkingBilling.HalfHourProductName or CoworkingBilling.HourProductName) return Results.Conflict(); db.Orders.RemoveRange(db.Orders.Where(order => order.ProductId == id)); db.Products.Remove(product); await db.SaveChangesAsync(); return Results.NoContent(); });
 api.MapPost("/orders", async (OrderRequest request, RestaurantContext db) => { var table = await db.Tables.FindAsync(request.TableId); if (table is null || !await db.Products.AnyAsync(product => product.Id == request.ProductId)) return Results.BadRequest(); var now = DateTime.UtcNow; if (table.Status != "occupied") { table.Status = "occupied"; table.OpenedAt = now; } table.LastConsumptionAt = now; var order = new Order { TableId = request.TableId, ProductId = request.ProductId, Quantity = Math.Max(1, request.Quantity), CreatedAt = now }; db.Orders.Add(order); await db.SaveChangesAsync(); return Results.Created($"/api/orders/{order.Id}", new { order, table }); });
+api.MapDelete("/orders/{id:int}", async (int id, RestaurantContext db) =>
+{
+    var order = await db.Orders.FindAsync(id);
+    if (order is null) return Results.NotFound();
+    var isCoworkingCharge = await db.Products.AnyAsync(product => product.Id == order.ProductId
+        && (product.Name == CoworkingBilling.HalfHourProductName || product.Name == CoworkingBilling.HourProductName));
+    if (isCoworkingCharge) return Results.Conflict();
+
+    var table = await db.Tables.FindAsync(order.TableId);
+    db.Orders.Remove(order);
+    if (table is not null)
+    {
+        var lastRemainingOrderAt = await db.Orders
+            .Where(item => item.TableId == order.TableId && item.Id != id)
+            .Select(item => (DateTime?)item.CreatedAt)
+            .MaxAsync();
+        table.LastConsumptionAt = lastRemainingOrderAt ?? table.OpenedAt;
+    }
+
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+});
 
 app.MapGet("/", () => Results.Ok(new { name = "Gestion Mesas API", status = "online" }));
 app.Run();
