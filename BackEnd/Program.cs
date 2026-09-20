@@ -2,8 +2,9 @@ using GestionMesas.Api;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
-var connectionString = builder.Configuration.GetConnectionString("Restaurant")
+var configuredConnectionString = builder.Configuration.GetConnectionString("Restaurant")
     ?? throw new InvalidOperationException("La cadena de conexión 'Restaurant' es obligatoria.");
+var connectionString = ToNpgsqlConnectionString(configuredConnectionString);
 builder.Services.AddDbContext<RestaurantContext>(options => options.UseNpgsql(connectionString));
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 builder.Services.AddHostedService<CoworkingBillingService>();
@@ -92,3 +93,33 @@ api.MapPost("/orders", async (OrderRequest request, RestaurantContext db) => { v
 
 app.MapGet("/", () => Results.Ok(new { name = "Gestion Mesas API", status = "online" }));
 app.Run();
+
+static string ToNpgsqlConnectionString(string configuredConnectionString)
+{
+    if (!Uri.TryCreate(configuredConnectionString, UriKind.Absolute, out var databaseUrl)
+        || databaseUrl.Scheme is not ("postgres" or "postgresql"))
+    {
+        return configuredConnectionString;
+    }
+
+    var credentials = databaseUrl.UserInfo.Split(':', 2);
+    var connectionString = new Npgsql.NpgsqlConnectionStringBuilder
+    {
+        Host = databaseUrl.Host,
+        Port = databaseUrl.IsDefaultPort ? 5432 : databaseUrl.Port,
+        Database = databaseUrl.AbsolutePath.Trim('/'),
+        Username = Uri.UnescapeDataString(credentials[0]),
+        Password = credentials.Length > 1 ? Uri.UnescapeDataString(credentials[1]) : string.Empty
+    };
+
+    foreach (var parameter in databaseUrl.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+    {
+        var parts = parameter.Split('=', 2);
+        if (parts.Length == 2 && string.Equals(parts[0], "sslmode", StringComparison.OrdinalIgnoreCase))
+        {
+            connectionString.SslMode = Enum.Parse<Npgsql.SslMode>(Uri.UnescapeDataString(parts[1]), ignoreCase: true);
+        }
+    }
+
+    return connectionString.ConnectionString;
+}
