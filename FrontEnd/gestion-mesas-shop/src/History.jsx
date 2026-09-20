@@ -13,7 +13,7 @@ function localTime(value) {
 async function downloadReceipt(history) {
   const { jsPDF } = await import('jspdf')
   const itemHeights = history.items.map((item) => Math.max(8, Math.ceil(`${item.quantity}x ${item.productName}`.length / 32) * 4 + 3))
-  const height = Math.max(110, 67 + itemHeights.reduce((sum, value) => sum + value, 0))
+  const height = Math.max(70, 62 + itemHeights.reduce((sum, value) => sum + value, 0))
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [80, height] })
   let y = 9
 
