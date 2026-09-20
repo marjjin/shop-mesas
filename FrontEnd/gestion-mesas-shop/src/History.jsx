@@ -22,7 +22,7 @@ async function downloadReceipt(history) {
   pdf.text('SHOP FAMILY', 40, y, { align: 'center' })
   y += 5
   pdf.setLineWidth(.3)
-  pdf.line(7, y, 73, y)
+  pdf.line(7, y, 70, y)
   y += 7
 
   pdf.setFontSize(11)
@@ -36,7 +36,7 @@ async function downloadReceipt(history) {
   y += 5
   pdf.text(`Finalización: ${localTime(history.closedAt)}`, 7, y)
   y += 6
-  pdf.line(7, y, 73, y)
+  pdf.line(7, y, 70, y)
   y += 6
 
   pdf.setFont('helvetica', 'bold')
@@ -50,7 +50,7 @@ async function downloadReceipt(history) {
     pdf.setFontSize(9)
     pdf.text(lines, 7, y)
     pdf.setFontSize(8)
-    pdf.text(localTime(item.createdAt), 72, y, { align: 'right' })
+    pdf.text(localTime(item.createdAt), 68, y, { align: 'right' })
     y += itemHeights[index]
   })
 
@@ -61,7 +61,7 @@ async function downloadReceipt(history) {
     y += 8
   }
 
-  pdf.line(7, y, 73, y)
+  pdf.line(7, y, 70, y)
   y += 7
   pdf.setFont('helvetica', 'bold')
   pdf.setFontSize(9)
