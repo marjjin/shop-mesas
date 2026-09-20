@@ -1,0 +1,73 @@
+.account { display: flex; flex-direction: column; overflow: hidden; padding: 0; }
+.account-summary { flex: none; padding: 34px 27px 0; }
+.account-summary > h2 { margin-bottom: 20px; }
+.table-menu-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-right: 28px; }
+.move-table-button { padding: 6px 9px; border: 1px solid #d8d6cf; border-radius: 7px; background: #fff; color: #646560; font-size: 9px; font-weight: 800; letter-spacing: .25px; cursor: pointer; }
+.move-table-button:hover { border-color: #e56743; color: #e56743; }
+.search-field { display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid #d8d6cf; border-radius: 10px; background: #fff; box-shadow: 0 2px 8px rgba(37, 38, 42, .05); }
+.search-field:focus-within { border-color: #e56743; box-shadow: 0 0 0 3px rgba(229, 103, 67, .13); }
+.search-field span { color: #e56743; font-size: 22px; line-height: 1; }
+.product-search { width: 100%; padding: 12px 0; border: 0; outline: 0; background: transparent; color: #25262a; font-size: 13px; }
+.product-search::placeholder { color: #a7a6a0; }
+.search-results { max-height: 230px; margin-top: 9px; overflow-y: auto; border-top: 1px solid #efeee8; }
+.empty-result { margin: 10px 0; color: #858683; font-size: 12px; }
+.account footer { position: static; z-index: 2; flex: none; width: auto; padding: 14px 27px 25px; border-top: 1px solid #e7e6e0; background: #fffdfa; }
+.account footer .wide { margin-top: 0; }
+.account .timers { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.orders-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 25px; }
+.orders-heading h3 { margin: 0 0 10px; }
+.orders-heading small { color: #858683; font-size: 11px; }
+.orders-list { min-height: 0; flex: 1; overflow-y: auto; padding: 0 27px 18px; scrollbar-color: #c8c5bc transparent; scrollbar-width: thin; }
+.orders-list .order { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin: 0; padding: 10px 0; border-bottom: 1px solid #efeee8; font-size: 12px; }
+.orders-list .order > span { display: flex; min-width: 0; flex: 1; gap: 5px; line-height: 1.35; }
+.orders-list .order > span small { flex: none; color: #858683; font-size: inherit; }
+.orders-list .order time { flex: none; color: #25262a; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.orders-list .coworking-order { margin: 5px 0; padding: 9px 10px; border: 0; border-radius: 8px; background: #fff1ee; color: #a33b27; }
+.orders-list .coworking-order time { color: #a33b27; }
+.table-times { display: grid; grid-template-columns: 1fr; width: calc(100% - 12px); margin-top: 3px; padding-top: 5px; border-top: 1px solid rgba(229, 103, 67, .18); }
+.table-times > span { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.table-times > span + span { border-left: 1px solid rgba(229, 103, 67, .18); }
+.table-times small { color: #9b8d86; font-size: 7px; font-weight: 700; letter-spacing: .25px; }
+.table-times strong { color: #e56743; font-size: 9px; line-height: 1.2; }
+
+.table.coworking-alert {
+	border: 3px solid #d93636;
+	box-shadow: 0 0 0 4px rgba(217, 54, 54, .16), 0 8px 24px rgba(217, 54, 54, .24);
+	animation: coworking-pulse 1.6s ease-in-out infinite;
+}
+
+.coworking-badge {
+	margin-top: 3px;
+	color: #c62828;
+	font-size: 7px;
+	font-weight: 800;
+	letter-spacing: .2px;
+}
+
+.coworking-notice {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin: 18px 0;
+	padding: 13px 16px;
+	border: 1px solid #ef9a9a;
+	border-left: 5px solid #d93636;
+	border-radius: 10px;
+	background: #fff1f1;
+	color: #8e2020;
+	font-size: 13px;
+}
+
+.coworking-notice strong { flex: none; }
+
+@keyframes coworking-pulse {
+	50% { box-shadow: 0 0 0 7px rgba(217, 54, 54, .08), 0 8px 28px rgba(217, 54, 54, .32); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.table.coworking-alert { animation: none; }
+}
+
+@media (max-width: 680px) {
+	.coworking-notice { align-items: flex-start; flex-direction: column; gap: 4px; }
+}

@@ -1,0 +1,18 @@
+# .NET
+**/bin/
+**/obj/
+*.db
+*.db-shm
+*.db-wal
+
+# Node.js
+**/node_modules/
+**/dist/
+
+# Entorno local y editor
+.env
+.env.*
+!.env.example
+.vs/
+.vscode/*
+!.vscode/extensions.json

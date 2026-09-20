@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: gestion-mesas-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    envVars:
+      - key: ConnectionStrings__Restaurant
+        value: Data Source=/app/data/restaurant.db
+    disk:
+      name: restaurant-data
+      mountPath: /app/data
+      sizeGB: 1
