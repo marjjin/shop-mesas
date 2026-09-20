@@ -46,8 +46,6 @@
 .order-time-form { display: flex; flex: none; align-items: center; gap: 5px; }
 .order-time-form input { width: 142px; padding: 5px; border: 1px solid #d8d6cf; border-radius: 6px; color: #25262a; font-size: 10px; }
 .order-time-form button { width: 23px; height: 23px; padding: 0; border: 1px solid #d8d6cf; border-radius: 6px; background: #fff; color: #59636f; cursor: pointer; }
-.remove-services-button { width: 100%; margin: 0 0 10px; padding: 8px; border: 1px solid #e4b7aa; border-radius: 7px; background: #fff6f2; color: #a33b27; font-size: 10px; font-weight: 800; cursor: pointer; }
-.remove-services-button:disabled { cursor: wait; opacity: .55; }
 .coworking-disabled-note { margin: 0 0 10px; color: #777; font-size: 10px; }
 .orders-list .coworking-order { margin: 5px 0; padding: 9px 10px; border: 0; border-radius: 8px; background: #fff1ee; color: #a33b27; }
 .orders-list .coworking-order time { color: #a33b27; }

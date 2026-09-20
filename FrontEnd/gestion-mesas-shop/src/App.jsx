@@ -110,7 +110,6 @@ function TableMenu({ table, data, orders, now, api, load, closePanel, editTable,
   const [editingOrderId, setEditingOrderId] = useState(null)
   const [orderTime, setOrderTime] = useState('')
   const [savingOrderId, setSavingOrderId] = useState(null)
-  const [removingServices, setRemovingServices] = useState(false)
   const [orderError, setOrderError] = useState('')
   const firstOrderTime = orders.reduce((earliest, order) => Math.min(earliest, new Date(/(?:Z|[+-]\d{2}:\d{2})$/.test(order.createdAt) ? order.createdAt : `${order.createdAt}Z`).getTime()), now)
   const results = search.trim() ? data.products.filter((product) => !isCoworkingService(product)).filter((product) => {
@@ -151,14 +150,18 @@ function TableMenu({ table, data, orders, now, api, load, closePanel, editTable,
     }
   }
   const removeConsumption = async (order) => {
-    if (!window.confirm(`¿Quitar ${order.quantity}× ${order.product.name} de la mesa?`)) return
+    const isCoworking = isCoworkingService(order.product)
+    const confirmation = isCoworking
+      ? `¿Quitar este ${order.product.name}? Los próximos cargos quedarán pausados hasta volver a abrir la mesa.`
+      : `¿Quitar ${order.quantity}× ${order.product.name} de la mesa?`
+    if (!window.confirm(confirmation)) return
     setRemovingOrderId(order.id)
     setOrderError('')
     try {
       await api(`/orders/${order.id}`, { method: 'DELETE' })
       await load()
     } catch {
-      setOrderError('No se pudo quitar el artículo. Intentá nuevamente.')
+      setOrderError('No se pudo quitar el registro. Intentá nuevamente.')
     } finally {
       setRemovingOrderId(null)
     }
@@ -182,22 +185,6 @@ function TableMenu({ table, data, orders, now, api, load, closePanel, editTable,
       setSavingOrderId(null)
     }
   }
-  const removeCoworkingServices = async () => {
-    if (!window.confirm('¿Quitar todos los servicios coworking y pausar nuevos cargos hasta volver a abrir la mesa?')) return
-    setRemovingServices(true)
-    setOrderError('')
-    try {
-      await api(`/tables/${table.id}/coworking-services`, { method: 'DELETE' })
-      await load()
-    } catch {
-      setOrderError('No se pudieron quitar los servicios coworking.')
-    } finally {
-      setRemovingServices(false)
-    }
-  }
-
-  const hasCoworkingServices = orders.some((order) => isCoworkingService(order.product))
-
   return <aside className="account">
     <button type="button" className="close" aria-label="Cerrar detalle" title="Cerrar detalle" onClick={closePanel}>×</button>
     <div className="account-summary">
@@ -216,7 +203,6 @@ function TableMenu({ table, data, orders, now, api, load, closePanel, editTable,
       <div className="search-field"><span>⌕</span><input className="product-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar artículo..." /></div>
       {search.trim() && <div className="products search-results">{results.length ? results.map((product) => <button key={product.id} onClick={() => addConsumption(product.id)}><span>{product.name}</span><b>Agregar</b></button>) : <p className="empty-result">No se encontraron artículos.</p>}</div>}
       <div className="orders-heading"><h3>Artículos cargados</h3><small>{orders.length} {orders.length === 1 ? 'registro' : 'registros'}</small></div>
-      {hasCoworkingServices && <button type="button" className="remove-services-button" disabled={removingServices} onClick={removeCoworkingServices}>{removingServices ? 'Quitando…' : 'Quitar servicios coworking'}</button>}
       {table.coworkingDisabled && <p className="coworking-disabled-note">Servicios coworking pausados hasta la próxima apertura.</p>}
     </div>
     <div className="orders-list">
@@ -232,7 +218,7 @@ function TableMenu({ table, data, orders, now, api, load, closePanel, editTable,
           </form> : <div className="order-actions">
             <time dateTime={order.createdAt}>{time(order.createdAt)}</time>
             {!isCoworking && <button type="button" aria-label={`Editar hora de ${order.product.name}`} title="Editar hora" onClick={() => beginEditingTime(order)}>✎</button>}
-            {!isCoworking && <button type="button" disabled={removingOrderId === order.id} aria-label={`Quitar ${order.product.name}`} title="Quitar artículo" onClick={() => removeConsumption(order)}>{removingOrderId === order.id ? '…' : '×'}</button>}
+            <button type="button" disabled={removingOrderId === order.id} aria-label={`Quitar ${order.product.name}`} title={isCoworking ? 'Quitar este servicio' : 'Quitar artículo'} onClick={() => removeConsumption(order)}>{removingOrderId === order.id ? '…' : '×'}</button>
           </div>}
         </div>
       }) : <p className="empty-result">Todavía no hay consumos.</p>}

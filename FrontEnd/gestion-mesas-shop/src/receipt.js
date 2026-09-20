@@ -65,7 +65,7 @@ function welcomeReceiptMarkup(table) {
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <title>Bienvenida ${escapeHtml(table.customerName)}</title>
+  <title>Bienvenid@ ${escapeHtml(table.customerName)}</title>
   <style>
     @page { size: 80mm auto; margin: 0; }
     * { box-sizing: border-box; }

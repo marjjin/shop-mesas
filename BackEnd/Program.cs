@@ -83,24 +83,6 @@ api.MapPatch("/tables/{id:int}", async (int id, TablePatch patch, RestaurantCont
     return Results.Ok(table);
 });
 api.MapPost("/tables/{id:int}/open", async (int id, OpenTableRequest request, RestaurantContext db) => { var customerName = request.CustomerName.Trim(); if (string.IsNullOrWhiteSpace(customerName) || customerName.Length > 80) return Results.BadRequest(); var table = await db.Tables.FindAsync(id); if (table is null) return Results.NotFound(); table.CustomerName = customerName; table.Status = "occupied"; table.CoworkingDisabled = false; table.OpenedAt = table.LastConsumptionAt = DateTime.UtcNow; await db.SaveChangesAsync(); return Results.Ok(table); });
-api.MapDelete("/tables/{id:int}/coworking-services", async (int id, RestaurantContext db) =>
-{
-    var table = await db.Tables.FindAsync(id);
-    if (table is null) return Results.NotFound();
-    if (table.Status != "occupied") return Results.BadRequest();
-
-    var serviceProductIds = await db.Products
-        .Where(product => product.Name == CoworkingBilling.HalfHourProductName || product.Name == CoworkingBilling.HourProductName)
-        .Select(product => product.Id)
-        .ToListAsync();
-    var services = await db.Orders
-        .Where(order => order.TableId == id && serviceProductIds.Contains(order.ProductId))
-        .ToListAsync();
-    db.Orders.RemoveRange(services);
-    table.CoworkingDisabled = true;
-    await db.SaveChangesAsync();
-    return Results.NoContent();
-});
 api.MapPost("/tables/{id:int}/close", async (int id, RestaurantContext db) =>
 {
     var table = await db.Tables.FindAsync(id);
@@ -191,12 +173,12 @@ api.MapDelete("/orders/{id:int}", async (int id, RestaurantContext db) =>
     if (order is null) return Results.NotFound();
     var isCoworkingCharge = await db.Products.AnyAsync(product => product.Id == order.ProductId
         && (product.Name == CoworkingBilling.HalfHourProductName || product.Name == CoworkingBilling.HourProductName));
-    if (isCoworkingCharge) return Results.Conflict();
 
     var table = await db.Tables.FindAsync(order.TableId);
     db.Orders.Remove(order);
     if (table is not null)
     {
+        if (isCoworkingCharge) table.CoworkingDisabled = true;
         var serviceProductIds = await db.Products
             .Where(product => product.Name == CoworkingBilling.HalfHourProductName || product.Name == CoworkingBilling.HourProductName)
             .Select(product => product.Id)
