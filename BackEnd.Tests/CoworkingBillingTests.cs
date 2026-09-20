@@ -71,6 +71,21 @@ public sealed class CoworkingBillingTests
         Assert.Empty(await fixture.ServiceOrdersAsync(CoworkingBilling.HalfHourProductName));
     }
 
+    [Fact]
+    public async Task DoesNotAddServicesWhenCoworkingIsDisabledForTable()
+    {
+        var now = new DateTime(2026, 9, 17, 20, 0, 0, DateTimeKind.Utc);
+        await using var fixture = await TestFixture.CreateAsync(now.AddHours(-2));
+        var table = await fixture.Db.Tables.FindAsync(fixture.TableId);
+        table!.CoworkingDisabled = true;
+        await fixture.Db.SaveChangesAsync();
+
+        await CoworkingBilling.ProcessAsync(fixture.Db, now);
+
+        Assert.Empty(await fixture.ServiceOrdersAsync(CoworkingBilling.HalfHourProductName));
+        Assert.Empty(await fixture.ServiceOrdersAsync(CoworkingBilling.HourProductName));
+    }
+
     private sealed class TestFixture : IAsyncDisposable
     {
         private readonly SqliteConnection connection;

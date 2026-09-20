@@ -13,7 +13,7 @@ public static class CoworkingBilling
         var (halfHourProduct, hourProduct) = await EnsureServiceProductsAsync(db, cancellationToken);
         var serviceProductIds = new HashSet<int> { halfHourProduct.Id, hourProduct.Id };
         var tables = await db.Tables
-            .Where(table => table.Status == "occupied" && table.OpenedAt != null)
+            .Where(table => table.Status == "occupied" && table.OpenedAt != null && !table.CoworkingDisabled)
             .ToListAsync(cancellationToken);
 
         foreach (var table in tables)

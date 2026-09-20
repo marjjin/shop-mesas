@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Moveable from 'react-moveable'
 import Catalog from './Catalog.jsx'
 import History from './History.jsx'
-import { openReceiptPrintWindow, printReceipt } from './receipt.js'
+import { openReceiptPrintWindow, printReceipt, printWelcomeReceipt } from './receipt.js'
 import './App.css'
 import './Panel.css'
 
@@ -102,10 +102,15 @@ function FloorPlan({ tables, coworkingTableIds, editingId, onSelect, onEdit, sav
 function TableMenu({ table, data, orders, now, api, load, closePanel, editTable, closeTable, updateOpenedAt }) {
   const [search, setSearch] = useState('')
   const [customerName, setCustomerName] = useState('')
+  const [openError, setOpenError] = useState('')
   const [openedAt, setOpenedAt] = useState(() => datetimeLocal(table.openedAt))
   const [savingStart, setSavingStart] = useState(false)
   const [startError, setStartError] = useState('')
   const [removingOrderId, setRemovingOrderId] = useState(null)
+  const [editingOrderId, setEditingOrderId] = useState(null)
+  const [orderTime, setOrderTime] = useState('')
+  const [savingOrderId, setSavingOrderId] = useState(null)
+  const [removingServices, setRemovingServices] = useState(false)
   const [orderError, setOrderError] = useState('')
   const firstOrderTime = orders.reduce((earliest, order) => Math.min(earliest, new Date(/(?:Z|[+-]\d{2}:\d{2})$/.test(order.createdAt) ? order.createdAt : `${order.createdAt}Z`).getTime()), now)
   const results = search.trim() ? data.products.filter((product) => !isCoworkingService(product)).filter((product) => {
@@ -120,9 +125,18 @@ function TableMenu({ table, data, orders, now, api, load, closePanel, editTable,
     event.preventDefault()
     const name = customerName.trim()
     if (!name) return
-    await api(`/tables/${table.id}/open`, { method: 'POST', body: JSON.stringify({ customerName: name }) })
-    setCustomerName('')
-    await load()
+    const printWindow = openReceiptPrintWindow()
+    setOpenError('')
+    try {
+      const openedTable = await api(`/tables/${table.id}/open`, { method: 'POST', body: JSON.stringify({ customerName: name }) })
+      const printStarted = printWelcomeReceipt(openedTable, printWindow)
+      setCustomerName('')
+      await load()
+      if (!printStarted) setOpenError('Mesa abierta. Habilitá las ventanas emergentes para imprimir el ticket de bienvenida.')
+    } catch {
+      printWindow?.close()
+      setOpenError('No se pudo abrir la mesa. Intentá nuevamente.')
+    }
   }
   const saveOpenedAt = async (event) => {
     event.preventDefault()
@@ -149,6 +163,40 @@ function TableMenu({ table, data, orders, now, api, load, closePanel, editTable,
       setRemovingOrderId(null)
     }
   }
+  const beginEditingTime = (order) => {
+    setEditingOrderId(order.id)
+    setOrderTime(datetimeLocal(order.createdAt))
+    setOrderError('')
+  }
+  const saveConsumptionTime = async (event, order) => {
+    event.preventDefault()
+    setSavingOrderId(order.id)
+    setOrderError('')
+    try {
+      await api(`/orders/${order.id}`, { method: 'PATCH', body: JSON.stringify({ createdAt: new Date(orderTime).toISOString() }) })
+      setEditingOrderId(null)
+      await load()
+    } catch {
+      setOrderError('La hora debe estar entre la apertura de la mesa y el momento actual.')
+    } finally {
+      setSavingOrderId(null)
+    }
+  }
+  const removeCoworkingServices = async () => {
+    if (!window.confirm('¿Quitar todos los servicios coworking y pausar nuevos cargos hasta volver a abrir la mesa?')) return
+    setRemovingServices(true)
+    setOrderError('')
+    try {
+      await api(`/tables/${table.id}/coworking-services`, { method: 'DELETE' })
+      await load()
+    } catch {
+      setOrderError('No se pudieron quitar los servicios coworking.')
+    } finally {
+      setRemovingServices(false)
+    }
+  }
+
+  const hasCoworkingServices = orders.some((order) => isCoworkingService(order.product))
 
   return <aside className="account">
     <button type="button" className="close" aria-label="Cerrar detalle" title="Cerrar detalle" onClick={closePanel}>×</button>
@@ -163,11 +211,13 @@ function TableMenu({ table, data, orders, now, api, load, closePanel, editTable,
           <div><input id={`opened-at-${table.id}`} type="datetime-local" required max={datetimeLocal(firstOrderTime)} value={openedAt} onChange={(event) => setOpenedAt(event.target.value)} /><button type="submit" disabled={savingStart}>{savingStart ? 'Guardando…' : 'Guardar'}</button></div>
           {startError && <small className="start-time-error">{startError}</small>}
         </form>
-      </> : <form className="open-table-form" onSubmit={openTable}><label htmlFor={`customer-${table.id}`}>Nombre del cliente</label><input id={`customer-${table.id}`} maxLength="80" autoComplete="off" autoFocus placeholder="Ej.: Martín" value={customerName} onChange={(event) => setCustomerName(event.target.value)} /><button className="primary wide" disabled={!customerName.trim()}>Abrir mesa</button></form>}
+      </> : <form className="open-table-form" onSubmit={openTable}><label htmlFor={`customer-${table.id}`}>Nombre del cliente</label><input id={`customer-${table.id}`} maxLength="80" autoComplete="off" autoFocus placeholder="Ej.: Martín" value={customerName} onChange={(event) => setCustomerName(event.target.value)} /><button className="primary wide" disabled={!customerName.trim()}>Abrir mesa e imprimir</button>{openError && <small className="start-time-error">{openError}</small>}</form>}
       <h3>Agregar consumo</h3>
       <div className="search-field"><span>⌕</span><input className="product-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar artículo..." /></div>
       {search.trim() && <div className="products search-results">{results.length ? results.map((product) => <button key={product.id} onClick={() => addConsumption(product.id)}><span>{product.name}</span><b>Agregar</b></button>) : <p className="empty-result">No se encontraron artículos.</p>}</div>}
       <div className="orders-heading"><h3>Artículos cargados</h3><small>{orders.length} {orders.length === 1 ? 'registro' : 'registros'}</small></div>
+      {hasCoworkingServices && <button type="button" className="remove-services-button" disabled={removingServices} onClick={removeCoworkingServices}>{removingServices ? 'Quitando…' : 'Quitar servicios coworking'}</button>}
+      {table.coworkingDisabled && <p className="coworking-disabled-note">Servicios coworking pausados hasta la próxima apertura.</p>}
     </div>
     <div className="orders-list">
       {orderError && <p className="order-error">{orderError}</p>}
@@ -175,10 +225,15 @@ function TableMenu({ table, data, orders, now, api, load, closePanel, editTable,
         const isCoworking = isCoworkingService(order.product)
         return <div className={`order ${isCoworking ? 'coworking-order' : ''}`} key={order.id}>
           <span><small>{order.quantity}×</small>{order.product.name}</span>
-          <div className="order-actions">
+          {!isCoworking && editingOrderId === order.id ? <form className="order-time-form" onSubmit={(event) => saveConsumptionTime(event, order)}>
+            <input type="datetime-local" required min={datetimeLocal(table.openedAt)} max={datetimeLocal(now)} value={orderTime} onChange={(event) => setOrderTime(event.target.value)} />
+            <button type="submit" disabled={savingOrderId === order.id}>✓</button>
+            <button type="button" title="Cancelar" onClick={() => setEditingOrderId(null)}>×</button>
+          </form> : <div className="order-actions">
             <time dateTime={order.createdAt}>{time(order.createdAt)}</time>
+            {!isCoworking && <button type="button" aria-label={`Editar hora de ${order.product.name}`} title="Editar hora" onClick={() => beginEditingTime(order)}>✎</button>}
             {!isCoworking && <button type="button" disabled={removingOrderId === order.id} aria-label={`Quitar ${order.product.name}`} title="Quitar artículo" onClick={() => removeConsumption(order)}>{removingOrderId === order.id ? '…' : '×'}</button>}
-          </div>
+          </div>}
         </div>
       }) : <p className="empty-result">Todavía no hay consumos.</p>}
     </div>

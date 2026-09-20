@@ -17,6 +17,7 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<RestaurantContext>();
     db.Database.EnsureCreated();
     db.Database.ExecuteSqlRaw("""ALTER TABLE "Tables" ADD COLUMN IF NOT EXISTS "CustomerName" character varying(80);""");
+    db.Database.ExecuteSqlRaw("""ALTER TABLE "Tables" ADD COLUMN IF NOT EXISTS "CoworkingDisabled" boolean NOT NULL DEFAULT FALSE;""");
     if (!db.Users.Any())
     {
         var now = DateTime.UtcNow;
@@ -81,7 +82,25 @@ api.MapPatch("/tables/{id:int}", async (int id, TablePatch patch, RestaurantCont
     await db.SaveChangesAsync();
     return Results.Ok(table);
 });
-api.MapPost("/tables/{id:int}/open", async (int id, OpenTableRequest request, RestaurantContext db) => { var customerName = request.CustomerName.Trim(); if (string.IsNullOrWhiteSpace(customerName) || customerName.Length > 80) return Results.BadRequest(); var table = await db.Tables.FindAsync(id); if (table is null) return Results.NotFound(); table.CustomerName = customerName; table.Status = "occupied"; table.OpenedAt = table.LastConsumptionAt = DateTime.UtcNow; await db.SaveChangesAsync(); return Results.Ok(table); });
+api.MapPost("/tables/{id:int}/open", async (int id, OpenTableRequest request, RestaurantContext db) => { var customerName = request.CustomerName.Trim(); if (string.IsNullOrWhiteSpace(customerName) || customerName.Length > 80) return Results.BadRequest(); var table = await db.Tables.FindAsync(id); if (table is null) return Results.NotFound(); table.CustomerName = customerName; table.Status = "occupied"; table.CoworkingDisabled = false; table.OpenedAt = table.LastConsumptionAt = DateTime.UtcNow; await db.SaveChangesAsync(); return Results.Ok(table); });
+api.MapDelete("/tables/{id:int}/coworking-services", async (int id, RestaurantContext db) =>
+{
+    var table = await db.Tables.FindAsync(id);
+    if (table is null) return Results.NotFound();
+    if (table.Status != "occupied") return Results.BadRequest();
+
+    var serviceProductIds = await db.Products
+        .Where(product => product.Name == CoworkingBilling.HalfHourProductName || product.Name == CoworkingBilling.HourProductName)
+        .Select(product => product.Id)
+        .ToListAsync();
+    var services = await db.Orders
+        .Where(order => order.TableId == id && serviceProductIds.Contains(order.ProductId))
+        .ToListAsync();
+    db.Orders.RemoveRange(services);
+    table.CoworkingDisabled = true;
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+});
 api.MapPost("/tables/{id:int}/close", async (int id, RestaurantContext db) =>
 {
     var table = await db.Tables.FindAsync(id);
@@ -106,6 +125,7 @@ api.MapPost("/tables/{id:int}/close", async (int id, RestaurantContext db) =>
     }));
     table.Status = "free";
     table.CustomerName = null;
+    table.CoworkingDisabled = false;
     table.OpenedAt = table.LastConsumptionAt = null;
     db.Orders.RemoveRange(orders);
     await db.SaveChangesAsync();
@@ -135,7 +155,36 @@ api.MapDelete("/categories/{id:int}", async (int id, RestaurantContext db) => { 
 api.MapPost("/products", async (ProductRequest request, RestaurantContext db) => { if (string.IsNullOrWhiteSpace(request.Name) || request.Name is CoworkingBilling.HalfHourProductName or CoworkingBilling.HourProductName) return Results.BadRequest(); var category = await db.Categories.FirstOrDefaultAsync(item => item.Name == "Artículos"); if (category is null) { category = new Category { Name = "Artículos", Color = "#e56743" }; db.Categories.Add(category); await db.SaveChangesAsync(); } var product = new Product { Name = request.Name.Trim(), Price = 0, CategoryId = category.Id }; db.Products.Add(product); await db.SaveChangesAsync(); return Results.Created($"/api/products/{product.Id}", product); });
 api.MapDelete("/products", async (RestaurantContext db) => { var productIds = await db.Products.Where(product => product.Name != CoworkingBilling.HalfHourProductName && product.Name != CoworkingBilling.HourProductName).Select(product => product.Id).ToListAsync(); db.Orders.RemoveRange(db.Orders.Where(order => productIds.Contains(order.ProductId))); db.Products.RemoveRange(db.Products.Where(product => productIds.Contains(product.Id))); await db.SaveChangesAsync(); return Results.NoContent(); });
 api.MapDelete("/products/{id:int}", async (int id, RestaurantContext db) => { var product = await db.Products.FindAsync(id); if (product is null) return Results.NotFound(); if (product.Name is CoworkingBilling.HalfHourProductName or CoworkingBilling.HourProductName) return Results.Conflict(); db.Orders.RemoveRange(db.Orders.Where(order => order.ProductId == id)); db.Products.Remove(product); await db.SaveChangesAsync(); return Results.NoContent(); });
-api.MapPost("/orders", async (OrderRequest request, RestaurantContext db) => { var table = await db.Tables.FindAsync(request.TableId); if (table is null || !await db.Products.AnyAsync(product => product.Id == request.ProductId)) return Results.BadRequest(); var now = DateTime.UtcNow; if (table.Status != "occupied") { table.Status = "occupied"; table.OpenedAt = now; } table.LastConsumptionAt = now; var order = new Order { TableId = request.TableId, ProductId = request.ProductId, Quantity = Math.Max(1, request.Quantity), CreatedAt = now }; db.Orders.Add(order); await db.SaveChangesAsync(); return Results.Created($"/api/orders/{order.Id}", new { order, table }); });
+api.MapPost("/orders", async (OrderRequest request, RestaurantContext db) => { var table = await db.Tables.FindAsync(request.TableId); if (table is null || !await db.Products.AnyAsync(product => product.Id == request.ProductId)) return Results.BadRequest(); var now = DateTime.UtcNow; if (table.Status != "occupied") { table.Status = "occupied"; table.CoworkingDisabled = false; table.OpenedAt = now; } table.LastConsumptionAt = now; var order = new Order { TableId = request.TableId, ProductId = request.ProductId, Quantity = Math.Max(1, request.Quantity), CreatedAt = now }; db.Orders.Add(order); await db.SaveChangesAsync(); return Results.Created($"/api/orders/{order.Id}", new { order, table }); });
+api.MapPatch("/orders/{id:int}", async (int id, UpdateOrderRequest request, RestaurantContext db) =>
+{
+    var order = await db.Orders.FindAsync(id);
+    if (order is null) return Results.NotFound();
+    var table = await db.Tables.FindAsync(order.TableId);
+    if (table is null || table.Status != "occupied" || table.OpenedAt is null) return Results.BadRequest();
+
+    var isCoworkingCharge = await db.Products.AnyAsync(product => product.Id == order.ProductId
+        && (product.Name == CoworkingBilling.HalfHourProductName || product.Name == CoworkingBilling.HourProductName));
+    if (isCoworkingCharge) return Results.Conflict();
+
+    var createdAt = request.CreatedAt.UtcDateTime;
+    if (createdAt < table.OpenedAt.Value || createdAt > DateTime.UtcNow) return Results.BadRequest();
+
+    order.CreatedAt = createdAt;
+    var serviceProductIds = await db.Products
+        .Where(product => product.Name == CoworkingBilling.HalfHourProductName || product.Name == CoworkingBilling.HourProductName)
+        .Select(product => product.Id)
+        .ToListAsync();
+    var lastOtherConsumptionAt = await db.Orders
+        .Where(item => item.TableId == order.TableId && item.Id != id && !serviceProductIds.Contains(item.ProductId))
+        .Select(item => (DateTime?)item.CreatedAt)
+        .MaxAsync();
+    table.LastConsumptionAt = lastOtherConsumptionAt.HasValue && lastOtherConsumptionAt.Value > createdAt
+        ? lastOtherConsumptionAt.Value
+        : createdAt;
+    await db.SaveChangesAsync();
+    return Results.Ok(new { order, table });
+});
 api.MapDelete("/orders/{id:int}", async (int id, RestaurantContext db) =>
 {
     var order = await db.Orders.FindAsync(id);
@@ -148,8 +197,12 @@ api.MapDelete("/orders/{id:int}", async (int id, RestaurantContext db) =>
     db.Orders.Remove(order);
     if (table is not null)
     {
+        var serviceProductIds = await db.Products
+            .Where(product => product.Name == CoworkingBilling.HalfHourProductName || product.Name == CoworkingBilling.HourProductName)
+            .Select(product => product.Id)
+            .ToListAsync();
         var lastRemainingOrderAt = await db.Orders
-            .Where(item => item.TableId == order.TableId && item.Id != id)
+            .Where(item => item.TableId == order.TableId && item.Id != id && !serviceProductIds.Contains(item.ProductId))
             .Select(item => (DateTime?)item.CreatedAt)
             .MaxAsync();
         table.LastConsumptionAt = lastRemainingOrderAt ?? table.OpenedAt;
