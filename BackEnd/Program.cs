@@ -2,8 +2,9 @@ using GestionMesas.Api;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
-var connectionString = builder.Configuration.GetConnectionString("Restaurant") ?? "Data Source=restaurant.db";
-builder.Services.AddDbContext<RestaurantContext>(options => options.UseSqlite(connectionString));
+var connectionString = builder.Configuration.GetConnectionString("Restaurant")
+    ?? throw new InvalidOperationException("La cadena de conexión 'Restaurant' es obligatoria.");
+builder.Services.AddDbContext<RestaurantContext>(options => options.UseNpgsql(connectionString));
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 builder.Services.AddHostedService<CoworkingBillingService>();
 
@@ -14,23 +15,6 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<RestaurantContext>();
     db.Database.EnsureCreated();
-    db.Database.ExecuteSqlRaw("""
-        CREATE TABLE IF NOT EXISTS "ClosedTableHistories" (
-            "Id" INTEGER NOT NULL CONSTRAINT "PK_ClosedTableHistories" PRIMARY KEY AUTOINCREMENT,
-            "TableName" TEXT NOT NULL,
-            "OpenedAt" TEXT NOT NULL,
-            "ClosedAt" TEXT NOT NULL
-        );
-        """);
-    db.Database.ExecuteSqlRaw("""
-        CREATE TABLE IF NOT EXISTS "ClosedTableHistoryItems" (
-            "Id" INTEGER NOT NULL CONSTRAINT "PK_ClosedTableHistoryItems" PRIMARY KEY AUTOINCREMENT,
-            "ClosedTableHistoryId" INTEGER NOT NULL,
-            "ProductName" TEXT NOT NULL,
-            "Quantity" INTEGER NOT NULL,
-            "CreatedAt" TEXT NOT NULL
-        );
-        """);
     if (!db.Users.Any())
     {
         var now = DateTime.UtcNow;

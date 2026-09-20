@@ -6,8 +6,10 @@ services:
     healthCheckPath: /
     envVars:
       - key: ConnectionStrings__Restaurant
-        value: Data Source=/app/data/restaurant.db
-    disk:
-      name: restaurant-data
-      mountPath: /app/data
-      sizeGB: 1
+        fromDatabase:
+          name: gestion-mesas-db
+          property: connectionString
+
+databases:
+  - name: gestion-mesas-db
+    plan: free
