@@ -13,7 +13,7 @@ function localTime(value) {
 async function downloadReceipt(history) {
   const { jsPDF } = await import('jspdf')
   const itemHeights = history.items.map((item) => Math.max(8, Math.ceil(`${item.quantity}x ${item.productName}`.length / 32) * 4 + 3))
-  const height = Math.max(70, 62 + itemHeights.reduce((sum, value) => sum + value, 0))
+  const height = Math.max(75, 67 + itemHeights.reduce((sum, value) => sum + value, 0))
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [80, height] })
   let y = 9
 
@@ -22,45 +22,46 @@ async function downloadReceipt(history) {
   pdf.text('SHOP FAMILY', 40, y, { align: 'center' })
   y += 5
   pdf.setLineWidth(.3)
-  pdf.line(5, y, 75, y)
+  pdf.line(7, y, 73, y)
   y += 7
 
   pdf.setFontSize(11)
-  pdf.text(history.tableName, 5, y)
+  pdf.text(history.tableName, 7, y)
   y += 6
   pdf.setFont('helvetica', 'normal')
   pdf.setFontSize(9)
-  pdf.text(`Fecha: ${localDate(history.closedAt)}`, 5, y)
+  pdf.text(`Fecha: ${localDate(history.closedAt)}`, 7, y)
   y += 5
-  pdf.text(`Ingreso: ${localTime(history.openedAt)}`, 5, y)
-  pdf.text(`Finalización: ${localTime(history.closedAt)}`, 75, y, { align: 'right' })
+  pdf.text(`Ingreso: ${localTime(history.openedAt)}`, 7, y)
+  y += 5
+  pdf.text(`Finalización: ${localTime(history.closedAt)}`, 7, y)
   y += 6
-  pdf.line(5, y, 75, y)
+  pdf.line(7, y, 73, y)
   y += 6
 
   pdf.setFont('helvetica', 'bold')
   pdf.setFontSize(10)
-  pdf.text('ARTÍCULOS', 5, y)
+  pdf.text('ARTÍCULOS', 7, y)
   y += 6
 
   history.items.forEach((item, index) => {
     const lines = pdf.splitTextToSize(`${item.quantity}x ${item.productName}`, 52)
     pdf.setFont('helvetica', 'normal')
     pdf.setFontSize(9)
-    pdf.text(lines, 5, y)
+    pdf.text(lines, 7, y)
     pdf.setFontSize(8)
-    pdf.text(localTime(item.createdAt), 75, y, { align: 'right' })
+    pdf.text(localTime(item.createdAt), 72, y, { align: 'right' })
     y += itemHeights[index]
   })
 
   if (!history.items.length) {
     pdf.setFont('helvetica', 'normal')
     pdf.setFontSize(9)
-    pdf.text('Sin artículos cargados', 5, y)
+    pdf.text('Sin artículos cargados', 7, y)
     y += 8
   }
 
-  pdf.line(5, y, 75, y)
+  pdf.line(7, y, 73, y)
   y += 7
   pdf.setFont('helvetica', 'bold')
   pdf.setFontSize(9)
