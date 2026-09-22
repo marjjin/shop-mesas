@@ -127,7 +127,19 @@ api.MapGet("/history", async (RestaurantContext db) =>
     }));
 });
 api.MapPost("/tables", async (TableRequest request, RestaurantContext db) => { var table = new RestaurantTable { Name = string.IsNullOrWhiteSpace(request.Name) ? $"Mesa {await db.Tables.CountAsync() + 1}" : request.Name, Seats = request.Seats.GetValueOrDefault(4) }; db.Tables.Add(table); await db.SaveChangesAsync(); return Results.Created($"/api/tables/{table.Id}", table); });
-api.MapDelete("/tables", async (RestaurantContext db) => { db.Orders.RemoveRange(db.Orders); db.Tables.RemoveRange(db.Tables); await db.SaveChangesAsync(); return Results.NoContent(); });
+api.MapDelete("/tables/{id:int}", async (int id, RestaurantContext db, CancellationToken cancellationToken) =>
+{
+    var table = await db.Tables.FindAsync([id], cancellationToken);
+    if (table is null) return Results.NotFound();
+
+    await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+    var orders = await db.Orders.Where(order => order.TableId == id).ToListAsync(cancellationToken);
+    db.Orders.RemoveRange(orders);
+    db.Tables.Remove(table);
+    await db.SaveChangesAsync(cancellationToken);
+    await transaction.CommitAsync(cancellationToken);
+    return Results.NoContent();
+});
 api.MapPatch("/tables/{id:int}", async (int id, TablePatch patch, RestaurantContext db) =>
 {
     var table = await db.Tables.FindAsync(id);

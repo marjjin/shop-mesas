@@ -29,6 +29,10 @@
 .empty-result { margin: 10px 0; color: #858683; font-size: 12px; }
 .account footer { position: static; z-index: 2; flex: none; width: auto; padding: 14px 27px 25px; border-top: 1px solid #e7e6e0; background: #fffdfa; }
 .account footer .wide { margin-top: 0; }
+.account .table-menu-footer { display: grid; grid-template-columns: 1fr; gap: 9px; }
+.account .table-menu-footer .dark { width: 100%; }
+.delete-table-button { width: 100%; padding: 11px 16px; border: 1px solid #e3a697; border-radius: 9px; background: #fff5f2; color: #ad3f29; font-weight: 800; cursor: pointer; }
+.delete-table-button:hover { border-color: #d45c40; background: #fbe4dd; }
 .account .timers { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .orders-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 25px; }
 .orders-heading h3 { margin: 0 0 10px; }

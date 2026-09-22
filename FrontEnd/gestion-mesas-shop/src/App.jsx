@@ -112,7 +112,7 @@ function FloorPlan({ tables, coworkingTableIds, editingId, assignmentOrder, assi
   </div>
 }
 
-function TableMenu({ table, data, orders, now, api, load, closePanel, editTable, closeTable, updateOpenedAt }) {
+function TableMenu({ table, data, orders, now, api, load, closePanel, editTable, closeTable, deleteTable, updateOpenedAt }) {
   const [search, setSearch] = useState('')
   const [customerName, setCustomerName] = useState('')
   const [openError, setOpenError] = useState('')
@@ -236,7 +236,10 @@ function TableMenu({ table, data, orders, now, api, load, closePanel, editTable,
         </div>
       }) : <p className="empty-result">Todavía no hay consumos.</p>}
     </div>
-    <footer>{table.status === 'occupied' && <button className="dark wide" onClick={() => closeTable(table.id)}>Cerrar y liberar mesa</button>}</footer>
+    <footer className="table-menu-footer">
+      {table.status === 'occupied' && <button className="dark" onClick={() => closeTable(table.id)}>Cerrar y liberar mesa</button>}
+      <button className="delete-table-button" onClick={() => deleteTable(table)}>Eliminar mesa</button>
+    </footer>
   </aside>
 }
 
@@ -305,6 +308,21 @@ function App() {
       if (!printStarted) setMessage('Mesa cerrada. Habilitá las ventanas emergentes para imprimir el ticket automáticamente.')
     } catch (error) {
       printWindow?.close()
+      setMessage(error.message)
+    }
+  }
+  const deleteTable = async (table) => {
+    const warning = table.status === 'occupied'
+      ? `¿Eliminar ${table.name}? También se borrarán sus consumos actuales. Los cierres anteriores se conservarán.`
+      : `¿Eliminar ${table.name} del salón?`
+    if (!window.confirm(warning)) return
+    try {
+      await api(`/tables/${table.id}`, { method: 'DELETE' })
+      setSelectedId(null)
+      setEditingId(null)
+      await load()
+      setMessage(`${table.name} fue eliminada.`)
+    } catch (error) {
       setMessage(error.message)
     }
   }
@@ -380,12 +398,12 @@ function App() {
         <header><div><p className="eyebrow">OPERACIÓN EN VIVO</p><h1>Salón principal</h1><p>Un clic abre el menú. Usá “Mover mesa” o doble clic para editar su ubicación.</p></div><button className="primary" onClick={async () => { await api('/tables', { method: 'POST', body: JSON.stringify({ name: tableName || null, seats: 4 }) }); setTableName(''); await load() }}>+ Nueva mesa</button></header>
         {assigningPendingOrder && <div className="table-assignment-notice" role="status"><div><strong>Elegí una mesa para {assigningPendingOrder.customerName}</strong><span>Las mesas libres están resaltadas en verde. Al elegir una se abrirá y se imprimirá el ticket.</span></div><button type="button" disabled={assigningTable} onClick={() => setAssigningPendingOrderId(null)}>Cancelar</button></div>}
         {coworkingTables.length > 0 && <div className="coworking-notice" role="alert"><strong>⚠ Alerta de coworking</strong><span>{coworkingTables.map((table) => table.name).join(', ')} {coworkingTables.length === 1 ? 'tiene' : 'tienen'} un servicio de coworking cargado.</span></div>}
-        <div className="add-table"><input placeholder="Nombre de la mesa" value={tableName} onChange={(event) => setTableName(event.target.value)} /><button className="text-button" onClick={async () => { await api('/tables', { method: 'DELETE' }); setSelectedId(null); setEditingId(null); await load() }}>Vaciar salón</button></div>
+        <div className="add-table"><input placeholder="Nombre de la mesa" value={tableName} onChange={(event) => setTableName(event.target.value)} /></div>
         {message && <p className="error">{message}</p>}
         <FloorPlan tables={data.tables} coworkingTableIds={coworkingTableIds} editingId={editingId} assignmentOrder={assigningPendingOrder} assigningTable={assigningTable} onSelect={(id) => { setSelectedId(id); setEditingId(null) }} onEdit={(id) => { setSelectedId(null); setEditingId(id) }} onAssign={assignPendingOrderToTable} saveTable={saveTable} />
       </> : section === 'pending' ? <PendingOrders data={data} api={api} load={load} onChooseTable={chooseTableForPendingOrder} /> : section === 'catalog' ? <Catalog data={data} api={api} load={load} /> : section === 'cigarettes' ? <Cigarettes api={api} /> : <History histories={histories} />}
     </section>
-    {selected && <TableMenu key={selected.id} table={selected} data={data} orders={orders} now={now} api={api} load={load} closePanel={() => setSelectedId(null)} editTable={(id) => { setSelectedId(null); setEditingId(id) }} closeTable={closeTable} updateOpenedAt={updateOpenedAt} />}
+    {selected && <TableMenu key={selected.id} table={selected} data={data} orders={orders} now={now} api={api} load={load} closePanel={() => setSelectedId(null)} editTable={(id) => { setSelectedId(null); setEditingId(id) }} closeTable={closeTable} deleteTable={deleteTable} updateOpenedAt={updateOpenedAt} />}
   </main>
 }
 
