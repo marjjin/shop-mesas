@@ -8,6 +8,7 @@ import { openReceiptPrintWindow, printReceipt, printWelcomeReceipt } from './rec
 import './App.css'
 import './Panel.css'
 import './Navigation.css'
+import './FloorPlan.css'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 const isCoworkingService = (product) => product.name.startsWith('Servicio Coworking ')
@@ -39,6 +40,8 @@ function FloorPlan({ tables, coworkingTableIds, editingId, assignmentOrder, assi
   const origin = useRef({ x: 0, y: 0 })
   const clickTimer = useRef(null)
   const editing = tables.find((table) => table.id === editingId)
+  const canvasWidth = Math.max(760, ...tables.map((table) => table.x + table.width + 60))
+  const canvasHeight = Math.max(560, ...tables.map((table) => table.y + table.height + 60))
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000)
@@ -77,9 +80,10 @@ function FloorPlan({ tables, coworkingTableIds, editingId, assignmentOrder, assi
     })
   }
 
-  return <div className={`floor ${assignmentOrder ? 'assignment-mode' : ''}`} onClick={() => { if (!assignmentOrder) onSelect(null) }}>
-    <small>{assignmentOrder ? `ELEGÍ UNA MESA LIBRE PARA ${assignmentOrder.customerName.toUpperCase()}` : 'SALÓN · UN CLIC OPERA · DOBLE CLIC EDITA UBICACIÓN Y TAMAÑO'}</small>
-    {tables.map((table) => <button
+  return <div className={`floor ${assignmentOrder ? 'assignment-mode' : ''}`} aria-label="Plano desplazable de mesas">
+    <div className="floor-canvas" style={{ minWidth: canvasWidth, minHeight: canvasHeight }} onClick={() => { if (!assignmentOrder) onSelect(null) }}>
+      <small className="floor-instructions">{assignmentOrder ? `ELEGÍ UNA MESA LIBRE PARA ${assignmentOrder.customerName.toUpperCase()}` : 'SALÓN · TOCÁ UNA MESA PARA OPERAR · DESLIZÁ PARA RECORRER'}</small>
+      {tables.map((table) => <button
       key={table.id}
       type="button"
       ref={table.id === editingId ? setTarget : null}
@@ -94,16 +98,17 @@ function FloorPlan({ tables, coworkingTableIds, editingId, assignmentOrder, assi
       {table.status === 'occupied' && table.customerName && <span className="table-customer">{table.customerName}</span>}
       {coworkingTableIds.has(table.id) && <span className="coworking-badge">⚠ SERVICIO COWORKING</span>}
       {table.status === 'occupied' && <div className="table-times"><span><small>SIN CONSUMIR</small><strong>{clock(table.lastConsumptionAt, now)}</strong></span></div>}
-    </button>)}
-    {editingId && target && <Moveable
-      key={editingId} target={target} draggable resizable throttleDrag={0}
-      onDragStart={({ set }) => begin(set)}
-      onDrag={({ target: element, beforeTranslate }) => move(element, beforeTranslate)}
-      onDragEnd={({ lastEvent }) => { if (lastEvent) finish() }}
-      onResizeStart={({ dragStart }) => begin(dragStart?.set)}
-      onResize={({ target: element, width, height, drag }) => { element.style.width = `${width}px`; element.style.height = `${height}px`; move(element, drag.beforeTranslate) }}
-      onResizeEnd={({ lastEvent }) => { if (lastEvent) finish(lastEvent.width, lastEvent.height) }}
-    />}
+      </button>)}
+      {editingId && target && <Moveable
+        key={editingId} target={target} draggable resizable throttleDrag={0}
+        onDragStart={({ set }) => begin(set)}
+        onDrag={({ target: element, beforeTranslate }) => move(element, beforeTranslate)}
+        onDragEnd={({ lastEvent }) => { if (lastEvent) finish() }}
+        onResizeStart={({ dragStart }) => begin(dragStart?.set)}
+        onResize={({ target: element, width, height, drag }) => { element.style.width = `${width}px`; element.style.height = `${height}px`; move(element, drag.beforeTranslate) }}
+        onResizeEnd={({ lastEvent }) => { if (lastEvent) finish(lastEvent.width, lastEvent.height) }}
+      />}
+    </div>
   </div>
 }
 
