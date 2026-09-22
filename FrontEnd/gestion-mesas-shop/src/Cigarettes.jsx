@@ -33,8 +33,8 @@ function ShiftCloseForm({ products, purchases, shift, date, onClose }) {
 
   return <form className="shift-close" onSubmit={submit}>
     <div className="close-grid-header"><span>Producto</span><span>Inicial</span><span>Compras</span><span>Final</span><span>Vendidos</span><span>Importe</span></div>
-    {rows.map((row) => <div className="close-grid-row" key={row.id}>
-      <span className="close-product"><b>{row.name}</b><small>{money.format(row.price)} c/u</small></span>
+    {rows.map((row) => <div className={`close-grid-row ${row.stock <= 0 ? 'stock-empty' : ''}`} key={row.id}>
+      <span className="close-product"><b>{row.name}</b><small>{money.format(row.price)} c/u{row.stock <= 0 ? ' · SIN STOCK' : ''}</small></span>
       <span className="close-metric"><small>Inicial</small><strong>{row.initial}</strong></span>
       <span className="close-metric"><small>Compras</small><strong className={row.purchased ? 'purchase-pill' : ''}>+{row.purchased}</strong></span>
       <label className="close-metric final-stock"><small>Stock final</small><input type="number" inputMode="numeric" min="0" max={row.initial + row.purchased} required value={finalStocks[row.id] ?? ''} aria-label={`Stock final de ${row.name}`} onChange={(event) => setFinalStocks({ ...finalStocks, [row.id]: event.target.value })} /></label>
