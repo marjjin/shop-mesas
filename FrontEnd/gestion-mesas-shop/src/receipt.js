@@ -97,6 +97,53 @@ function welcomeReceiptMarkup(table) {
 </html>`
 }
 
+function cigaretteShiftReceiptMarkup(close) {
+  const currency = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 })
+  const shiftName = close.shift === 'morning' ? 'MAÑANA' : 'TARDE'
+  const businessDate = new Date(`${close.businessDate}T12:00:00`).toLocaleDateString('es-AR')
+  const items = close.items.map((item) => `<div class="item">
+    <div class="item-title"><b>${escapeHtml(item.productName)}</b><strong>${currency.format(item.salesAmount)}</strong></div>
+    <div class="calculation"><span>${item.soldQuantity} un. × ${currency.format(item.unitPrice)}</span><span>${currency.format(item.salesAmount)}</span></div>
+    <small>Stock: ${item.initialStock} inicial + ${item.purchasedQuantity} compras − ${item.finalStock} final</small>
+  </div>`).join('')
+
+  return `<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Cierre cigarrillos ${shiftName} ${businessDate}</title>
+  <style>
+    @page { size: 80mm auto; margin: 0; }
+    * { box-sizing: border-box; }
+    body { width: 80mm; margin: 0; padding: 8mm 6mm; color: #000; font-family: Arial, sans-serif; font-size: 9pt; }
+    header { padding-bottom: 5mm; border-bottom: 1px solid #000; text-align: center; }
+    h1 { margin: 0; font-size: 16pt; }
+    h2 { margin: 2mm 0 0; font-size: 11pt; }
+    .meta { display: grid; gap: 1.5mm; padding: 4mm 0; border-bottom: 1px solid #000; }
+    h3 { margin: 4mm 0 2mm; font-size: 10pt; }
+    .item { padding: 2.5mm 0; border-bottom: 1px dashed #777; }
+    .item-title, .calculation { display: flex; justify-content: space-between; gap: 3mm; }
+    .item-title strong, .calculation span:last-child { white-space: nowrap; }
+    .calculation { margin-top: 1.5mm; }
+    .item small { display: block; margin-top: 1.5mm; color: #333; font-size: 7.5pt; }
+    .total { display: flex; justify-content: space-between; margin-top: 5mm; padding: 4mm 0; border-top: 2px solid #000; border-bottom: 2px solid #000; font-size: 13pt; font-weight: bold; }
+    .units { margin-top: 2mm; text-align: right; font-size: 8pt; }
+    footer { margin-top: 5mm; text-align: center; font-weight: bold; font-size: 9pt; }
+  </style>
+</head>
+<body>
+  <header><h1>SHOP FAMILY</h1><h2>CIERRE DE CIGARRILLOS</h2></header>
+  <div class="meta"><span>Fecha: ${businessDate}</span><span>Turno: ${shiftName}</span><span>Cierre: ${localTime(close.closedAt)}</span></div>
+  <h3>DETALLE DE VENTAS</h3>
+  ${items || '<p>Sin ventas registradas</p>'}
+  <div class="total"><span>TOTAL TURNO</span><span>${currency.format(close.totalSales)}</span></div>
+  <div class="units">Unidades vendidas: ${close.totalSold}</div>
+  <footer>COMPROBANTE DE CIERRE</footer>
+  <script>window.addEventListener('load', () => setTimeout(() => { window.focus(); window.print(); }, 100)); window.addEventListener('afterprint', () => window.close());</script>
+</body>
+</html>`
+}
+
 export function openReceiptPrintWindow() {
   const printWindow = window.open('', '_blank', 'popup,width=420,height=720')
   if (printWindow) {
@@ -118,6 +165,15 @@ export function printWelcomeReceipt(table, printWindow) {
   if (!printWindow || printWindow.closed) return false
   printWindow.document.open()
   printWindow.document.write(welcomeReceiptMarkup(table))
+  printWindow.document.close()
+  return true
+}
+
+export function printCigaretteShiftReceipt(close) {
+  const printWindow = openReceiptPrintWindow()
+  if (!printWindow) return false
+  printWindow.document.open()
+  printWindow.document.write(cigaretteShiftReceiptMarkup(close))
   printWindow.document.close()
   return true
 }

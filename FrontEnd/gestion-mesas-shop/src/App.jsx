@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Moveable from 'react-moveable'
 import Catalog from './Catalog.jsx'
+import Cigarettes from './Cigarettes.jsx'
 import History from './History.jsx'
 import PendingOrders from './PendingOrders.jsx'
 import { openReceiptPrintWindow, printReceipt, printWelcomeReceipt } from './receipt.js'
@@ -250,7 +251,10 @@ function App() {
 
   const api = useCallback(async (path, options = {}) => {
     const response = await fetch(`${API}${path}`, { headers: { 'Content-Type': 'application/json' }, ...options })
-    if (!response.ok) throw new Error(response.status === 401 ? 'Usuario o contraseña incorrectos.' : 'No se pudo completar la operación.')
+    if (!response.ok) {
+      const problem = await response.json().catch(() => null)
+      throw new Error(response.status === 401 ? 'Usuario o contraseña incorrectos.' : problem?.detail || 'No se pudo completar la operación.')
+    }
     return response.status === 204 ? null : response.json()
   }, [])
   const load = useCallback(async () => {
@@ -359,6 +363,7 @@ function App() {
       <button className={section === 'salon' ? 'active' : ''} onClick={() => setSection('salon')}>▦ <span>Plano de mesas</span></button>
       <button className={section === 'pending' ? 'active' : ''} onClick={() => { setSection('pending'); setSelectedId(null); setEditingId(null); setAssigningPendingOrderId(null) }}>⌛ <span>Pedidos{data.pendingOrders?.length ? ` (${data.pendingOrders.length})` : ''}</span></button>
       <button className={section === 'catalog' ? 'active' : ''} onClick={() => { setSection('catalog'); setSelectedId(null); setAssigningPendingOrderId(null) }}>☷ <span>Artículos</span></button>
+      <button className={section === 'cigarettes' ? 'active' : ''} onClick={() => { setSection('cigarettes'); setSelectedId(null); setEditingId(null); setAssigningPendingOrderId(null) }}>▥ <span>Cigarrillos</span></button>
       <button className={section === 'history' ? 'active' : ''} onClick={showHistory}>◷ <span>Historial de mesas</span></button>
       <div className="profile"><i>A</i><span><b>{user.name}</b><small>Administrador</small></span><button className="logout-button" title="Cerrar sesión" onClick={signOut}>↪</button></div>
     </aside>
@@ -370,7 +375,7 @@ function App() {
         <div className="add-table"><input placeholder="Nombre de la mesa" value={tableName} onChange={(event) => setTableName(event.target.value)} /><button className="text-button" onClick={async () => { await api('/tables', { method: 'DELETE' }); setSelectedId(null); setEditingId(null); await load() }}>Vaciar salón</button></div>
         {message && <p className="error">{message}</p>}
         <FloorPlan tables={data.tables} coworkingTableIds={coworkingTableIds} editingId={editingId} assignmentOrder={assigningPendingOrder} assigningTable={assigningTable} onSelect={(id) => { setSelectedId(id); setEditingId(null) }} onEdit={(id) => { setSelectedId(null); setEditingId(id) }} onAssign={assignPendingOrderToTable} saveTable={saveTable} />
-      </> : section === 'pending' ? <PendingOrders data={data} api={api} load={load} onChooseTable={chooseTableForPendingOrder} /> : section === 'catalog' ? <Catalog data={data} api={api} load={load} /> : <History histories={histories} />}
+      </> : section === 'pending' ? <PendingOrders data={data} api={api} load={load} onChooseTable={chooseTableForPendingOrder} /> : section === 'catalog' ? <Catalog data={data} api={api} load={load} /> : section === 'cigarettes' ? <Cigarettes api={api} /> : <History histories={histories} />}
     </section>
     {selected && <TableMenu key={selected.id} table={selected} data={data} orders={orders} now={now} api={api} load={load} closePanel={() => setSelectedId(null)} editTable={(id) => { setSelectedId(null); setEditingId(id) }} closeTable={closeTable} updateOpenedAt={updateOpenedAt} />}
   </main>

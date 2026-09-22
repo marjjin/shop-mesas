@@ -4,7 +4,9 @@ API ASP.NET Core Minimal API con Entity Framework Core y PostgreSQL. En el prime
 
 ## Desarrollo local
 
-Definí la variable `ConnectionStrings__Restaurant` con una cadena de conexión de PostgreSQL antes de ejecutar `dotnet run`. La API queda disponible normalmente en `http://localhost:5000` y el cliente Vite la consume mediante `http://localhost:5000/api`.
+Ejecutá `dotnet run --urls http://localhost:5000`. Sin configuración adicional, la API usa SQLite y crea `gestion-mesas.db` localmente. La API queda disponible en `http://localhost:5000` y el cliente Vite la consume mediante `http://localhost:5000/api`.
+
+Si preferís PostgreSQL, definí la variable `ConnectionStrings__Restaurant` con su cadena de conexión antes de iniciar la API; esa variable reemplaza automáticamente la configuración local.
 
 ## Despliegue en Render
 

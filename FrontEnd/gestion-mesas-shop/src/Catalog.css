@@ -65,6 +65,24 @@
   color: var(--ink);
 }
 
+.load-more-button {
+  display: block;
+  min-width: 170px;
+  margin: 20px auto 0;
+  padding: 11px 18px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--orange);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.load-more-button:hover {
+  border-color: var(--orange);
+  background: #fff8f4;
+}
+
 .profile .logout-button {
   display: grid;
   width: 34px;
