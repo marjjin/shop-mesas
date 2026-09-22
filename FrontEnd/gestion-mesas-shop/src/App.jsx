@@ -11,6 +11,7 @@ import './Navigation.css'
 import './FloorPlan.css'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+const sections = new Set(['salon', 'pending', 'catalog', 'cigarettes', 'history'])
 const isCoworkingService = (product) => product.name.startsWith('Servicio Coworking ')
 
 function clock(date, now = Date.now()) {
@@ -252,7 +253,10 @@ function App() {
   const [editingId, setEditingId] = useState(null)
   const [assigningPendingOrderId, setAssigningPendingOrderId] = useState(null)
   const [assigningTable, setAssigningTable] = useState(false)
-  const [section, setSection] = useState('salon')
+  const [section, setSection] = useState(() => {
+    const storedSection = sessionStorage.getItem('mesa-section')
+    return sections.has(storedSection) ? storedSection : 'salon'
+  })
   const [tableName, setTableName] = useState('')
   const [message, setMessage] = useState('')
   const [now, setNow] = useState(() => Date.now())
@@ -274,6 +278,9 @@ function App() {
   }, [api])
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (user) load() }, [user, load])
+  useEffect(() => { sessionStorage.setItem('mesa-section', section) }, [section])
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { if (user && section === 'history') loadHistory() }, [user, section, loadHistory])
   useEffect(() => {
     if (!user) return undefined
     const timer = setInterval(load, 10000)
@@ -326,11 +333,10 @@ function App() {
       setMessage(error.message)
     }
   }
-  const showHistory = async () => {
+  const showHistory = () => {
     setSection('history')
     setSelectedId(null)
     setAssigningPendingOrderId(null)
-    await loadHistory()
   }
   const chooseTableForPendingOrder = (pendingOrderId) => {
     setSection('salon')
