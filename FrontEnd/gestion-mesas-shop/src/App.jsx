@@ -7,6 +7,7 @@ import PendingOrders from './PendingOrders.jsx'
 import { openReceiptPrintWindow, printReceipt, printWelcomeReceipt } from './receipt.js'
 import './App.css'
 import './Panel.css'
+import './Navigation.css'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 const isCoworkingService = (product) => product.name.startsWith('Servicio Coworking ')
@@ -360,11 +361,13 @@ function App() {
   return <main className="layout">
     <aside className="sidebar">
       <div className="logo">☕ Mesa<span>.</span></div>
-      <button className={section === 'salon' ? 'active' : ''} onClick={() => setSection('salon')}>▦ <span>Plano de mesas</span></button>
-      <button className={section === 'pending' ? 'active' : ''} onClick={() => { setSection('pending'); setSelectedId(null); setEditingId(null); setAssigningPendingOrderId(null) }}>⌛ <span>Pedidos{data.pendingOrders?.length ? ` (${data.pendingOrders.length})` : ''}</span></button>
-      <button className={section === 'catalog' ? 'active' : ''} onClick={() => { setSection('catalog'); setSelectedId(null); setAssigningPendingOrderId(null) }}>☷ <span>Artículos</span></button>
-      <button className={section === 'cigarettes' ? 'active' : ''} onClick={() => { setSection('cigarettes'); setSelectedId(null); setEditingId(null); setAssigningPendingOrderId(null) }}>▥ <span>Cigarrillos</span></button>
-      <button className={section === 'history' ? 'active' : ''} onClick={showHistory}>◷ <span>Historial de mesas</span></button>
+      <nav className="sidebar-nav" aria-label="Navegación principal">
+        <button className={section === 'salon' ? 'active' : ''} onClick={() => setSection('salon')}>▦ <span>Plano de mesas</span></button>
+        <button className={section === 'pending' ? 'active' : ''} onClick={() => { setSection('pending'); setSelectedId(null); setEditingId(null); setAssigningPendingOrderId(null) }}>⌛ <span>Pedidos{data.pendingOrders?.length ? ` (${data.pendingOrders.length})` : ''}</span></button>
+        <button className={section === 'catalog' ? 'active' : ''} onClick={() => { setSection('catalog'); setSelectedId(null); setAssigningPendingOrderId(null) }}>☷ <span>Artículos</span></button>
+        <button className={section === 'cigarettes' ? 'active' : ''} onClick={() => { setSection('cigarettes'); setSelectedId(null); setEditingId(null); setAssigningPendingOrderId(null) }}>▥ <span>Cigarrillos</span></button>
+        <button className={section === 'history' ? 'active' : ''} onClick={showHistory}>◷ <span>Historial de mesas</span></button>
+      </nav>
       <div className="profile"><i>A</i><span><b>{user.name}</b><small>Administrador</small></span><button className="logout-button" title="Cerrar sesión" onClick={signOut}>↪</button></div>
     </aside>
     <section className="page">

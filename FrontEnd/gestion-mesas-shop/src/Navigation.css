@@ -1,0 +1,113 @@
+.sidebar-nav {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+}
+
+.sidebar-nav > button {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 13px 14px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #bfc0ba;
+  text-align: left;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.sidebar-nav > button:hover {
+  color: #fff;
+  background: #343532;
+}
+
+.sidebar-nav > button.active {
+  color: #fff;
+  background: #3d3e3b;
+}
+
+@media (max-width: 680px) {
+  .layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    width: 100%;
+    min-height: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 7px 12px;
+    padding: 9px 12px 8px;
+    box-shadow: 0 6px 24px rgba(20, 20, 18, .14);
+  }
+
+  .sidebar .logo {
+    flex: 1;
+    padding: 0;
+    font-size: 20px;
+    white-space: nowrap;
+  }
+
+  .sidebar .logo:first-letter {
+    font-size: inherit;
+  }
+
+  .sidebar-nav {
+    width: calc(100% + 24px);
+    flex-basis: calc(100% + 24px);
+    flex-direction: row;
+    order: 3;
+    gap: 5px;
+    margin: 0 -12px -8px;
+    padding: 2px 12px 9px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+  }
+
+  .sidebar-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sidebar-nav > button {
+    min-height: 40px;
+    flex: none;
+    justify-content: center;
+    gap: 7px;
+    padding: 9px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+    scroll-snap-align: start;
+  }
+
+  .sidebar-nav > button span {
+    display: inline;
+  }
+
+  .sidebar .profile {
+    flex: none;
+    margin: 0 0 0 auto;
+    padding: 0 0 0 10px;
+    border-top: 0;
+    border-left: 1px solid #444540;
+  }
+
+  .sidebar .profile span {
+    display: none;
+  }
+
+  .sidebar .profile .logout-button {
+    display: grid;
+  }
+
+  .page {
+    width: 100%;
+    padding: 24px 14px;
+  }
+}
