@@ -37,7 +37,7 @@ function ShiftCloseForm({ products, purchases, shift, date, onClose }) {
       <span className="close-product"><b>{row.name}</b><small>{money.format(row.price)} c/u{row.stock <= 0 ? ' · SIN STOCK' : ''}</small></span>
       <span className="close-metric"><small>Inicial</small><strong>{row.initial}</strong></span>
       <span className="close-metric"><small>Compras</small><strong className={row.purchased ? 'purchase-pill' : ''}>+{row.purchased}</strong></span>
-      <label className="close-metric final-stock"><small>Stock final</small><input type="number" inputMode="numeric" min="0" max={row.initial + row.purchased} required disabled={row.stock <= 0} title={row.stock <= 0 ? 'Sin stock disponible' : undefined} value={finalStocks[row.id] ?? ''} aria-label={`Stock final de ${row.name}`} onChange={(event) => setFinalStocks({ ...finalStocks, [row.id]: event.target.value })} /></label>
+      <label className="close-metric final-stock"><small translate="no">Stock final</small><input type="number" inputMode="numeric" min="0" max={row.initial + row.purchased} required disabled={row.stock <= 0} title={row.stock <= 0 ? 'Sin stock disponible' : undefined} value={finalStocks[row.id] ?? ''} aria-label={`Stock final de ${row.name}`} onChange={(event) => setFinalStocks({ ...finalStocks, [row.id]: event.target.value })} /></label>
       <span className="close-metric"><small>Vendidos</small><strong className="sold-value">{row.sold}</strong></span>
       <span className="close-metric amount-metric"><small>Importe</small><b>{money.format(row.amount)}</b></span>
     </div>)}
