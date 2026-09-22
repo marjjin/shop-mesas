@@ -35,11 +35,11 @@ function ShiftCloseForm({ products, purchases, shift, date, onClose }) {
     <div className="close-grid-header"><span>Producto</span><span>Inicial</span><span>Compras</span><span>Final</span><span>Vendidos</span><span>Importe</span></div>
     {rows.map((row) => <div className="close-grid-row" key={row.id}>
       <span className="close-product"><b>{row.name}</b><small>{money.format(row.price)} c/u</small></span>
-      <strong>{row.initial}</strong>
-      <span className={row.purchased ? 'purchase-pill' : ''}>+{row.purchased}</span>
-      <input type="number" min="0" max={row.initial + row.purchased} required value={finalStocks[row.id] ?? ''} aria-label={`Stock final de ${row.name}`} onChange={(event) => setFinalStocks({ ...finalStocks, [row.id]: event.target.value })} />
-      <strong className="sold-value">{row.sold}</strong>
-      <b>{money.format(row.amount)}</b>
+      <span className="close-metric"><small>Inicial</small><strong>{row.initial}</strong></span>
+      <span className="close-metric"><small>Compras</small><strong className={row.purchased ? 'purchase-pill' : ''}>+{row.purchased}</strong></span>
+      <label className="close-metric final-stock"><small>Stock final</small><input type="number" inputMode="numeric" min="0" max={row.initial + row.purchased} required value={finalStocks[row.id] ?? ''} aria-label={`Stock final de ${row.name}`} onChange={(event) => setFinalStocks({ ...finalStocks, [row.id]: event.target.value })} /></label>
+      <span className="close-metric"><small>Vendidos</small><strong className="sold-value">{row.sold}</strong></span>
+      <span className="close-metric amount-metric"><small>Importe</small><b>{money.format(row.amount)}</b></span>
     </div>)}
     {!products.length && <div className="cigarette-empty">Primero cargá al menos un cigarrillo.</div>}
     <div className="close-total"><span><small>UNIDADES VENDIDAS</small><b>{totalUnits}</b></span><span><small>VENTA DEL TURNO</small><b>{money.format(totalSales)}</b></span><button className="primary" disabled={!isValid}>Cerrar turno {shifts[shift].toLowerCase()}</button></div>
@@ -66,7 +66,7 @@ export default function Cigarettes({ api }) {
   const [shift, setShift] = useState('morning')
   const [dashboard, setDashboard] = useState({ products: [], purchases: [], closes: [] })
   const [product, setProduct] = useState({ name: '', price: '', initialStock: '' })
-    const [purchase, setPurchase] = useState({ cigaretteProductId: '', quantity: '' })
+  const [purchase, setPurchase] = useState({ cigaretteProductId: '', quantity: '' })
   const [purchaseSearch, setPurchaseSearch] = useState('')
   const [editing, setEditing] = useState(null)
   const [message, setMessage] = useState('')
