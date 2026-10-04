@@ -84,6 +84,27 @@ public sealed class CigaretteServiceTests
     }
 
     [Fact]
+    public async Task KeepsProductOrderWhenAProductIsRenamed()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var secondProduct = new CigaretteProduct
+        {
+            Name = "Camel Box",
+            Price = 3000m,
+            Stock = 8,
+            CreatedAt = DateTime.UtcNow.AddMinutes(1)
+        };
+        fixture.Db.CigaretteProducts.Add(secondProduct);
+        await fixture.Db.SaveChangesAsync();
+
+        await fixture.Service.UpdateProductAsync(
+            secondProduct.Id, new UpdateCigaretteProductRequest("A Camel Box", 3000m, 8), default);
+
+        var products = (await fixture.Service.GetDashboardAsync(new DateOnly(2026, 9, 21), default)).Products;
+        Assert.Equal([fixture.ProductId, secondProduct.Id], products.Select(product => product.Id));
+    }
+
+    [Fact]
     public async Task UpdatesPurchaseAndAdjustsStockByDifference()
     {
         await using var fixture = await TestFixture.CreateAsync();

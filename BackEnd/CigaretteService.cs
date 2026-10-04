@@ -24,7 +24,7 @@ public sealed class CigaretteService(RestaurantContext db) : ICigaretteService
     public async Task<CigaretteDashboardResponse> GetDashboardAsync(DateOnly date, CancellationToken cancellationToken)
     {
         var products = await db.CigaretteProducts.AsNoTracking().Where(product => product.IsActive)
-            .OrderBy(product => product.Name).Select(product => ToResponse(product)).ToListAsync(cancellationToken);
+            .OrderBy(product => product.CreatedAt).ThenBy(product => product.Id).Select(product => ToResponse(product)).ToListAsync(cancellationToken);
         var purchases = await LoadPurchasesAsync(date, cancellationToken);
         var closes = await LoadClosesAsync(close => close.BusinessDate == date, cancellationToken);
         return new CigaretteDashboardResponse(date, products, purchases, closes);
@@ -263,7 +263,7 @@ public sealed class CigaretteService(RestaurantContext db) : ICigaretteService
     private static CigarettePurchaseResponse ToResponse(CigarettePurchase purchase, string productName) => new(purchase.Id, purchase.CigaretteProductId, productName, purchase.Quantity, purchase.BusinessDate, purchase.Shift, new DateTimeOffset(purchase.CreatedAt, TimeSpan.Zero));
     private static CigaretteShiftCloseResponse ToResponse(CigaretteShiftClose close)
     {
-        var items = close.Items.Select(item => new CigaretteShiftCloseItemResponse(item.CigaretteProductId, item.ProductName, item.UnitPrice, item.InitialStock, item.PurchasedQuantity, item.FinalStock, item.SoldQuantity, item.SalesAmount)).ToList();
+        var items = close.Items.OrderBy(item => item.Id).Select(item => new CigaretteShiftCloseItemResponse(item.CigaretteProductId, item.ProductName, item.UnitPrice, item.InitialStock, item.PurchasedQuantity, item.FinalStock, item.SoldQuantity, item.SalesAmount)).ToList();
         return new CigaretteShiftCloseResponse(close.Id, close.BusinessDate, close.Shift, new DateTimeOffset(close.ClosedAt, TimeSpan.Zero), items.Sum(item => item.SoldQuantity), items.Sum(item => item.SalesAmount), items);
     }
 }
