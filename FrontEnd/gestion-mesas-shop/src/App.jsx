@@ -5,6 +5,7 @@ import Cigarettes from './Cigarettes.jsx'
 import History from './History.jsx'
 import PendingOrders from './PendingOrders.jsx'
 import { openReceiptPrintWindow, printReceipt, printWelcomeReceipt } from './receipt.js'
+import { parseProductSearch } from './productSearch.js'
 import './App.css'
 import './Panel.css'
 import './Navigation.css'
@@ -125,12 +126,13 @@ function TableMenu({ table, data, orders, now, api, load, closePanel, editTable,
   const [orderTime, setOrderTime] = useState('')
   const [savingOrderId, setSavingOrderId] = useState(null)
   const [orderError, setOrderError] = useState('')
+  const { quantity, query } = parseProductSearch(search)
   const firstOrderTime = orders.reduce((earliest, order) => Math.min(earliest, new Date(/(?:Z|[+-]\d{2}:\d{2})$/.test(order.createdAt) ? order.createdAt : `${order.createdAt}Z`).getTime()), now)
-  const results = search.trim() ? data.products.filter((product) => !isCoworkingService(product)).filter((product) => {
-    return product.name.toLowerCase().includes(search.toLowerCase())
+  const results = query ? data.products.filter((product) => !isCoworkingService(product)).filter((product) => {
+    return product.name.toLowerCase().includes(query.toLowerCase())
   }) : []
   const addConsumption = async (productId) => {
-    await api('/orders', { method: 'POST', body: JSON.stringify({ tableId: table.id, productId, quantity: 1 }) })
+    await api('/orders', { method: 'POST', body: JSON.stringify({ tableId: table.id, productId, quantity }) })
     setSearch('')
     await load()
   }
@@ -214,8 +216,8 @@ function TableMenu({ table, data, orders, now, api, load, closePanel, editTable,
         </form>
       </> : <form className="open-table-form" onSubmit={openTable}><label htmlFor={`customer-${table.id}`}>Nombre del cliente</label><input id={`customer-${table.id}`} maxLength="80" autoComplete="off" autoFocus placeholder="Ej.: Martín" value={customerName} onChange={(event) => setCustomerName(event.target.value)} /><button className="primary wide" disabled={!customerName.trim()}>Abrir mesa e imprimir</button>{openError && <small className="start-time-error">{openError}</small>}</form>}
       <h3>Agregar consumo</h3>
-      <div className="search-field"><span>⌕</span><input className="product-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar artículo..." /></div>
-      {search.trim() && <div className="products search-results">{results.length ? results.map((product) => <button key={product.id} onClick={() => addConsumption(product.id)}><span>{product.name}</span><b>Agregar</b></button>) : <p className="empty-result">No se encontraron artículos.</p>}</div>}
+      <div className="search-field"><span>⌕</span><input className="product-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar artículo o 2*medialunas..." /></div>
+      {search.trim() && <div className="products search-results">{results.length ? results.map((product) => <button key={product.id} onClick={() => addConsumption(product.id)}><span>{product.name}</span><b>{quantity === 1 ? 'Agregar' : `Agregar ${quantity}`}</b></button>) : <p className="empty-result">No se encontraron artículos.</p>}</div>}
       <div className="orders-heading"><h3>Artículos cargados</h3><small>{orders.length} {orders.length === 1 ? 'registro' : 'registros'}</small></div>
       {table.coworkingDisabled && <p className="coworking-disabled-note">Servicios coworking pausados hasta la próxima apertura.</p>}
     </div>

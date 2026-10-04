@@ -46,7 +46,38 @@ function ShiftCloseForm({ products, purchases, shift, date, onClose }) {
   </form>
 }
 
-function CloseCard({ close }) {
+function EditShiftCloseForm({ close, onSave, onCancel, busy }) {
+  const [finalStocks, setFinalStocks] = useState(() => Object.fromEntries(close.items.map((item) => [item.cigaretteProductId, item.finalStock])))
+  const rows = close.items.map((item) => {
+    const final = Number(finalStocks[item.cigaretteProductId] ?? item.finalStock)
+    const available = item.initialStock + item.purchasedQuantity
+    const sold = available - final
+    return { ...item, final, available, sold, amount: sold * item.unitPrice }
+  })
+  const totalUnits = rows.reduce((total, row) => total + row.sold, 0)
+  const totalSales = rows.reduce((total, row) => total + row.amount, 0)
+  const isValid = rows.every((row) => row.final >= 0 && row.final <= row.available)
+
+  const submit = (event) => {
+    event.preventDefault()
+    onSave({ items: rows.map((row) => ({ cigaretteProductId: row.cigaretteProductId, finalStock: row.final })) })
+  }
+
+  return <form className="shift-close" onSubmit={submit}>
+    <div className="close-grid-header"><span>Producto</span><span>Inicial</span><span>Compras</span><span>Final</span><span>Vendidos</span><span>Importe</span></div>
+    {rows.map((row) => <div className="close-grid-row" key={row.cigaretteProductId}>
+      <span className="close-product"><b>{row.productName}</b><small>{money.format(row.unitPrice)} c/u</small></span>
+      <span className="close-metric"><small>Inicial</small><strong>{row.initialStock}</strong></span>
+      <span className="close-metric"><small>Compras</small><strong className={row.purchasedQuantity ? 'purchase-pill' : ''}>+{row.purchasedQuantity}</strong></span>
+      <label className="close-metric final-stock"><small translate="no">Stock final</small><input type="number" inputMode="numeric" min="0" max={row.available} required value={finalStocks[row.cigaretteProductId] ?? ''} aria-label={`Stock final corregido de ${row.productName}`} onChange={(event) => setFinalStocks({ ...finalStocks, [row.cigaretteProductId]: event.target.value })} /></label>
+      <span className="close-metric"><small>Vendidos</small><strong className="sold-value">{row.sold}</strong></span>
+      <span className="close-metric amount-metric"><small>Importe</small><b>{money.format(row.amount)}</b></span>
+    </div>)}
+    <div className="close-total"><span><small>UNIDADES VENDIDAS</small><b>{totalUnits}</b></span><span><small>VENTA CORREGIDA</small><b>{money.format(totalSales)}</b></span><button type="button" className="secondary" onClick={onCancel}>Cancelar</button><button className="primary" disabled={busy || !isValid}>Guardar corrección</button></div>
+  </form>
+}
+
+function CloseCard({ close, onEdit }) {
   const [open, setOpen] = useState(false)
   return <article className="close-card">
     <button type="button" className="close-card-summary" onClick={() => setOpen(!open)}>
@@ -56,7 +87,7 @@ function CloseCard({ close }) {
       <span><small>TOTAL</small><b>{money.format(close.totalSales)}</b></span>
       <i>{open ? '−' : '+'}</i>
     </button>
-    {open && <div className="close-card-detail">{close.items.map((item) => <div key={item.cigaretteProductId}><span><b>{item.productName}</b><small>{item.initialStock} inicial + {item.purchasedQuantity} compras − {item.finalStock} final</small></span><strong>{item.soldQuantity} × {money.format(item.unitPrice)}</strong><b>{money.format(item.salesAmount)}</b></div>)}<footer><button type="button" className="print-shift-ticket" onClick={() => printCigaretteShiftReceipt(close)}>▤ Imprimir ticket 80 mm</button></footer></div>}
+    {open && <div className="close-card-detail">{close.items.map((item) => <div key={item.cigaretteProductId}><span><b>{item.productName}</b><small>{item.initialStock} inicial + {item.purchasedQuantity} compras − {item.finalStock} final</small></span><strong>{item.soldQuantity} × {money.format(item.unitPrice)}</strong><b>{money.format(item.salesAmount)}</b></div>)}<footer><button type="button" className="edit-close-button" onClick={() => onEdit(close)}>✎ Corregir cierre</button><button type="button" className="print-shift-ticket" onClick={() => printCigaretteShiftReceipt(close)}>▤ Imprimir ticket 80 mm</button></footer></div>}
   </article>
 }
 
@@ -70,6 +101,8 @@ export default function Cigarettes({ api }) {
   const [stockSearch, setStockSearch] = useState('')
   const [purchaseSearch, setPurchaseSearch] = useState('')
   const [editing, setEditing] = useState(null)
+  const [editingPurchase, setEditingPurchase] = useState(null)
+  const [editingClose, setEditingClose] = useState(null)
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [visibleProductCount, setVisibleProductCount] = useState(10)
@@ -105,7 +138,7 @@ export default function Cigarettes({ api }) {
   }
   const saveProduct = async (event) => {
     event.preventDefault()
-    const saved = await execute(() => api(`/cigarettes/products/${editing.id}`, { method: 'PUT', body: JSON.stringify({ name: editing.name, price: Number(editing.price) }) }), 'Producto actualizado.')
+    const saved = await execute(() => api(`/cigarettes/products/${editing.id}`, { method: 'PUT', body: JSON.stringify({ name: editing.name, price: Number(editing.price), stock: Number(editing.stock) }) }), 'Producto actualizado.')
     if (saved) setEditing(null)
   }
   const addPurchase = async (event) => {
@@ -116,10 +149,31 @@ export default function Cigarettes({ api }) {
       setPurchaseSearch('')
     }
   }
+  const savePurchase = async (event) => {
+    event.preventDefault()
+    const saved = await execute(() => api(`/cigarettes/purchases/${editingPurchase.id}`, { method: 'PUT', body: JSON.stringify({ quantity: Number(editingPurchase.quantity) }) }), 'Compra actualizada y stock ajustado.')
+    if (saved) setEditingPurchase(null)
+  }
+  const deletePurchase = async (item) => {
+    if (!window.confirm(`¿Quitar la compra de ${item.quantity} unidades de ${item.productName}? El stock se descontará.`)) return
+    await execute(() => api(`/cigarettes/purchases/${item.id}`, { method: 'DELETE' }), 'Compra eliminada y stock ajustado.')
+  }
   const closeShift = async (request) => {
-    if (!window.confirm(`¿Confirmar el cierre del turno ${shifts[shift].toLowerCase()}? Esta acción no se puede deshacer.`)) return
+    if (!window.confirm(`¿Confirmar el cierre del turno ${shifts[shift].toLowerCase()}?`)) return
     const saved = await execute(() => api('/cigarettes/closes', { method: 'POST', body: JSON.stringify(request) }), 'Turno cerrado correctamente.')
     if (saved) setTab('history')
+  }
+  const saveCloseCorrection = async (request) => {
+    const saved = await execute(() => api(`/cigarettes/closes/${editingClose.id}`, { method: 'PUT', body: JSON.stringify(request) }), 'Cierre corregido y stock actualizado.')
+    if (saved) {
+      setEditingClose(null)
+      setTab('history')
+    }
+  }
+  const startEditingClose = (close) => {
+    setShift(close.shift)
+    setEditingClose(close)
+    setTab('close')
   }
 
   const selectedClose = dashboard.closes.find((close) => close.shift === shift)
@@ -141,7 +195,7 @@ export default function Cigarettes({ api }) {
     {tab === 'stock' && <div className="cigarette-columns">
       <section className="cigarette-card"><div className="section-heading"><div><small>INVENTARIO ACTUAL</small><h2>Productos cargados</h2></div><span>{dashboard.products.length} variedades</span></div>
         <div className="cigarette-product-search stock-search"><span>⌕</span><input type="search" autoComplete="off" aria-label="Buscar en productos cargados" placeholder="Buscar cigarrillo..." value={stockSearch} onChange={(event) => { setStockSearch(event.target.value); setVisibleProductCount(10) }} />{stockSearch && <button type="button" aria-label="Limpiar búsqueda" title="Limpiar búsqueda" onClick={() => { setStockSearch(''); setVisibleProductCount(10) }}>×</button>}</div>
-        <div className="stock-list">{visibleProducts.map((item) => editing?.id === item.id ? <form className="stock-edit" key={item.id} onSubmit={saveProduct}><input required maxLength="100" value={editing.name} onChange={(event) => setEditing({ ...editing, name: event.target.value })} /><input required type="number" min="0.01" step="0.01" value={editing.price} onChange={(event) => setEditing({ ...editing, price: event.target.value })} /><button disabled={busy}>Guardar</button><button type="button" onClick={() => setEditing(null)}>Cancelar</button></form> : <article className="stock-item" key={item.id}><div className="cigarette-pack">▥</div><span><b>{item.name}</b><small>{money.format(item.price)} por unidad</small></span><strong className={item.stock <= 5 ? 'low' : ''}>{item.stock}<small>EN STOCK</small></strong><button title="Editar" onClick={() => setEditing({ ...item })}>✎</button><button className="remove-cigarette" title="Quitar" onClick={() => { if (window.confirm(`¿Quitar ${item.name}?`)) execute(() => api(`/cigarettes/products/${item.id}`, { method: 'DELETE' }), 'Producto quitado.') }}>×</button></article>)}{!dashboard.products.length && <div className="cigarette-empty">Todavía no hay cigarrillos cargados.</div>}{dashboard.products.length > 0 && !filteredProducts.length && <div className="cigarette-empty">No se encontraron cigarrillos.</div>}</div>
+        <div className="stock-list">{visibleProducts.map((item) => editing?.id === item.id ? <form className="stock-edit" key={item.id} onSubmit={saveProduct}><input required aria-label="Nombre" maxLength="100" value={editing.name} onChange={(event) => setEditing({ ...editing, name: event.target.value })} /><input required aria-label="Precio de venta" type="number" min="0.01" step="0.01" value={editing.price} onChange={(event) => setEditing({ ...editing, price: event.target.value })} /><input required aria-label="Stock actual" type="number" min="0" step="1" value={editing.stock} onChange={(event) => setEditing({ ...editing, stock: event.target.value })} /><button disabled={busy}>Guardar</button><button type="button" onClick={() => setEditing(null)}>Cancelar</button></form> : <article className="stock-item" key={item.id}><div className="cigarette-pack">▥</div><span><b>{item.name}</b><small>{money.format(item.price)} por unidad</small></span><strong className={item.stock <= 5 ? 'low' : ''}>{item.stock}<small>EN STOCK</small></strong><button title="Editar" onClick={() => setEditing({ ...item })}>✎</button><button className="remove-cigarette" title="Quitar" onClick={() => { if (window.confirm(`¿Quitar ${item.name}?`)) execute(() => api(`/cigarettes/products/${item.id}`, { method: 'DELETE' }), 'Producto quitado.') }}>×</button></article>)}{!dashboard.products.length && <div className="cigarette-empty">Todavía no hay cigarrillos cargados.</div>}{dashboard.products.length > 0 && !filteredProducts.length && <div className="cigarette-empty">No se encontraron cigarrillos.</div>}</div>
         {visibleProductCount < filteredProducts.length && <button type="button" className="load-more-button" onClick={() => setVisibleProductCount((count) => count + 10)}>Cargar 10 más</button>}
       </section>
       <section className="cigarette-card accent-card"><small>NUEVA VARIEDAD</small><h2>Cargar cigarrillo</h2><p>Definí el precio de venta y el stock con el que comenzás.</p><form className="cigarette-form" onSubmit={addProduct}><label>Marca y presentación<input required maxLength="100" placeholder="Ej.: Marlboro Box 20" value={product.name} onChange={(event) => setProduct({ ...product, name: event.target.value })} /></label><div><label>Precio de venta<input required type="number" min="0.01" step="0.01" placeholder="$ 0" value={product.price} onChange={(event) => setProduct({ ...product, price: event.target.value })} /></label><label>Stock inicial<input required type="number" min="0" placeholder="0" value={product.initialStock} onChange={(event) => setProduct({ ...product, initialStock: event.target.value })} /></label></div><button className="primary wide" disabled={busy}>+ Agregar al inventario</button></form></section>
@@ -149,11 +203,11 @@ export default function Cigarettes({ api }) {
 
     {tab === 'purchases' && <div className="cigarette-columns">
       <section className="cigarette-card accent-card"><small>REPOSICIÓN · TURNO {shifts[shift].toUpperCase()}</small><h2>Registrar compra</h2><div className="shift-switch">{Object.entries(shifts).map(([value, label]) => <button type="button" key={value} className={shift === value ? 'active' : ''} onClick={() => setShift(value)}>{label}</button>)}</div><form className="cigarette-form" onSubmit={addPurchase}><label>Producto<div className="cigarette-product-search"><span>⌕</span><input required autoComplete="off" placeholder="Buscar cigarrillo..." value={purchaseSearch} onChange={(event) => { setPurchaseSearch(event.target.value); setPurchase({ ...purchase, cigaretteProductId: '' }) }} />{purchase.cigaretteProductId && <button type="button" aria-label="Cambiar producto" title="Cambiar producto" onClick={() => { setPurchaseSearch(''); setPurchase({ ...purchase, cigaretteProductId: '' }) }}>×</button>}</div></label>{purchaseResults.length > 0 && <div className="cigarette-search-results">{purchaseResults.map((item) => <button type="button" key={item.id} onClick={() => { setPurchaseSearch(item.name); setPurchase({ ...purchase, cigaretteProductId: item.id }) }}><span>{item.name}</span><small>Stock actual: {item.stock}</small></button>)}</div>}{purchaseSearch.trim() && !purchase.cigaretteProductId && !purchaseResults.length && <p className="cigarette-search-empty">No se encontraron cigarrillos.</p>}<label className="purchase-quantity">Cantidad comprada<input required type="number" min="1" value={purchase.quantity} onChange={(event) => setPurchase({ ...purchase, quantity: event.target.value })} /></label><button className="primary wide" disabled={busy || !purchase.cigaretteProductId}>Registrar compra</button></form></section>
-      <section className="cigarette-card"><div className="section-heading"><div><small>MOVIMIENTOS DEL DÍA</small><h2>Compras del turno</h2></div><b>{purchasedUnits} unidades</b></div><div className="purchase-list">{purchases.map((item) => <article key={item.id}><span><b>{item.productName}</b><small>Stock incorporado</small></span><strong>+{item.quantity} unidades</strong></article>)}{!purchases.length && <div className="cigarette-empty">No hay compras para este turno.</div>}</div></section>
+      <section className="cigarette-card"><div className="section-heading"><div><small>MOVIMIENTOS DEL DÍA</small><h2>Compras del turno</h2></div><b>{purchasedUnits} unidades</b></div><div className="purchase-list">{purchases.map((item) => editingPurchase?.id === item.id ? <form className="purchase-edit" key={item.id} onSubmit={savePurchase}><span><b>{item.productName}</b><small>Cantidad comprada</small></span><input required type="number" min="1" step="1" value={editingPurchase.quantity} onChange={(event) => setEditingPurchase({ ...editingPurchase, quantity: event.target.value })} /><button disabled={busy}>Guardar</button><button type="button" onClick={() => setEditingPurchase(null)}>Cancelar</button></form> : <article key={item.id}><span><b>{item.productName}</b><small>Stock incorporado</small></span><strong>+{item.quantity} unidades</strong><footer><button type="button" disabled={busy || Boolean(selectedClose)} title={selectedClose ? 'No se puede editar una compra de un turno cerrado' : 'Editar cantidad'} onClick={() => setEditingPurchase({ ...item })}>✎</button><button type="button" className="remove-purchase" disabled={busy || Boolean(selectedClose)} title={selectedClose ? 'No se puede quitar una compra de un turno cerrado' : 'Quitar compra'} onClick={() => deletePurchase(item)}>×</button></footer></article>)}{!purchases.length && <div className="cigarette-empty">No hay compras para este turno.</div>}</div></section>
     </div>}
 
-    {tab === 'close' && <section className="cigarette-card close-section"><div className="section-heading"><div><small>ARQUEO DE INVENTARIO</small><h2>Cierre de turno</h2></div><div className="shift-switch">{Object.entries(shifts).map(([value, label]) => <button key={value} className={shift === value ? 'active' : ''} onClick={() => setShift(value)}>{label}</button>)}</div></div><p className="close-help">Ingresá el stock físico final. Las ventas se calculan automáticamente con el stock inicial y las compras del turno.</p>{selectedClose ? <div className="already-closed"><span>✓</span><div><b>Turno {shifts[shift].toLowerCase()} cerrado</b><p>Se vendieron {selectedClose.totalSold} unidades por {money.format(selectedClose.totalSales)}.</p></div></div> : <ShiftCloseForm key={`${date}-${shift}-${dashboard.products.map((item) => item.stock).join('-')}`} products={dashboard.products} purchases={dashboard.purchases} shift={shift} date={date} onClose={closeShift} />}</section>}
+    {tab === 'close' && <section className="cigarette-card close-section"><div className="section-heading"><div><small>ARQUEO DE INVENTARIO</small><h2>{editingClose ? 'Corregir cierre' : 'Cierre de turno'}</h2></div><div className="shift-switch">{Object.entries(shifts).map(([value, label]) => <button key={value} className={shift === value ? 'active' : ''} onClick={() => { setShift(value); setEditingClose(null) }}>{label}</button>)}</div></div><p className="close-help">{editingClose ? 'Corregí el stock físico final. Las ventas y el stock actual se ajustarán automáticamente.' : 'Ingresá el stock físico final. Las ventas se calculan automáticamente con el stock inicial y las compras del turno.'}</p>{editingClose && selectedClose?.id === editingClose.id ? <EditShiftCloseForm key={editingClose.id} close={editingClose} onSave={saveCloseCorrection} onCancel={() => setEditingClose(null)} busy={busy} /> : selectedClose ? <div className="already-closed"><span>✓</span><div><b>Turno {shifts[shift].toLowerCase()} cerrado</b><p>Se vendieron {selectedClose.totalSold} unidades por {money.format(selectedClose.totalSales)}.</p><button type="button" className="edit-close-button" onClick={() => setEditingClose(selectedClose)}>✎ Corregir cierre</button></div></div> : <ShiftCloseForm key={`${date}-${shift}-${dashboard.products.map((item) => item.stock).join('-')}`} products={dashboard.products} purchases={dashboard.purchases} shift={shift} date={date} onClose={closeShift} />}</section>}
 
-    {tab === 'history' && <section className="cigarette-card history-section"><div className="calendar-hero"><div><small>CALENDARIO</small><h2>Cierres del {new Date(`${date}T12:00:00`).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}</h2><p>Elegí otra fecha arriba para consultar sus cierres.</p></div><div className="daily-total"><small>VENTA DEL DÍA</small><b>{money.format(dashboard.closes.reduce((total, close) => total + close.totalSales, 0))}</b></div></div><div className="closes-list">{dashboard.closes.map((close) => <CloseCard key={close.id} close={close} />)}{!dashboard.closes.length && <div className="cigarette-empty large">No hay cierres registrados en esta fecha.</div>}</div></section>}
+    {tab === 'history' && <section className="cigarette-card history-section"><div className="calendar-hero"><div><small>CALENDARIO</small><h2>Cierres del {new Date(`${date}T12:00:00`).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}</h2><p>Elegí otra fecha arriba para consultar sus cierres.</p></div><div className="daily-total"><small>VENTA DEL DÍA</small><b>{money.format(dashboard.closes.reduce((total, close) => total + close.totalSales, 0))}</b></div></div><div className="closes-list">{dashboard.closes.map((close) => <CloseCard key={close.id} close={close} onEdit={startEditingClose} />)}{!dashboard.closes.length && <div className="cigarette-empty large">No hay cierres registrados en esta fecha.</div>}</div></section>}
   </div>
 }

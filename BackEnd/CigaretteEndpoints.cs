@@ -18,8 +18,14 @@ public static class CigaretteEndpoints
             .WithSummary("Desactiva un cigarrillo conservando su historial");
         group.MapPost("/purchases", CreatePurchaseAsync)
             .WithSummary("Registra una compra y aumenta el stock");
+        group.MapPut("/purchases/{id:int}", UpdatePurchaseAsync)
+            .WithSummary("Actualiza la cantidad de una compra y ajusta el stock");
+        group.MapDelete("/purchases/{id:int}", DeletePurchaseAsync)
+            .WithSummary("Elimina una compra y descuenta sus unidades del stock");
         group.MapPost("/closes", CloseShiftAsync)
             .WithSummary("Cierra un turno y calcula sus ventas");
+        group.MapPut("/closes/{id:int}", UpdateCloseAsync)
+            .WithSummary("Corrige un cierre y ajusta sus ventas y el stock actual");
 
         return group;
     }
@@ -70,12 +76,41 @@ public static class CigaretteEndpoints
         catch (CigaretteValidationException exception) { return ValidationProblem(exception.Message); }
     }
 
+    private static async Task<IResult> UpdatePurchaseAsync(int id, UpdateCigarettePurchaseRequest request, ICigaretteService service, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var purchase = await service.UpdatePurchaseAsync(id, request, cancellationToken);
+            return purchase is null ? Results.NotFound() : Results.Ok(purchase);
+        }
+        catch (CigaretteNotFoundException) { return Results.NotFound(); }
+        catch (CigaretteValidationException exception) { return ValidationProblem(exception.Message); }
+    }
+
+    private static async Task<IResult> DeletePurchaseAsync(int id, ICigaretteService service, CancellationToken cancellationToken)
+    {
+        try { return await service.DeletePurchaseAsync(id, cancellationToken) ? Results.NoContent() : Results.NotFound(); }
+        catch (CigaretteNotFoundException) { return Results.NotFound(); }
+        catch (CigaretteValidationException exception) { return ValidationProblem(exception.Message); }
+    }
+
     private static async Task<IResult> CloseShiftAsync(CreateCigaretteShiftCloseRequest request, ICigaretteService service, CancellationToken cancellationToken)
     {
         try
         {
             var close = await service.CloseShiftAsync(request, cancellationToken);
             return Results.Created($"/api/cigarettes/closes/{close.Id}", close);
+        }
+        catch (CigaretteNotFoundException) { return Results.NotFound(); }
+        catch (CigaretteValidationException exception) { return ValidationProblem(exception.Message); }
+    }
+
+    private static async Task<IResult> UpdateCloseAsync(int id, UpdateCigaretteShiftCloseRequest request, ICigaretteService service, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var close = await service.UpdateCloseAsync(id, request, cancellationToken);
+            return close is null ? Results.NotFound() : Results.Ok(close);
         }
         catch (CigaretteNotFoundException) { return Results.NotFound(); }
         catch (CigaretteValidationException exception) { return ValidationProblem(exception.Message); }

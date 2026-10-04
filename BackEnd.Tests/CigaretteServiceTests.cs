@@ -55,6 +55,112 @@ public sealed class CigaretteServiceTests
         Assert.Contains("ya fue cerrado", exception.Message);
     }
 
+    [Fact]
+    public async Task RecreatesDeletedProductWithSameName()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+
+        await fixture.Service.DeleteProductAsync(fixture.ProductId, default);
+        var recreated = await fixture.Service.CreateProductAsync(
+            new CreateCigaretteProductRequest("Marlboro Box", 4200m, 15), default);
+
+        Assert.Equal(fixture.ProductId, recreated.Id);
+        Assert.Equal(4200m, recreated.Price);
+        Assert.Equal(15, recreated.Stock);
+        Assert.True((await fixture.Db.CigaretteProducts.FindAsync(fixture.ProductId))!.IsActive);
+    }
+
+    [Fact]
+    public async Task UpdatesProductStock()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+
+        var updated = await fixture.Service.UpdateProductAsync(
+            fixture.ProductId, new UpdateCigaretteProductRequest("Marlboro Box", 3500m, 24), default);
+
+        Assert.NotNull(updated);
+        Assert.Equal(24, updated.Stock);
+        Assert.Equal(24, (await fixture.Db.CigaretteProducts.FindAsync(fixture.ProductId))!.Stock);
+    }
+
+    [Fact]
+    public async Task UpdatesPurchaseAndAdjustsStockByDifference()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var purchase = await fixture.Service.CreatePurchaseAsync(
+            new CreateCigarettePurchaseRequest(fixture.ProductId, 5, new DateOnly(2026, 9, 21), "morning"), default);
+
+        var updated = await fixture.Service.UpdatePurchaseAsync(purchase.Id, new UpdateCigarettePurchaseRequest(2), default);
+
+        Assert.Equal(2, updated!.Quantity);
+        Assert.Equal(12, (await fixture.Db.CigaretteProducts.FindAsync(fixture.ProductId))!.Stock);
+    }
+
+    [Fact]
+    public async Task DeletesPurchaseAndRestoresStock()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var purchase = await fixture.Service.CreatePurchaseAsync(
+            new CreateCigarettePurchaseRequest(fixture.ProductId, 5, new DateOnly(2026, 9, 21), "morning"), default);
+
+        var deleted = await fixture.Service.DeletePurchaseAsync(purchase.Id, default);
+
+        Assert.True(deleted);
+        Assert.Equal(10, (await fixture.Db.CigaretteProducts.FindAsync(fixture.ProductId))!.Stock);
+        Assert.Null(await fixture.Db.CigarettePurchases.FindAsync(purchase.Id));
+    }
+
+    [Fact]
+    public async Task RejectsPurchaseChangesForClosedShift()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var date = new DateOnly(2026, 9, 21);
+        var purchase = await fixture.Service.CreatePurchaseAsync(
+            new CreateCigarettePurchaseRequest(fixture.ProductId, 5, date, "morning"), default);
+        await fixture.Service.CloseShiftAsync(
+            new CreateCigaretteShiftCloseRequest(date, "morning", [new CigaretteCloseItemRequest(fixture.ProductId, 15)]), default);
+
+        var updateException = await Assert.ThrowsAsync<CigaretteValidationException>(
+            () => fixture.Service.UpdatePurchaseAsync(purchase.Id, new UpdateCigarettePurchaseRequest(3), default));
+        var deleteException = await Assert.ThrowsAsync<CigaretteValidationException>(
+            () => fixture.Service.DeletePurchaseAsync(purchase.Id, default));
+
+        Assert.Contains("ya fue cerrado", updateException.Message);
+        Assert.Contains("ya fue cerrado", deleteException.Message);
+    }
+
+    [Fact]
+    public async Task CorrectsCloseAndAdjustsStockAndSales()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var close = await fixture.Service.CloseShiftAsync(
+            new CreateCigaretteShiftCloseRequest(new DateOnly(2026, 9, 21), "morning", [new CigaretteCloseItemRequest(fixture.ProductId, 8)]), default);
+
+        var corrected = await fixture.Service.UpdateCloseAsync(
+            close.Id, new UpdateCigaretteShiftCloseRequest([new CigaretteCloseItemRequest(fixture.ProductId, 6)]), default);
+
+        var item = Assert.Single(corrected!.Items);
+        Assert.Equal(6, item.FinalStock);
+        Assert.Equal(4, item.SoldQuantity);
+        Assert.Equal(14000m, item.SalesAmount);
+        Assert.Equal(4, corrected.TotalSold);
+        Assert.Equal(14000m, corrected.TotalSales);
+        Assert.Equal(6, (await fixture.Db.CigaretteProducts.FindAsync(fixture.ProductId))!.Stock);
+    }
+
+    [Fact]
+    public async Task RejectsCloseCorrectionWithDifferentProducts()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var close = await fixture.Service.CloseShiftAsync(
+            new CreateCigaretteShiftCloseRequest(new DateOnly(2026, 9, 21), "morning", [new CigaretteCloseItemRequest(fixture.ProductId, 8)]), default);
+
+        var exception = await Assert.ThrowsAsync<CigaretteValidationException>(() => fixture.Service.UpdateCloseAsync(
+            close.Id, new UpdateCigaretteShiftCloseRequest([]), default));
+
+        Assert.Contains("cada cigarrillo", exception.Message);
+    }
+
     private sealed class TestFixture : IAsyncDisposable
     {
         private readonly SqliteConnection connection;

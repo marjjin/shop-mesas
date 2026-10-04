@@ -70,13 +70,17 @@ public sealed record UpdateOrderRequest(DateTimeOffset CreatedAt);
 /// <summary>Datos para dar de alta una presentación de cigarrillos.</summary>
 public sealed record CreateCigaretteProductRequest(string Name, decimal Price, int InitialStock);
 /// <summary>Datos editables de una presentación de cigarrillos.</summary>
-public sealed record UpdateCigaretteProductRequest(string Name, decimal Price);
+public sealed record UpdateCigaretteProductRequest(string Name, decimal Price, int Stock);
 /// <summary>Datos de una compra o reposición de stock.</summary>
 public sealed record CreateCigarettePurchaseRequest(int CigaretteProductId, int Quantity, DateOnly BusinessDate, string Shift);
+/// <summary>Datos editables de una compra de cigarrillos.</summary>
+public sealed record UpdateCigarettePurchaseRequest(int Quantity);
 /// <summary>Stock físico contado al finalizar un turno.</summary>
 public sealed record CigaretteCloseItemRequest(int CigaretteProductId, int FinalStock);
 /// <summary>Datos para cerrar un turno de cigarrillos.</summary>
 public sealed record CreateCigaretteShiftCloseRequest(DateOnly BusinessDate, string Shift, IReadOnlyList<CigaretteCloseItemRequest> Items);
+/// <summary>Stock físico corregido para los productos de un cierre existente.</summary>
+public sealed record UpdateCigaretteShiftCloseRequest(IReadOnlyList<CigaretteCloseItemRequest> Items);
 /// <summary>Presentación de cigarrillos disponible para operar.</summary>
 public sealed record CigaretteProductResponse(int Id, string Name, decimal Price, int Stock);
 /// <summary>Compra de cigarrillos registrada.</summary>
