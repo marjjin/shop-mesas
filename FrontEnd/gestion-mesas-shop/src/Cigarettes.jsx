@@ -277,12 +277,14 @@ export default function Cigarettes({ api }) {
     : []
   const filteredProducts = dashboard.products.filter((item) => item.name.toLowerCase().includes(stockSearch.trim().toLowerCase()))
   const visibleProducts = filteredProducts.slice(0, visibleProductCount)
+  const inventoryValue = dashboard.products.reduce((total, item) => total + item.stock * item.price, 0)
 
   return <div className="cigarettes-page">
     <header className="cigarettes-header"><div><p className="eyebrow">CONTROL DE INVENTARIO</p><h1>Cigarrillos</h1><p>Compras, stock y ventas de cada turno en un solo lugar.</p></div><label className="date-picker"><span>Fecha de trabajo</span><input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label></header>
     <nav className="cigarette-tabs" aria-label="Secciones de cigarrillos">
       {[['stock', '▦', 'Stock y precios'], ['purchases', '↓', 'Compras'], ['close', '✓', 'Cerrar turno'], ['history', '◷', 'Calendario y cierres']].map(([value, icon, label]) => <button key={value} className={tab === value ? 'active' : ''} onClick={() => setTab(value)}><i>{icon}</i>{label}</button>)}
     </nav>
+    <section className="inventory-value-card" aria-label="Valor total del inventario de cigarrillos"><span className="inventory-value-icon" aria-hidden="true">▥</span><div><small>VALOR DEL INVENTARIO</small><b>{money.format(inventoryValue)}</b><p>{dashboard.products.length} {dashboard.products.length === 1 ? 'variedad activa' : 'variedades activas'} · {dashboard.products.reduce((total, item) => total + item.stock, 0)} unidades</p></div></section>
     {message && <p className={message.includes('correctamente') || message.includes('actualizado') ? 'cigarette-message success' : 'cigarette-message'}>{message}</p>}
     {closeWarning && <div className="shift-warning-backdrop" role="presentation"><section className="shift-warning" role="dialog" aria-modal="true" aria-labelledby="shift-warning-title"><span className="shift-warning-icon">!</span><div><small>REVISÁ LA SECUENCIA DE CIERRES</small><h2 id="shift-warning-title">Hay un turno pendiente</h2><p>Antes de cerrar <b>{shifts[closeWarning.request.shift].toLowerCase()} del {new Date(`${closeWarning.request.businessDate}T12:00:00`).toLocaleDateString('es-AR')}</b>, falta cerrar <b>{shifts[closeWarning.previous.shift].toLowerCase()} del {new Date(`${closeWarning.previous.businessDate}T12:00:00`).toLocaleDateString('es-AR')}</b>.</p><p className="shift-warning-note">Podés cerrar ese turno ahora usando los stocks que ya cargaste; no tendrás que ingresarlos otra vez.</p></div><footer><button type="button" className="secondary" onClick={continueClosingShift}>Cerrar en el turno elegido</button><button type="button" className="primary" onClick={closeInPendingShift}>Cerrar en el turno correcto</button></footer></section></div>}
 

@@ -21,13 +21,25 @@ public sealed class CigaretteNotFoundException(string message) : KeyNotFoundExce
 
 public sealed class CigaretteService(RestaurantContext db) : ICigaretteService
 {
+    private static readonly IReadOnlyDictionary<string, int> SpreadsheetOrder = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["PHILIP BOX 20"] = 0, ["PHILIP KS 20"] = 1, ["PHILIP RED 20 KS"] = 2, ["PHILIP BLUE 20 KS"] = 3, ["PHILIP CAP 20"] = 4, ["PHILIP 12"] = 5, ["PHILIP CAP 12"] = 6,
+        ["RED POINT KS 20"] = 7, ["RED POINT MENT 20"] = 8, ["RED POINT SIX 20"] = 9,
+        ["MARLBORO BOX 20"] = 10, ["MARLBORO KS 20"] = 11, ["MARLBORO 12"] = 12, ["MARLBORO MENT XL 20"] = 13, ["MARLBORO CORAL XL 20"] = 14, ["MARLBORO UVA XL 20"] = 15, ["MARLBORO UVA 12"] = 16, ["MARLBORO BLUE TITANIUM"] = 17, ["MARLBORO GOLD TITANIUM"] = 18,
+        ["MARLBORO CRAFTER KS 20"] = 19, ["MARLBORO CRAFTER BOX 20"] = 20, ["MARLBORO CRAFTER CORAL 20"] = 21, ["MARLBORO CRAFTER UVA 20"] = 22, ["MARLBORO CRAFTER MENT KS 20"] = 23, ["MARLBORO CRAFTER MENT BOX 20"] = 24, ["MARLBORO CRAFTER SUAVE 20"] = 25,
+        ["HARMONY 20"] = 26, ["CHESTER KS 20"] = 27, ["CHESTER 12"] = 28, ["CHESTER MENT KS 20"] = 29, ["CHESTER MENT BOX 20"] = 30, ["CHESTER UVA BOX 20"] = 31, ["CHESTER MENT 12"] = 32, ["CAMEL BOX 20"] = 33,
+        ["LUCKIES KS 20"] = 34, ["LUCKY KS 20"] = 35, ["LUCKY MENT KS 20"] = 36, ["LUCKY ORIGEN KS 20"] = 37, ["LUCKY ORIGEN MENT KS 20"] = 38, ["LUCKY DOBLE PLUS XL 20"] = 39, ["LUCKY MENT XL 20"] = 40, ["LUCKY MENT 12"] = 41
+    };
+
     public async Task<CigaretteDashboardResponse> GetDashboardAsync(DateOnly date, CancellationToken cancellationToken)
     {
         var products = await db.CigaretteProducts.AsNoTracking().Where(product => product.IsActive)
-            .OrderBy(product => product.CreatedAt).ThenBy(product => product.Id).Select(product => ToResponse(product)).ToListAsync(cancellationToken);
+            .ToListAsync(cancellationToken);
+        var orderedProducts = products.OrderBy(product => GetSpreadsheetOrder(product.Name)).ThenBy(product => product.CreatedAt).ThenBy(product => product.Id)
+            .Select(ToResponse).ToList();
         var purchases = await LoadPurchasesAsync(date, cancellationToken);
         var closes = await LoadClosesAsync(close => close.BusinessDate == date, cancellationToken);
-        return new CigaretteDashboardResponse(date, products, purchases, closes);
+        return new CigaretteDashboardResponse(date, orderedProducts, purchases, closes);
     }
 
     public Task<IReadOnlyList<CigaretteShiftCloseResponse>> GetClosesAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken)
@@ -259,11 +271,13 @@ public sealed class CigaretteService(RestaurantContext db) : ICigaretteService
         _ => throw new CigaretteValidationException("El turno debe ser morning o afternoon.")
     };
 
+    private static int GetSpreadsheetOrder(string name) => SpreadsheetOrder.GetValueOrDefault(string.Join(' ', name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)), int.MaxValue);
+
     private static CigaretteProductResponse ToResponse(CigaretteProduct product) => new(product.Id, product.Name, product.Price, product.Stock);
     private static CigarettePurchaseResponse ToResponse(CigarettePurchase purchase, string productName) => new(purchase.Id, purchase.CigaretteProductId, productName, purchase.Quantity, purchase.BusinessDate, purchase.Shift, new DateTimeOffset(purchase.CreatedAt, TimeSpan.Zero));
     private static CigaretteShiftCloseResponse ToResponse(CigaretteShiftClose close)
     {
-        var items = close.Items.OrderBy(item => item.Id).Select(item => new CigaretteShiftCloseItemResponse(item.CigaretteProductId, item.ProductName, item.UnitPrice, item.InitialStock, item.PurchasedQuantity, item.FinalStock, item.SoldQuantity, item.SalesAmount)).ToList();
+        var items = close.Items.OrderBy(item => GetSpreadsheetOrder(item.ProductName)).ThenBy(item => item.Id).Select(item => new CigaretteShiftCloseItemResponse(item.CigaretteProductId, item.ProductName, item.UnitPrice, item.InitialStock, item.PurchasedQuantity, item.FinalStock, item.SoldQuantity, item.SalesAmount)).ToList();
         return new CigaretteShiftCloseResponse(close.Id, close.BusinessDate, close.Shift, new DateTimeOffset(close.ClosedAt, TimeSpan.Zero), items.Sum(item => item.SoldQuantity), items.Sum(item => item.SalesAmount), items);
     }
 }

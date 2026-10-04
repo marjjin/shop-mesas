@@ -105,6 +105,20 @@ public sealed class CigaretteServiceTests
     }
 
     [Fact]
+    public async Task OrdersProductsUsingTheSpreadsheetSequence()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var chester = new CigaretteProduct { Name = "CHESTER 12", Price = 3000m, Stock = 8, CreatedAt = DateTime.UtcNow };
+        var philip = new CigaretteProduct { Name = "PHILIP BOX 20", Price = 3000m, Stock = 8, CreatedAt = DateTime.UtcNow.AddMinutes(1) };
+        fixture.Db.CigaretteProducts.AddRange(chester, philip);
+        await fixture.Db.SaveChangesAsync();
+
+        var products = (await fixture.Service.GetDashboardAsync(new DateOnly(2026, 9, 21), default)).Products;
+
+        Assert.Equal([philip.Id, chester.Id, fixture.ProductId], products.Select(product => product.Id));
+    }
+
+    [Fact]
     public async Task UpdatesPurchaseAndAdjustsStockByDifference()
     {
         await using var fixture = await TestFixture.CreateAsync();
