@@ -105,14 +105,16 @@ public sealed class CigaretteService(RestaurantContext db) : ICigaretteService
         var purchase = await db.CigarettePurchases.FindAsync([id], cancellationToken);
         if (purchase is null) return null;
         if (request.Quantity <= 0) throw new CigaretteValidationException("La cantidad comprada debe ser mayor que cero.");
-        if (await db.CigaretteShiftCloses.AnyAsync(close => close.BusinessDate == purchase.BusinessDate && close.Shift == purchase.Shift, cancellationToken))
-            throw new CigaretteValidationException("No se pueden editar compras de un turno que ya fue cerrado.");
+        var close = await db.CigaretteShiftCloses.Include(item => item.Items)
+            .FirstOrDefaultAsync(item => item.BusinessDate == purchase.BusinessDate && item.Shift == purchase.Shift, cancellationToken);
         var product = await db.CigaretteProducts.FindAsync([purchase.CigaretteProductId], cancellationToken)
             ?? throw new CigaretteNotFoundException("El cigarrillo indicado no existe.");
-        var updatedStock = product.Stock + request.Quantity - purchase.Quantity;
-        if (updatedStock < 0) throw new CigaretteValidationException("El stock no puede quedar negativo.");
+        var quantityDifference = request.Quantity - purchase.Quantity;
+        var updatedStock = product.Stock + quantityDifference;
+        if (close is null && updatedStock < 0) throw new CigaretteValidationException("El stock no puede quedar negativo.");
 
-        product.Stock = updatedStock;
+        if (close is not null) AdjustClosedPurchase(close, purchase.CigaretteProductId, quantityDifference);
+        else product.Stock = updatedStock;
         purchase.Quantity = request.Quantity;
         await db.SaveChangesAsync(cancellationToken);
         return ToResponse(purchase, product.Name);
@@ -122,13 +124,14 @@ public sealed class CigaretteService(RestaurantContext db) : ICigaretteService
     {
         var purchase = await db.CigarettePurchases.FindAsync([id], cancellationToken);
         if (purchase is null) return false;
-        if (await db.CigaretteShiftCloses.AnyAsync(close => close.BusinessDate == purchase.BusinessDate && close.Shift == purchase.Shift, cancellationToken))
-            throw new CigaretteValidationException("No se pueden quitar compras de un turno que ya fue cerrado.");
+        var close = await db.CigaretteShiftCloses.Include(item => item.Items)
+            .FirstOrDefaultAsync(item => item.BusinessDate == purchase.BusinessDate && item.Shift == purchase.Shift, cancellationToken);
         var product = await db.CigaretteProducts.FindAsync([purchase.CigaretteProductId], cancellationToken)
             ?? throw new CigaretteNotFoundException("El cigarrillo indicado no existe.");
-        if (product.Stock < purchase.Quantity) throw new CigaretteValidationException("El stock no puede quedar negativo.");
+        if (close is null && product.Stock < purchase.Quantity) throw new CigaretteValidationException("El stock no puede quedar negativo.");
 
-        product.Stock -= purchase.Quantity;
+        if (close is not null) AdjustClosedPurchase(close, purchase.CigaretteProductId, -purchase.Quantity);
+        else product.Stock -= purchase.Quantity;
         db.CigarettePurchases.Remove(purchase);
         await db.SaveChangesAsync(cancellationToken);
         return true;
@@ -208,6 +211,20 @@ public sealed class CigaretteService(RestaurantContext db) : ICigaretteService
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return ToResponse(close);
+    }
+
+    private static void AdjustClosedPurchase(CigaretteShiftClose close, int productId, int quantityDifference)
+    {
+        var closeItem = close.Items.SingleOrDefault(item => item.CigaretteProductId == productId)
+            ?? throw new CigaretteValidationException("El cigarrillo de la compra no pertenece al cierre del turno.");
+        var purchasedQuantity = closeItem.PurchasedQuantity + quantityDifference;
+        var soldQuantity = closeItem.InitialStock + purchasedQuantity - closeItem.FinalStock;
+        if (purchasedQuantity < 0 || soldQuantity < 0)
+            throw new CigaretteValidationException($"La compra no se puede modificar porque invalidaría el cierre de {closeItem.ProductName}.");
+
+        closeItem.PurchasedQuantity = purchasedQuantity;
+        closeItem.SoldQuantity = soldQuantity;
+        closeItem.SalesAmount = soldQuantity * closeItem.UnitPrice;
     }
 
     private async Task<IReadOnlyList<CigarettePurchaseResponse>> LoadPurchasesAsync(DateOnly date, CancellationToken cancellationToken)

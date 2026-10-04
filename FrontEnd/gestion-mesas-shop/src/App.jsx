@@ -36,7 +36,7 @@ function datetimeLocal(date) {
   return new Date(value.getTime() - value.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
 }
 
-function FloorPlan({ tables, coworkingTableIds, editingId, assignmentOrder, assigningTable, onSelect, onEdit, onAssign, saveTable }) {
+function FloorPlan({ tables, coworkingTableIds, editingMode, editingId, assignmentOrder, assigningTable, onSelect, onEdit, onAssign, saveTable }) {
   const [target, setTarget] = useState(null)
   const [now, setNow] = useState(() => Date.now())
   const origin = useRef({ x: 0, y: 0 })
@@ -57,14 +57,8 @@ function FloorPlan({ tables, coworkingTableIds, editingId, assignmentOrder, assi
       if (table.status === 'free' && !assigningTable) onAssign(table.id)
       return
     }
-    clickTimer.current = setTimeout(() => onSelect(table.id), 220)
+    clickTimer.current = setTimeout(() => (editingMode ? onEdit(table.id) : onSelect(table.id)), 220)
   }
-  const editTable = (event, id) => {
-    event.stopPropagation()
-    clearTimeout(clickTimer.current)
-    onEdit(id)
-  }
-
   const begin = (set) => {
     origin.current = { x: editing?.x ?? 0, y: editing?.y ?? 0 }
     set?.([0, 0])
@@ -82,9 +76,9 @@ function FloorPlan({ tables, coworkingTableIds, editingId, assignmentOrder, assi
     })
   }
 
-  return <div className={`floor ${assignmentOrder ? 'assignment-mode' : ''}`} aria-label="Plano desplazable de mesas">
-    <div className="floor-canvas" style={{ minWidth: canvasWidth, minHeight: canvasHeight }} onClick={() => { if (!assignmentOrder) onSelect(null) }}>
-      <small className="floor-instructions">{assignmentOrder ? `ELEGÍ UNA MESA LIBRE PARA ${assignmentOrder.customerName.toUpperCase()}` : 'SALÓN · TOCÁ UNA MESA PARA OPERAR · DESLIZÁ PARA RECORRER'}</small>
+  return <div className={`floor ${assignmentOrder ? 'assignment-mode' : ''} ${editingMode ? 'editing-mode' : ''}`} aria-label="Plano desplazable de mesas">
+    <div className="floor-canvas" style={{ minWidth: canvasWidth, minHeight: canvasHeight }} onClick={() => { if (!assignmentOrder) (editingMode ? onEdit : onSelect)(null) }}>
+      <small className="floor-instructions">{assignmentOrder ? `ELEGÍ UNA MESA LIBRE PARA ${assignmentOrder.customerName.toUpperCase()}` : editingMode ? 'EDICIÓN · ELEGÍ UNA MESA PARA RENOMBRARLA, MOVERLA O ELIMINARLA' : 'SALÓN · TOCÁ UNA MESA PARA OPERAR · DESLIZÁ PARA RECORRER'}</small>
       {tables.map((table) => <button
       key={table.id}
       type="button"
@@ -93,7 +87,6 @@ function FloorPlan({ tables, coworkingTableIds, editingId, assignmentOrder, assi
       style={{ left: table.x, top: table.y, width: table.width, height: table.height }}
       aria-disabled={Boolean(assignmentOrder && table.status !== 'free')}
       onClick={(event) => selectTable(event, table)}
-      onDoubleClick={assignmentOrder ? undefined : (event) => editTable(event, table.id)}
     >
       <em>{table.status === 'occupied' ? '● OCUPADA' : '○ LIBRE'}</em>
       <b>{table.name}</b>
@@ -114,7 +107,7 @@ function FloorPlan({ tables, coworkingTableIds, editingId, assignmentOrder, assi
   </div>
 }
 
-function TableMenu({ table, data, orders, now, api, load, closePanel, editTable, closeTable, deleteTable, updateOpenedAt }) {
+function TableMenu({ table, data, orders, now, api, load, closePanel, closeTable, updateOpenedAt }) {
   const [search, setSearch] = useState('')
   const [customerName, setCustomerName] = useState('')
   const [openError, setOpenError] = useState('')
@@ -204,7 +197,7 @@ function TableMenu({ table, data, orders, now, api, load, closePanel, editTable,
   return <aside className="account">
     <button type="button" className="close" aria-label="Cerrar detalle" title="Cerrar detalle" onClick={closePanel}>×</button>
     <div className="account-summary">
-      <div className="table-menu-toolbar"><em className={table.status}>{table.status === 'occupied' ? '● OCUPADA' : '○ LIBRE'}</em><button type="button" className="move-table-button" onClick={() => editTable(table.id)}>✥ Mover mesa</button></div>
+      <div className="table-menu-toolbar"><em className={table.status}>{table.status === 'occupied' ? '● OCUPADA' : '○ LIBRE'}</em></div>
       <h2>{table.name}</h2>
       {table.status === 'occupied' ? <>
         <div className="customer-card"><small>CLIENTE</small><strong>{table.customerName || 'Sin nombre'}</strong></div>
@@ -241,8 +234,51 @@ function TableMenu({ table, data, orders, now, api, load, closePanel, editTable,
     </div>
     <footer className="table-menu-footer">
       {table.status === 'occupied' && <button className="dark" onClick={() => closeTable(table.id)}>Cerrar y liberar mesa</button>}
-      <button className="delete-table-button" onClick={() => deleteTable(table)}>Eliminar mesa</button>
     </footer>
+  </aside>
+}
+
+function TableEditor({ table, saveTable, deleteTable, addTable, finishEditing }) {
+  const [name, setName] = useState(() => table?.name || '')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const saveName = async (event) => {
+    event.preventDefault()
+    const value = name.trim()
+    if (!table || !value) return
+    setSaving(true)
+    setError('')
+    try {
+      await saveTable(table.id, { name: value })
+    } catch {
+      setError('No se pudo guardar el nombre. Intentá nuevamente.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return <aside className="table-edit-panel" aria-live="polite">
+    <div className="table-edit-heading">
+      <p className="eyebrow">EDICIÓN DEL SALÓN</p>
+      <h2>{table ? table.name : 'Elegí una mesa'}</h2>
+    </div>
+    {table ? <>
+      <form onSubmit={saveName}>
+        <label htmlFor={`table-name-${table.id}`}>Nombre de la mesa</label>
+        <div className="table-name-actions">
+          <input id={`table-name-${table.id}`} maxLength="80" autoFocus value={name} onChange={(event) => setName(event.target.value)} />
+          <button className="dark" disabled={!name.trim() || saving}>{saving ? 'Guardando…' : 'Guardar'}</button>
+        </div>
+      </form>
+      {error && <p className="error">{error}</p>}
+      <p className="table-edit-help">Arrastrá la mesa para moverla. Usá los tiradores del borde para cambiar su tamaño.</p>
+    </> : <p className="table-edit-help">Seleccioná una mesa en el plano para cambiar su nombre, moverla o eliminarla.</p>}
+    <div className="editing-actions">
+      {table && <button type="button" className="delete-table-button" onClick={() => deleteTable(table)}>Eliminar mesa</button>}
+      <button type="button" className="add-table-button" onClick={addTable}>+ Agregar mesa</button>
+      <button type="button" className="finish-editing-button" onClick={finishEditing}><span aria-hidden="true">✓</span> Finalizar edición</button>
+    </div>
   </aside>
 }
 
@@ -252,6 +288,7 @@ function App() {
   const [data, setData] = useState({ tables: [], products: [], categories: [], orders: [], pendingOrders: [], pendingOrderItems: [] })
   const [histories, setHistories] = useState([])
   const [selectedId, setSelectedId] = useState(null)
+  const [editingMode, setEditingMode] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [assigningPendingOrderId, setAssigningPendingOrderId] = useState(null)
   const [assigningTable, setAssigningTable] = useState(false)
@@ -259,7 +296,6 @@ function App() {
     const storedSection = sessionStorage.getItem('mesa-section')
     return sections.has(storedSection) ? storedSection : 'salon'
   })
-  const [tableName, setTableName] = useState('')
   const [message, setMessage] = useState('')
   const [now, setNow] = useState(() => Date.now())
   const assignmentLock = useRef(false)
@@ -303,6 +339,16 @@ function App() {
     const saved = await api(`/tables/${id}`, { method: 'PATCH', body: JSON.stringify(patch) })
     setData((old) => ({ ...old, tables: old.tables.map((table) => table.id === id ? saved : table) }))
   }
+  const addTable = async () => {
+    try {
+      const table = await api('/tables', { method: 'POST', body: JSON.stringify({ seats: 4 }) })
+      await load()
+      setEditingId(table.id)
+      setMessage('')
+    } catch (error) {
+      setMessage(error.message)
+    }
+  }
   const updateOpenedAt = async (id, openedAt) => {
     const saved = await api(`/tables/${id}`, { method: 'PATCH', body: JSON.stringify({ openedAt }) })
     setData((old) => ({ ...old, tables: old.tables.map((table) => table.id === id ? saved : table) }))
@@ -324,15 +370,17 @@ function App() {
     const warning = table.status === 'occupied'
       ? `¿Eliminar ${table.name}? También se borrarán sus consumos actuales. Los cierres anteriores se conservarán.`
       : `¿Eliminar ${table.name} del salón?`
-    if (!window.confirm(warning)) return
+    if (!window.confirm(warning)) return false
     try {
       await api(`/tables/${table.id}`, { method: 'DELETE' })
       setSelectedId(null)
       setEditingId(null)
       await load()
       setMessage(`${table.name} fue eliminada.`)
+      return true
     } catch (error) {
       setMessage(error.message)
+      return false
     }
   }
   const showHistory = () => {
@@ -343,6 +391,7 @@ function App() {
   const chooseTableForPendingOrder = (pendingOrderId) => {
     setSection('salon')
     setAssigningPendingOrderId(pendingOrderId)
+    setEditingMode(false)
     setEditingId(null)
     setSelectedId(null)
     setMessage('')
@@ -374,6 +423,7 @@ function App() {
   const signOut = () => {
     sessionStorage.removeItem('mesa-user')
     setSelectedId(null)
+    setEditingMode(false)
     setEditingId(null)
     setAssigningPendingOrderId(null)
     setUser(null)
@@ -403,15 +453,15 @@ function App() {
     </aside>
     <section className="page">
       {section === 'salon' ? <>
-        <header><div><p className="eyebrow">OPERACIÓN EN VIVO</p><h1>Salón principal</h1><p>Un clic abre el menú. Usá “Mover mesa” o doble clic para editar su ubicación.</p></div><button className="primary" onClick={async () => { await api('/tables', { method: 'POST', body: JSON.stringify({ name: tableName || null, seats: 4 }) }); setTableName(''); await load() }}>+ Nueva mesa</button></header>
+        <header><div><p className="eyebrow">OPERACIÓN EN VIVO</p><h1>Salón principal</h1><p>{editingMode ? 'Seleccioná una mesa para cambiar su nombre, moverla, redimensionarla o eliminarla.' : 'Un clic abre el menú. Usá Editar para modificar las mesas.'}</p></div><button className={editingMode ? 'edit-mode-button active' : 'primary'} onClick={() => { setEditingMode((value) => !value); setSelectedId(null); setEditingId(null) }}>{editingMode ? '✓ Listo' : '✎ Editar'}</button></header>
         {assigningPendingOrder && <div className="table-assignment-notice" role="status"><div><strong>Elegí una mesa para {assigningPendingOrder.customerName}</strong><span>Las mesas libres están resaltadas en verde. Al elegir una se abrirá y se imprimirá el ticket.</span></div><button type="button" disabled={assigningTable} onClick={() => setAssigningPendingOrderId(null)}>Cancelar</button></div>}
         {coworkingTables.length > 0 && <div className="coworking-notice" role="alert"><strong>⚠ Alerta de coworking</strong><span>{coworkingTables.map((table) => table.name).join(', ')} {coworkingTables.length === 1 ? 'tiene' : 'tienen'} un servicio de coworking cargado.</span></div>}
-        <div className="add-table"><input placeholder="Nombre de la mesa" value={tableName} onChange={(event) => setTableName(event.target.value)} /></div>
         {message && <p className="error">{message}</p>}
-        <FloorPlan tables={data.tables} coworkingTableIds={coworkingTableIds} editingId={editingId} assignmentOrder={assigningPendingOrder} assigningTable={assigningTable} onSelect={(id) => { setSelectedId(id); setEditingId(null) }} onEdit={(id) => { setSelectedId(null); setEditingId(id) }} onAssign={assignPendingOrderToTable} saveTable={saveTable} />
+        {editingMode && <TableEditor key={editingId ?? 'none'} table={data.tables.find((table) => table.id === editingId)} saveTable={saveTable} deleteTable={deleteTable} addTable={addTable} finishEditing={() => { setEditingMode(false); setEditingId(null) }} />}
+        <FloorPlan tables={data.tables} coworkingTableIds={coworkingTableIds} editingMode={editingMode} editingId={editingId} assignmentOrder={assigningPendingOrder} assigningTable={assigningTable} onSelect={(id) => { setSelectedId(id); setEditingId(null) }} onEdit={(id) => { setSelectedId(null); setEditingId(id) }} onAssign={assignPendingOrderToTable} saveTable={saveTable} />
       </> : section === 'pending' ? <PendingOrders data={data} api={api} load={load} onChooseTable={chooseTableForPendingOrder} /> : section === 'catalog' ? <Catalog data={data} api={api} load={load} /> : section === 'cigarettes' ? <Cigarettes api={api} /> : <History histories={histories} />}
     </section>
-    {selected && <TableMenu key={selected.id} table={selected} data={data} orders={orders} now={now} api={api} load={load} closePanel={() => setSelectedId(null)} editTable={(id) => { setSelectedId(null); setEditingId(id) }} closeTable={closeTable} deleteTable={deleteTable} updateOpenedAt={updateOpenedAt} />}
+    {selected && <TableMenu key={selected.id} table={selected} data={data} orders={orders} now={now} api={api} load={load} closePanel={() => setSelectedId(null)} closeTable={closeTable} updateOpenedAt={updateOpenedAt} />}
   </main>
 }
 

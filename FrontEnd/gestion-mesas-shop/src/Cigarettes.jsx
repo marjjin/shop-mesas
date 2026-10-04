@@ -4,6 +4,47 @@ import './Cigarettes.css'
 
 const shifts = { morning: 'Mañana', afternoon: 'Tarde' }
 const money = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 })
+const cigaretteTabs = new Set(['stock', 'purchases', 'close', 'history'])
+const closeDraftKey = (date, shift) => `mesa-cigarette-close-draft:${date}:${shift}`
+const closeContextKey = 'mesa-cigarette-close-context'
+
+function getCloseDraft(date, shift) {
+  try {
+    const draft = JSON.parse(localStorage.getItem(closeDraftKey(date, shift)) || 'null')
+    return draft && typeof draft.finalStocks === 'object' ? draft : null
+  } catch {
+    return null
+  }
+}
+
+function saveCloseDraft(date, shift, finalStocks) {
+  localStorage.setItem(closeDraftKey(date, shift), JSON.stringify({ finalStocks, savedAt: new Date().toISOString() }))
+}
+
+function clearCloseDraft(date, shift) {
+  localStorage.removeItem(closeDraftKey(date, shift))
+}
+
+function getCloseContext() {
+  try {
+    const context = JSON.parse(sessionStorage.getItem(closeContextKey) || 'null')
+    return context && /^\d{4}-\d{2}-\d{2}$/.test(context.date) && Object.hasOwn(shifts, context.shift) ? context : null
+  } catch {
+    return null
+  }
+}
+
+function previousDateValue(date) {
+  const value = new Date(`${date}T12:00:00`)
+  value.setDate(value.getDate() - 1)
+  return localDateValue(value)
+}
+
+function previousShift(date, shift) {
+  return shift === 'afternoon'
+    ? { businessDate: date, shift: 'morning' }
+    : { businessDate: previousDateValue(date), shift: 'afternoon' }
+}
 
 function localDateValue(date = new Date()) {
   const offset = date.getTimezoneOffset() * 60000
@@ -14,7 +55,9 @@ function ShiftCloseForm({ products, purchases, shift, date, onClose }) {
   const purchasedByProduct = useMemo(() => purchases
     .filter((purchase) => purchase.shift === shift)
     .reduce((totals, purchase) => ({ ...totals, [purchase.cigaretteProductId]: (totals[purchase.cigaretteProductId] || 0) + purchase.quantity }), {}), [purchases, shift])
-  const [finalStocks, setFinalStocks] = useState(() => Object.fromEntries(products.map((product) => [product.id, product.stock])))
+  const [storedDraft] = useState(() => getCloseDraft(date, shift))
+  const [finalStocks, setFinalStocks] = useState(() => Object.fromEntries(products.map((product) => [product.id, storedDraft?.finalStocks?.[product.id] ?? product.stock])))
+  const [hasDraft, setHasDraft] = useState(Boolean(storedDraft))
   const rows = products.map((product) => {
     const purchased = purchasedByProduct[product.id] || 0
     const initial = product.stock - purchased
@@ -30,14 +73,26 @@ function ShiftCloseForm({ products, purchases, shift, date, onClose }) {
     event.preventDefault()
     onClose({ businessDate: date, shift, items: rows.map((row) => ({ cigaretteProductId: row.id, finalStock: row.final })) })
   }
+  const changeFinalStock = (productId, value) => {
+    const updated = { ...finalStocks, [productId]: value }
+    setFinalStocks(updated)
+    saveCloseDraft(date, shift, updated)
+    setHasDraft(true)
+  }
+  const discardDraft = () => {
+    clearCloseDraft(date, shift)
+    setFinalStocks(Object.fromEntries(products.map((product) => [product.id, product.stock])))
+    setHasDraft(false)
+  }
 
   return <form className="shift-close" onSubmit={submit}>
+    <div className="close-draft-notice"><span>●</span><p>{hasDraft ? 'Borrador guardado automáticamente en este dispositivo.' : 'Los cambios se guardarán automáticamente mientras cargás el cierre.'}</p>{hasDraft && <button type="button" onClick={discardDraft}>Descartar borrador</button>}</div>
     <div className="close-grid-header"><span>Producto</span><span>Inicial</span><span>Compras</span><span>Final</span><span>Vendidos</span><span>Importe</span></div>
     {rows.map((row) => <div className={`close-grid-row ${row.stock <= 0 ? 'stock-empty' : ''}`} key={row.id}>
       <span className="close-product"><b>{row.name}</b><small>{money.format(row.price)} c/u{row.stock <= 0 ? ' · SIN STOCK' : ''}</small></span>
       <span className="close-metric"><small>Inicial</small><strong>{row.initial}</strong></span>
       <span className="close-metric"><small>Compras</small><strong className={row.purchased ? 'purchase-pill' : ''}>+{row.purchased}</strong></span>
-      <label className="close-metric final-stock"><small translate="no">Stock final</small><input type="number" inputMode="numeric" min="0" max={row.initial + row.purchased} required disabled={row.stock <= 0} title={row.stock <= 0 ? 'Sin stock disponible' : undefined} value={finalStocks[row.id] ?? ''} aria-label={`Stock final de ${row.name}`} onChange={(event) => setFinalStocks({ ...finalStocks, [row.id]: event.target.value })} /></label>
+      <label className="close-metric final-stock"><small translate="no">Stock final</small><input type="number" inputMode="numeric" min="0" max={row.initial + row.purchased} required disabled={row.stock <= 0} title={row.stock <= 0 ? 'Sin stock disponible' : undefined} value={finalStocks[row.id] ?? ''} aria-label={`Stock final de ${row.name}`} onChange={(event) => changeFinalStock(row.id, event.target.value)} /></label>
       <span className="close-metric"><small>Vendidos</small><strong className="sold-value">{row.sold}</strong></span>
       <span className="close-metric amount-metric"><small>Importe</small><b>{money.format(row.amount)}</b></span>
     </div>)}
@@ -92,9 +147,12 @@ function CloseCard({ close, onEdit }) {
 }
 
 export default function Cigarettes({ api }) {
-  const [tab, setTab] = useState('stock')
-  const [date, setDate] = useState(localDateValue)
-  const [shift, setShift] = useState('morning')
+  const [tab, setTab] = useState(() => {
+    const savedTab = sessionStorage.getItem('mesa-cigarette-tab')
+    return cigaretteTabs.has(savedTab) ? savedTab : 'stock'
+  })
+  const [date, setDate] = useState(() => getCloseContext()?.date || localDateValue())
+  const [shift, setShift] = useState(() => getCloseContext()?.shift || 'morning')
   const [dashboard, setDashboard] = useState({ products: [], purchases: [], closes: [] })
   const [product, setProduct] = useState({ name: '', price: '', initialStock: '' })
   const [purchase, setPurchase] = useState({ cigaretteProductId: '', quantity: '' })
@@ -106,6 +164,7 @@ export default function Cigarettes({ api }) {
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [visibleProductCount, setVisibleProductCount] = useState(10)
+  const [closeWarning, setCloseWarning] = useState(null)
 
   const load = useCallback(async () => {
     try {
@@ -116,6 +175,8 @@ export default function Cigarettes({ api }) {
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load() }, [load])
+  useEffect(() => { sessionStorage.setItem('mesa-cigarette-tab', tab) }, [tab])
+  useEffect(() => { sessionStorage.setItem(closeContextKey, JSON.stringify({ date, shift })) }, [date, shift])
 
   const execute = async (operation, successMessage) => {
     setBusy(true)
@@ -151,17 +212,49 @@ export default function Cigarettes({ api }) {
   }
   const savePurchase = async (event) => {
     event.preventDefault()
-    const saved = await execute(() => api(`/cigarettes/purchases/${editingPurchase.id}`, { method: 'PUT', body: JSON.stringify({ quantity: Number(editingPurchase.quantity) }) }), 'Compra actualizada y stock ajustado.')
+    const saved = await execute(() => api(`/cigarettes/purchases/${editingPurchase.id}`, { method: 'PUT', body: JSON.stringify({ quantity: Number(editingPurchase.quantity) }) }), 'Compra actualizada y cierre recalculado.')
     if (saved) setEditingPurchase(null)
   }
   const deletePurchase = async (item) => {
     if (!window.confirm(`¿Quitar la compra de ${item.quantity} unidades de ${item.productName}? El stock se descontará.`)) return
-    await execute(() => api(`/cigarettes/purchases/${item.id}`, { method: 'DELETE' }), 'Compra eliminada y stock ajustado.')
+    await execute(() => api(`/cigarettes/purchases/${item.id}`, { method: 'DELETE' }), 'Compra eliminada y cierre recalculado.')
+  }
+  const saveShiftClose = async (request, sourceDraft = request) => {
+    const saved = await execute(() => api('/cigarettes/closes', { method: 'POST', body: JSON.stringify(request) }), 'Turno cerrado correctamente.')
+    if (saved) {
+      clearCloseDraft(sourceDraft.businessDate, sourceDraft.shift)
+      clearCloseDraft(request.businessDate, request.shift)
+      setDate(request.businessDate)
+      setShift(request.shift)
+      setTab('history')
+    }
   }
   const closeShift = async (request) => {
-    if (!window.confirm(`¿Confirmar el cierre del turno ${shifts[shift].toLowerCase()}?`)) return
-    const saved = await execute(() => api('/cigarettes/closes', { method: 'POST', body: JSON.stringify(request) }), 'Turno cerrado correctamente.')
-    if (saved) setTab('history')
+    const previous = previousShift(request.businessDate, request.shift)
+    try {
+      const previousDashboard = previous.businessDate === date ? dashboard : await api(`/cigarettes?date=${previous.businessDate}`)
+      const previousIsClosed = previousDashboard.closes.some((close) => close.shift === previous.shift)
+      if (!previousIsClosed) {
+        setCloseWarning({ request, previous })
+        return
+      }
+    } catch {
+      setMessage('No se pudo comprobar si el turno anterior está cerrado. Intentá nuevamente.')
+      return
+    }
+    if (window.confirm(`¿Confirmar el cierre del turno ${shifts[request.shift].toLowerCase()}?`)) await saveShiftClose(request)
+  }
+  const continueClosingShift = async () => {
+    const request = closeWarning?.request
+    setCloseWarning(null)
+    if (request && window.confirm(`¿Confirmar el cierre del turno ${shifts[request.shift].toLowerCase()}?`)) await saveShiftClose(request)
+  }
+  const closeInPendingShift = async () => {
+    if (!closeWarning) return
+    const { request, previous } = closeWarning
+    setCloseWarning(null)
+    const correctedRequest = { ...request, businessDate: previous.businessDate, shift: previous.shift }
+    if (window.confirm(`Se cerrará como turno ${shifts[previous.shift].toLowerCase()} del ${new Date(`${previous.businessDate}T12:00:00`).toLocaleDateString('es-AR')}, usando los stocks que ya cargaste. ¿Continuar?`)) await saveShiftClose(correctedRequest, request)
   }
   const saveCloseCorrection = async (request) => {
     const saved = await execute(() => api(`/cigarettes/closes/${editingClose.id}`, { method: 'PUT', body: JSON.stringify(request) }), 'Cierre corregido y stock actualizado.')
@@ -191,6 +284,7 @@ export default function Cigarettes({ api }) {
       {[['stock', '▦', 'Stock y precios'], ['purchases', '↓', 'Compras'], ['close', '✓', 'Cerrar turno'], ['history', '◷', 'Calendario y cierres']].map(([value, icon, label]) => <button key={value} className={tab === value ? 'active' : ''} onClick={() => setTab(value)}><i>{icon}</i>{label}</button>)}
     </nav>
     {message && <p className={message.includes('correctamente') || message.includes('actualizado') ? 'cigarette-message success' : 'cigarette-message'}>{message}</p>}
+    {closeWarning && <div className="shift-warning-backdrop" role="presentation"><section className="shift-warning" role="dialog" aria-modal="true" aria-labelledby="shift-warning-title"><span className="shift-warning-icon">!</span><div><small>REVISÁ LA SECUENCIA DE CIERRES</small><h2 id="shift-warning-title">Hay un turno pendiente</h2><p>Antes de cerrar <b>{shifts[closeWarning.request.shift].toLowerCase()} del {new Date(`${closeWarning.request.businessDate}T12:00:00`).toLocaleDateString('es-AR')}</b>, falta cerrar <b>{shifts[closeWarning.previous.shift].toLowerCase()} del {new Date(`${closeWarning.previous.businessDate}T12:00:00`).toLocaleDateString('es-AR')}</b>.</p><p className="shift-warning-note">Podés cerrar ese turno ahora usando los stocks que ya cargaste; no tendrás que ingresarlos otra vez.</p></div><footer><button type="button" className="secondary" onClick={continueClosingShift}>Cerrar en el turno elegido</button><button type="button" className="primary" onClick={closeInPendingShift}>Cerrar en el turno correcto</button></footer></section></div>}
 
     {tab === 'stock' && <div className="cigarette-columns">
       <section className="cigarette-card"><div className="section-heading"><div><small>INVENTARIO ACTUAL</small><h2>Productos cargados</h2></div><span>{dashboard.products.length} variedades</span></div>
@@ -203,7 +297,7 @@ export default function Cigarettes({ api }) {
 
     {tab === 'purchases' && <div className="cigarette-columns">
       <section className="cigarette-card accent-card"><small>REPOSICIÓN · TURNO {shifts[shift].toUpperCase()}</small><h2>Registrar compra</h2><div className="shift-switch">{Object.entries(shifts).map(([value, label]) => <button type="button" key={value} className={shift === value ? 'active' : ''} onClick={() => setShift(value)}>{label}</button>)}</div><form className="cigarette-form" onSubmit={addPurchase}><label>Producto<div className="cigarette-product-search"><span>⌕</span><input required autoComplete="off" placeholder="Buscar cigarrillo..." value={purchaseSearch} onChange={(event) => { setPurchaseSearch(event.target.value); setPurchase({ ...purchase, cigaretteProductId: '' }) }} />{purchase.cigaretteProductId && <button type="button" aria-label="Cambiar producto" title="Cambiar producto" onClick={() => { setPurchaseSearch(''); setPurchase({ ...purchase, cigaretteProductId: '' }) }}>×</button>}</div></label>{purchaseResults.length > 0 && <div className="cigarette-search-results">{purchaseResults.map((item) => <button type="button" key={item.id} onClick={() => { setPurchaseSearch(item.name); setPurchase({ ...purchase, cigaretteProductId: item.id }) }}><span>{item.name}</span><small>Stock actual: {item.stock}</small></button>)}</div>}{purchaseSearch.trim() && !purchase.cigaretteProductId && !purchaseResults.length && <p className="cigarette-search-empty">No se encontraron cigarrillos.</p>}<label className="purchase-quantity">Cantidad comprada<input required type="number" min="1" value={purchase.quantity} onChange={(event) => setPurchase({ ...purchase, quantity: event.target.value })} /></label><button className="primary wide" disabled={busy || !purchase.cigaretteProductId}>Registrar compra</button></form></section>
-      <section className="cigarette-card"><div className="section-heading"><div><small>MOVIMIENTOS DEL DÍA</small><h2>Compras del turno</h2></div><b>{purchasedUnits} unidades</b></div><div className="purchase-list">{purchases.map((item) => editingPurchase?.id === item.id ? <form className="purchase-edit" key={item.id} onSubmit={savePurchase}><span><b>{item.productName}</b><small>Cantidad comprada</small></span><input required type="number" min="1" step="1" value={editingPurchase.quantity} onChange={(event) => setEditingPurchase({ ...editingPurchase, quantity: event.target.value })} /><button disabled={busy}>Guardar</button><button type="button" onClick={() => setEditingPurchase(null)}>Cancelar</button></form> : <article key={item.id}><span><b>{item.productName}</b><small>Stock incorporado</small></span><strong>+{item.quantity} unidades</strong><footer><button type="button" disabled={busy || Boolean(selectedClose)} title={selectedClose ? 'No se puede editar una compra de un turno cerrado' : 'Editar cantidad'} onClick={() => setEditingPurchase({ ...item })}>✎</button><button type="button" className="remove-purchase" disabled={busy || Boolean(selectedClose)} title={selectedClose ? 'No se puede quitar una compra de un turno cerrado' : 'Quitar compra'} onClick={() => deletePurchase(item)}>×</button></footer></article>)}{!purchases.length && <div className="cigarette-empty">No hay compras para este turno.</div>}</div></section>
+      <section className="cigarette-card"><div className="section-heading"><div><small>MOVIMIENTOS DEL DÍA</small><h2>Compras del turno</h2></div><b>{purchasedUnits} unidades</b></div><div className="purchase-list">{purchases.map((item) => editingPurchase?.id === item.id ? <form className="purchase-edit" key={item.id} onSubmit={savePurchase}><span><b>{item.productName}</b><small>Cantidad comprada{selectedClose ? ' · actualiza el cierre' : ''}</small></span><input required type="number" min="1" step="1" value={editingPurchase.quantity} onChange={(event) => setEditingPurchase({ ...editingPurchase, quantity: event.target.value })} /><button disabled={busy}>Guardar</button><button type="button" onClick={() => setEditingPurchase(null)}>Cancelar</button></form> : <article key={item.id}><span><b>{item.productName}</b><small>{selectedClose ? 'Compra incluida en el cierre' : 'Stock incorporado'}</small></span><strong>+{item.quantity} unidades</strong><footer><button type="button" disabled={busy} title="Editar cantidad" onClick={() => setEditingPurchase({ ...item })}>✎</button><button type="button" className="remove-purchase" disabled={busy} title="Quitar compra" onClick={() => deletePurchase(item)}>×</button></footer></article>)}{!purchases.length && <div className="cigarette-empty">No hay compras para este turno.</div>}</div></section>
     </div>}
 
     {tab === 'close' && <section className="cigarette-card close-section"><div className="section-heading"><div><small>ARQUEO DE INVENTARIO</small><h2>{editingClose ? 'Corregir cierre' : 'Cierre de turno'}</h2></div><div className="shift-switch">{Object.entries(shifts).map(([value, label]) => <button key={value} className={shift === value ? 'active' : ''} onClick={() => { setShift(value); setEditingClose(null) }}>{label}</button>)}</div></div><p className="close-help">{editingClose ? 'Corregí el stock físico final. Las ventas y el stock actual se ajustarán automáticamente.' : 'Ingresá el stock físico final. Las ventas se calculan automáticamente con el stock inicial y las compras del turno.'}</p>{editingClose && selectedClose?.id === editingClose.id ? <EditShiftCloseForm key={editingClose.id} close={editingClose} onSave={saveCloseCorrection} onCancel={() => setEditingClose(null)} busy={busy} /> : selectedClose ? <div className="already-closed"><span>✓</span><div><b>Turno {shifts[shift].toLowerCase()} cerrado</b><p>Se vendieron {selectedClose.totalSold} unidades por {money.format(selectedClose.totalSales)}.</p><button type="button" className="edit-close-button" onClick={() => setEditingClose(selectedClose)}>✎ Corregir cierre</button></div></div> : <ShiftCloseForm key={`${date}-${shift}-${dashboard.products.map((item) => item.stock).join('-')}`} products={dashboard.products} purchases={dashboard.purchases} shift={shift} date={date} onClose={closeShift} />}</section>}
