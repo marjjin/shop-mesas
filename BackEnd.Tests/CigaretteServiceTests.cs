@@ -84,6 +84,19 @@ public sealed class CigaretteServiceTests
     }
 
     [Fact]
+    public async Task RejectsProductStockBelowPurchasesFromOpenShifts()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        await fixture.Service.CreatePurchaseAsync(
+            new CreateCigarettePurchaseRequest(fixture.ProductId, 5, new DateOnly(2026, 9, 21), "morning"), default);
+
+        var exception = await Assert.ThrowsAsync<CigaretteValidationException>(() => fixture.Service.UpdateProductAsync(
+            fixture.ProductId, new UpdateCigaretteProductRequest("Marlboro Box", 3500m, 4), default));
+
+        Assert.Contains("compras en turnos aún abiertos", exception.Message);
+    }
+
+    [Fact]
     public async Task KeepsProductOrderWhenAProductIsRenamed()
     {
         await using var fixture = await TestFixture.CreateAsync();

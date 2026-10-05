@@ -51,6 +51,20 @@ function localDateValue(date = new Date()) {
   return new Date(date.getTime() - offset).toISOString().slice(0, 10)
 }
 
+function monthRange(date) {
+  const [year, month] = date.split('-').map(Number)
+  const lastDay = new Date(year, month, 0).getDate()
+  return { from: `${year}-${String(month).padStart(2, '0')}-01`, to: `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}` }
+}
+
+function buildMonthlyRanking(closes) {
+  return [...closes.flatMap((close) => close.items).reduce((sales, item) => {
+    const current = sales.get(item.cigaretteProductId) || { id: item.cigaretteProductId, name: item.productName, quantity: 0 }
+    sales.set(item.cigaretteProductId, { ...current, quantity: current.quantity + item.soldQuantity })
+    return sales
+  }, new Map()).values()].sort((left, right) => right.quantity - left.quantity || left.name.localeCompare(right.name, 'es'))
+}
+
 function ShiftCloseForm({ products, purchases, shift, date, onClose }) {
   const purchasedByProduct = useMemo(() => purchases
     .filter((purchase) => purchase.shift === shift)
@@ -61,13 +75,14 @@ function ShiftCloseForm({ products, purchases, shift, date, onClose }) {
   const rows = products.map((product) => {
     const purchased = purchasedByProduct[product.id] || 0
     const initial = product.stock - purchased
+    const invalidInitial = initial < 0
     const final = Number(finalStocks[product.id] ?? product.stock)
-    const sold = Math.max(0, initial + purchased - final)
-    return { ...product, purchased, initial, final, sold, amount: sold * product.price }
+    const sold = invalidInitial ? 0 : Math.max(0, initial + purchased - final)
+    return { ...product, purchased, initial, invalidInitial, final, sold, amount: sold * product.price }
   })
   const totalUnits = rows.reduce((total, row) => total + row.sold, 0)
   const totalSales = rows.reduce((total, row) => total + row.amount, 0)
-  const isValid = rows.length > 0 && rows.every((row) => row.final >= 0 && row.final <= row.initial + row.purchased)
+  const isValid = rows.length > 0 && rows.every((row) => !row.invalidInitial && row.final >= 0 && row.final <= row.initial + row.purchased)
 
   const submit = (event) => {
     event.preventDefault()
@@ -87,14 +102,15 @@ function ShiftCloseForm({ products, purchases, shift, date, onClose }) {
 
   return <form className="shift-close" onSubmit={submit}>
     <div className="close-draft-notice"><span>●</span><p>{hasDraft ? 'Borrador guardado automáticamente en este dispositivo.' : 'Los cambios se guardarán automáticamente mientras cargás el cierre.'}</p>{hasDraft && <button type="button" onClick={discardDraft}>Descartar borrador</button>}</div>
+    {rows.some((row) => row.invalidInitial) && <p className="close-validation-error">Hay un stock actual menor a las compras del turno. Corregí el stock del producto antes de cerrar.</p>}
     <div className="close-grid-header"><span>Producto</span><span>Inicial</span><span>Compras</span><span>Final</span><span>Vendidos</span><span>Importe</span></div>
     {rows.map((row) => <div className={`close-grid-row ${row.stock <= 0 ? 'stock-empty' : ''}`} key={row.id}>
       <span className="close-product"><b>{row.name}</b><small>{money.format(row.price)} c/u{row.stock <= 0 ? ' · SIN STOCK' : ''}</small></span>
-      <span className="close-metric"><small>Inicial</small><strong>{row.initial}</strong></span>
+      <span className={`close-metric ${row.invalidInitial ? 'invalid-initial' : ''}`}><small>Inicial</small><strong>{row.invalidInitial ? 'Corregir' : row.initial}</strong></span>
       <span className="close-metric"><small>Compras</small><strong className={row.purchased ? 'purchase-pill' : ''}>+{row.purchased}</strong></span>
       <label className="close-metric final-stock"><small translate="no">Stock final</small><input type="number" inputMode="numeric" min="0" max={row.initial + row.purchased} required disabled={row.stock <= 0} title={row.stock <= 0 ? 'Sin stock disponible' : undefined} value={finalStocks[row.id] ?? ''} aria-label={`Stock final de ${row.name}`} onChange={(event) => changeFinalStock(row.id, event.target.value)} /></label>
-      <span className="close-metric"><small>Vendidos</small><strong className="sold-value">{row.sold}</strong></span>
-      <span className="close-metric amount-metric"><small>Importe</small><b>{money.format(row.amount)}</b></span>
+      <span className="close-metric"><small>Vendidos</small><strong className="sold-value">{row.invalidInitial ? '—' : row.sold}</strong></span>
+      <span className="close-metric amount-metric"><small>Importe</small><b>{row.invalidInitial ? '—' : money.format(row.amount)}</b></span>
     </div>)}
     {!products.length && <div className="cigarette-empty">Primero cargá al menos un cigarrillo.</div>}
     <div className="close-total"><span><small>UNIDADES VENDIDAS</small><b>{totalUnits}</b></span><span><small>VENTA DEL TURNO</small><b>{money.format(totalSales)}</b></span><button className="primary" disabled={!isValid}>Cerrar turno {shifts[shift].toLowerCase()}</button></div>
@@ -165,6 +181,10 @@ export default function Cigarettes({ api }) {
   const [busy, setBusy] = useState(false)
   const [visibleProductCount, setVisibleProductCount] = useState(10)
   const [closeWarning, setCloseWarning] = useState(null)
+  const [inventoryDetails, setInventoryDetails] = useState(null)
+  const [monthlyRanking, setMonthlyRanking] = useState([])
+  const [loadingRanking, setLoadingRanking] = useState(false)
+  const [rankingError, setRankingError] = useState('')
 
   const load = useCallback(async () => {
     try {
@@ -172,9 +192,24 @@ export default function Cigarettes({ api }) {
       setMessage('')
     } catch { setMessage('No se pudo cargar la información de cigarrillos.') }
   }, [api, date])
+  const loadMonthlyRanking = useCallback(async () => {
+    setLoadingRanking(true)
+    setRankingError('')
+    try {
+      const { from, to } = monthRange(date)
+      const closes = await api(`/cigarettes/closes?from=${from}&to=${to}`)
+      setMonthlyRanking(buildMonthlyRanking(closes))
+    } catch {
+      setRankingError('No se pudo cargar el ranking mensual.')
+    } finally {
+      setLoadingRanking(false)
+    }
+  }, [api, date])
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load() }, [load])
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { loadMonthlyRanking() }, [loadMonthlyRanking])
   useEffect(() => { sessionStorage.setItem('mesa-cigarette-tab', tab) }, [tab])
   useEffect(() => { sessionStorage.setItem(closeContextKey, JSON.stringify({ date, shift })) }, [date, shift])
 
@@ -278,14 +313,24 @@ export default function Cigarettes({ api }) {
   const filteredProducts = dashboard.products.filter((item) => item.name.toLowerCase().includes(stockSearch.trim().toLowerCase()))
   const visibleProducts = filteredProducts.slice(0, visibleProductCount)
   const inventoryValue = dashboard.products.reduce((total, item) => total + item.stock * item.price, 0)
+  const lowStockProducts = dashboard.products.filter((item) => item.stock > 0 && item.stock <= 5)
+  const outOfStockProducts = dashboard.products.filter((item) => item.stock <= 0)
+  const lowStockCount = lowStockProducts.length
+  const outOfStockCount = outOfStockProducts.length
+  const bestSeller = monthlyRanking[0]
+  const showMonthlyRanking = () => {
+    setInventoryDetails('ranking')
+    if (rankingError) loadMonthlyRanking()
+  }
 
   return <div className="cigarettes-page">
     <header className="cigarettes-header"><div><p className="eyebrow">CONTROL DE INVENTARIO</p><h1>Cigarrillos</h1><p>Compras, stock y ventas de cada turno en un solo lugar.</p></div><label className="date-picker"><span>Fecha de trabajo</span><input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label></header>
     <nav className="cigarette-tabs" aria-label="Secciones de cigarrillos">
       {[['stock', '▦', 'Stock y precios'], ['purchases', '↓', 'Compras'], ['close', '✓', 'Cerrar turno'], ['history', '◷', 'Calendario y cierres']].map(([value, icon, label]) => <button key={value} className={tab === value ? 'active' : ''} onClick={() => setTab(value)}><i>{icon}</i>{label}</button>)}
     </nav>
-    <section className="inventory-value-card" aria-label="Valor total del inventario de cigarrillos"><span className="inventory-value-icon" aria-hidden="true">▥</span><div><small>VALOR DEL INVENTARIO</small><b>{money.format(inventoryValue)}</b><p>{dashboard.products.length} {dashboard.products.length === 1 ? 'variedad activa' : 'variedades activas'} · {dashboard.products.reduce((total, item) => total + item.stock, 0)} unidades</p></div></section>
+    <section className="inventory-value-card" aria-label="Resumen del inventario de cigarrillos"><div className="inventory-total"><span className="inventory-value-icon" aria-hidden="true">▥</span><div><small>VALOR DEL INVENTARIO</small><b>{money.format(inventoryValue)}</b><p>{dashboard.products.length} {dashboard.products.length === 1 ? 'variedad activa' : 'variedades activas'} · {dashboard.products.reduce((total, item) => total + item.stock, 0)} unidades</p></div></div><div className="inventory-insights"><div className="inventory-insight best-seller"><small>MÁS VENDIDO DEL MES</small><b>{loadingRanking ? 'Cargando…' : bestSeller?.name || 'Sin ventas aún'}</b><span>{bestSeller ? `${bestSeller.quantity} ${bestSeller.quantity === 1 ? 'unidad' : 'unidades'}` : 'Cierres del mes seleccionado'}</span><button type="button" onClick={showMonthlyRanking}>▤ Ver ranking mensual</button></div><div className="inventory-insight low-stock"><small>BAJO STOCK</small><b>{lowStockCount}</b><span>{lowStockCount === 1 ? 'variedad' : 'variedades'} · 1 a 5 un.</span><button type="button" onClick={() => setInventoryDetails('low')}>⌕ Ver detalles</button></div><div className="inventory-insight out-of-stock"><small>SIN STOCK</small><b>{outOfStockCount}</b><span>{outOfStockCount === 1 ? 'variedad agotada' : 'variedades agotadas'}</span><button type="button" onClick={() => setInventoryDetails('out')}>⌕ Ver detalles</button></div></div></section>
     {message && <p className={message.includes('correctamente') || message.includes('actualizado') ? 'cigarette-message success' : 'cigarette-message'}>{message}</p>}
+    {inventoryDetails && <div className="inventory-details-backdrop" role="presentation"><section className="inventory-details" role="dialog" aria-modal="true" aria-labelledby="inventory-details-title"><header><div><small>{inventoryDetails === 'ranking' ? 'VENTAS DEL MES' : 'ALERTA DE INVENTARIO'}</small><h2 id="inventory-details-title">{inventoryDetails === 'ranking' ? `Ranking de ${new Date(`${date}T12:00:00`).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}` : inventoryDetails === 'low' ? 'Variedades con bajo stock' : 'Variedades sin stock'}</h2></div><button type="button" aria-label="Cerrar detalle" onClick={() => setInventoryDetails(null)}>×</button></header>{inventoryDetails === 'ranking' ? <div className="ranking-list">{loadingRanking ? <p>Cargando ranking…</p> : rankingError ? <p className="ranking-error">{rankingError}</p> : monthlyRanking.length ? monthlyRanking.map((item, index) => <div key={item.id}><strong>#{index + 1}</strong><span>{item.name}</span><b>{item.quantity} {item.quantity === 1 ? 'unidad' : 'unidades'}</b></div>) : <p>Este mes todavía no registra ventas de cigarrillos.</p>}</div> : <div className="stock-details-list">{(inventoryDetails === 'low' ? lowStockProducts : outOfStockProducts).length ? (inventoryDetails === 'low' ? lowStockProducts : outOfStockProducts).map((item) => <div key={item.id}><span><b>{item.name}</b><small>{money.format(item.price)} por unidad</small></span><strong>{item.stock} {item.stock === 1 ? 'unidad' : 'unidades'}</strong></div>) : <p>{inventoryDetails === 'low' ? 'No hay variedades con bajo stock.' : 'No hay variedades agotadas.'}</p>}</div>}</section></div>}
     {closeWarning && <div className="shift-warning-backdrop" role="presentation"><section className="shift-warning" role="dialog" aria-modal="true" aria-labelledby="shift-warning-title"><span className="shift-warning-icon">!</span><div><small>REVISÁ LA SECUENCIA DE CIERRES</small><h2 id="shift-warning-title">Hay un turno pendiente</h2><p>Antes de cerrar <b>{shifts[closeWarning.request.shift].toLowerCase()} del {new Date(`${closeWarning.request.businessDate}T12:00:00`).toLocaleDateString('es-AR')}</b>, falta cerrar <b>{shifts[closeWarning.previous.shift].toLowerCase()} del {new Date(`${closeWarning.previous.businessDate}T12:00:00`).toLocaleDateString('es-AR')}</b>.</p><p className="shift-warning-note">Podés cerrar ese turno ahora usando los stocks que ya cargaste; no tendrás que ingresarlos otra vez.</p></div><footer><button type="button" className="secondary" onClick={continueClosingShift}>Cerrar en el turno elegido</button><button type="button" className="primary" onClick={closeInPendingShift}>Cerrar en el turno correcto</button></footer></section></div>}
 
     {tab === 'stock' && <div className="cigarette-columns">

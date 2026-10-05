@@ -80,6 +80,13 @@ public sealed class CigaretteService(RestaurantContext db) : ICigaretteService
         if (request.Stock < 0) throw new CigaretteValidationException("El stock no puede ser negativo.");
         if (await db.CigaretteProducts.AnyAsync(item => item.Id != id && item.Name.ToLower() == name.ToLower(), cancellationToken))
             throw new CigaretteValidationException("Ya existe un cigarrillo con ese nombre.");
+        var purchases = await db.CigarettePurchases.Where(purchase => purchase.CigaretteProductId == id)
+            .Select(purchase => new { purchase.BusinessDate, purchase.Shift, purchase.Quantity }).ToListAsync(cancellationToken);
+        var closedShifts = await db.CigaretteShiftCloses.Select(close => new { close.BusinessDate, close.Shift }).ToListAsync(cancellationToken);
+        var minimumStock = purchases.Where(purchase => !closedShifts.Any(close => close.BusinessDate == purchase.BusinessDate && close.Shift == purchase.Shift))
+            .Sum(purchase => purchase.Quantity);
+        if (request.Stock < minimumStock)
+            throw new CigaretteValidationException($"El stock no puede ser menor a {minimumStock}, porque hay compras en turnos aún abiertos.");
         product.Name = name;
         product.Price = request.Price;
         product.Stock = request.Stock;
