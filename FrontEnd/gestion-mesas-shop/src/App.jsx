@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import Moveable from 'react-moveable'
 import Catalog from './Catalog.jsx'
 import Cigarettes from './Cigarettes.jsx'
 import History from './History.jsx'
 import PendingOrders from './PendingOrders.jsx'
+import LoginForm from './features/auth/LoginForm.jsx'
+import Sidebar from './features/layout/Sidebar.jsx'
+import FloorPlan from './features/salon/components/FloorPlan.jsx'
+import TableEditor from './features/salon/components/TableEditor.jsx'
+import TableMenu from './features/salon/components/TableMenu.jsx'
+import { isCoworkingService } from './shared/utils/products.js'
 import { openReceiptPrintWindow, printReceipt, printWelcomeReceipt } from './receipt.js'
-import { parseProductSearch } from './productSearch.js'
 import './App.css'
 import './Panel.css'
 import './Navigation.css'
@@ -13,278 +17,6 @@ import './FloorPlan.css'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 const sections = new Set(['salon', 'pending', 'catalog', 'cigarettes', 'history'])
-const isCoworkingService = (product) => product.name.startsWith('Servicio Coworking ')
-
-function clock(date, now = Date.now()) {
-  if (!date) return '00:00:00'
-  const utcDate = /(?:Z|[+-]\d{2}:\d{2})$/.test(date) ? date : `${date}Z`
-  const seconds = Math.max(0, Math.floor((now - new Date(utcDate).getTime()) / 1000))
-  return [seconds / 3600, (seconds % 3600) / 60, seconds % 60]
-    .map((number) => String(Math.floor(number)).padStart(2, '0')).join(':')
-}
-
-function time(date) {
-  if (!date) return '--:--'
-  const utcDate = /(?:Z|[+-]\d{2}:\d{2})$/.test(date) ? date : `${date}Z`
-  return new Intl.DateTimeFormat('es-AR', { hour: '2-digit', minute: '2-digit' }).format(new Date(utcDate))
-}
-
-function datetimeLocal(date) {
-  if (!date) return ''
-  const utcDate = typeof date === 'number' || /(?:Z|[+-]\d{2}:\d{2})$/.test(date) ? date : `${date}Z`
-  const value = new Date(utcDate)
-  return new Date(value.getTime() - value.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
-}
-
-function FloorPlan({ tables, coworkingTableIds, editingMode, editingId, assignmentOrder, assigningTable, onSelect, onEdit, onAssign, saveTable }) {
-  const [target, setTarget] = useState(null)
-  const [now, setNow] = useState(() => Date.now())
-  const origin = useRef({ x: 0, y: 0 })
-  const clickTimer = useRef(null)
-  const editing = tables.find((table) => table.id === editingId)
-  const canvasWidth = Math.max(760, ...tables.map((table) => table.x + table.width + 60))
-  const canvasHeight = Math.max(560, ...tables.map((table) => table.y + table.height + 60))
-
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000)
-    return () => { clearInterval(timer); clearTimeout(clickTimer.current) }
-  }, [])
-
-  const selectTable = (event, table) => {
-    event.stopPropagation()
-    clearTimeout(clickTimer.current)
-    if (assignmentOrder) {
-      if (table.status === 'free' && !assigningTable) onAssign(table.id)
-      return
-    }
-    clickTimer.current = setTimeout(() => (editingMode ? onEdit(table.id) : onSelect(table.id)), 220)
-  }
-  const begin = (set) => {
-    origin.current = { x: editing?.x ?? 0, y: editing?.y ?? 0 }
-    set?.([0, 0])
-  }
-  const move = (element, delta) => {
-    element.style.left = `${origin.current.x + delta[0]}px`
-    element.style.top = `${origin.current.y + delta[1]}px`
-  }
-  const finish = (width, height) => {
-    if (!target || !editing) return
-    saveTable(editing.id, {
-      x: target.offsetLeft,
-      y: target.offsetTop,
-      ...(width ? { width: Math.round(width), height: Math.round(height) } : {}),
-    })
-  }
-
-  return <div className={`floor ${assignmentOrder ? 'assignment-mode' : ''} ${editingMode ? 'editing-mode' : ''}`} aria-label="Plano desplazable de mesas">
-    <div className="floor-canvas" style={{ minWidth: canvasWidth, minHeight: canvasHeight }} onClick={() => { if (!assignmentOrder) (editingMode ? onEdit : onSelect)(null) }}>
-      <small className="floor-instructions">{assignmentOrder ? `ELEGÍ UNA MESA LIBRE PARA ${assignmentOrder.customerName.toUpperCase()}` : editingMode ? 'EDICIÓN · ELEGÍ UNA MESA PARA RENOMBRARLA, MOVERLA O ELIMINARLA' : 'SALÓN · TOCÁ UNA MESA PARA OPERAR · DESLIZÁ PARA RECORRER'}</small>
-      {tables.map((table) => <button
-      key={table.id}
-      type="button"
-      ref={table.id === editingId ? setTarget : null}
-      className={`table ${table.status} ${coworkingTableIds.has(table.id) ? 'coworking-alert' : ''} ${table.id === editingId ? 'selected' : ''} ${assignmentOrder && table.status === 'free' ? 'assignment-target' : ''} ${assignmentOrder && table.status !== 'free' ? 'assignment-unavailable' : ''}`}
-      style={{ left: table.x, top: table.y, width: table.width, height: table.height }}
-      aria-disabled={Boolean(assignmentOrder && table.status !== 'free')}
-      onClick={(event) => selectTable(event, table)}
-    >
-      <em>{table.status === 'occupied' ? '● OCUPADA' : '○ LIBRE'}</em>
-      <b>{table.name}</b>
-      {table.status === 'occupied' && table.customerName && <span className="table-customer">{table.customerName}</span>}
-      {coworkingTableIds.has(table.id) && <span className="coworking-badge">⚠ SERVICIO COWORKING</span>}
-      {table.status === 'occupied' && <div className="table-times"><span><small>SIN CONSUMIR</small><strong>{clock(table.lastConsumptionAt, now)}</strong></span></div>}
-      </button>)}
-      {editingId && target && <Moveable
-        key={editingId} target={target} draggable resizable throttleDrag={0}
-        onDragStart={({ set }) => begin(set)}
-        onDrag={({ target: element, beforeTranslate }) => move(element, beforeTranslate)}
-        onDragEnd={({ lastEvent }) => { if (lastEvent) finish() }}
-        onResizeStart={({ dragStart }) => begin(dragStart?.set)}
-        onResize={({ target: element, width, height, drag }) => { element.style.width = `${width}px`; element.style.height = `${height}px`; move(element, drag.beforeTranslate) }}
-        onResizeEnd={({ lastEvent }) => { if (lastEvent) finish(lastEvent.width, lastEvent.height) }}
-      />}
-    </div>
-  </div>
-}
-
-function TableMenu({ table, data, orders, now, api, load, closePanel, closeTable, updateOpenedAt }) {
-  const [search, setSearch] = useState('')
-  const [customerName, setCustomerName] = useState('')
-  const [openError, setOpenError] = useState('')
-  const [openedAt, setOpenedAt] = useState(() => datetimeLocal(table.openedAt))
-  const [savingStart, setSavingStart] = useState(false)
-  const [startError, setStartError] = useState('')
-  const [removingOrderId, setRemovingOrderId] = useState(null)
-  const [editingOrderId, setEditingOrderId] = useState(null)
-  const [orderTime, setOrderTime] = useState('')
-  const [savingOrderId, setSavingOrderId] = useState(null)
-  const [orderError, setOrderError] = useState('')
-  const { quantity, query } = parseProductSearch(search)
-  const firstOrderTime = orders.reduce((earliest, order) => Math.min(earliest, new Date(/(?:Z|[+-]\d{2}:\d{2})$/.test(order.createdAt) ? order.createdAt : `${order.createdAt}Z`).getTime()), now)
-  const results = query ? data.products.filter((product) => !isCoworkingService(product)).filter((product) => {
-    return product.name.toLowerCase().includes(query.toLowerCase())
-  }) : []
-  const addConsumption = async (productId) => {
-    await api('/orders', { method: 'POST', body: JSON.stringify({ tableId: table.id, productId, quantity }) })
-    setSearch('')
-    await load()
-  }
-  const openTable = async (event) => {
-    event.preventDefault()
-    const name = customerName.trim()
-    if (!name) return
-    const printWindow = openReceiptPrintWindow()
-    setOpenError('')
-    try {
-      const openedTable = await api(`/tables/${table.id}/open`, { method: 'POST', body: JSON.stringify({ customerName: name }) })
-      const printStarted = printWelcomeReceipt(openedTable, printWindow)
-      setCustomerName('')
-      await load()
-      if (!printStarted) setOpenError('Mesa abierta. Habilitá las ventanas emergentes para imprimir el ticket de bienvenida.')
-    } catch {
-      printWindow?.close()
-      setOpenError('No se pudo abrir la mesa. Intentá nuevamente.')
-    }
-  }
-  const saveOpenedAt = async (event) => {
-    event.preventDefault()
-    setSavingStart(true)
-    setStartError('')
-    try {
-      await updateOpenedAt(table.id, new Date(openedAt).toISOString())
-    } catch {
-      setStartError('El inicio no puede ser futuro ni posterior al primer consumo.')
-    } finally {
-      setSavingStart(false)
-    }
-  }
-  const removeConsumption = async (order) => {
-    const isCoworking = isCoworkingService(order.product)
-    const confirmation = isCoworking
-      ? `¿Quitar este ${order.product.name}? Los próximos cargos quedarán pausados hasta volver a abrir la mesa.`
-      : `¿Quitar ${order.quantity}× ${order.product.name} de la mesa?`
-    if (!window.confirm(confirmation)) return
-    setRemovingOrderId(order.id)
-    setOrderError('')
-    try {
-      await api(`/orders/${order.id}`, { method: 'DELETE' })
-      await load()
-    } catch {
-      setOrderError('No se pudo quitar el registro. Intentá nuevamente.')
-    } finally {
-      setRemovingOrderId(null)
-    }
-  }
-  const beginEditingTime = (order) => {
-    setEditingOrderId(order.id)
-    setOrderTime(datetimeLocal(order.createdAt))
-    setOrderError('')
-  }
-  const saveConsumptionTime = async (event, order) => {
-    event.preventDefault()
-    setSavingOrderId(order.id)
-    setOrderError('')
-    try {
-      await api(`/orders/${order.id}`, { method: 'PATCH', body: JSON.stringify({ createdAt: new Date(orderTime).toISOString() }) })
-      setEditingOrderId(null)
-      await load()
-    } catch {
-      setOrderError('La hora debe estar entre la apertura de la mesa y el momento actual.')
-    } finally {
-      setSavingOrderId(null)
-    }
-  }
-  return <aside className="account">
-    <button type="button" className="close" aria-label="Cerrar detalle" title="Cerrar detalle" onClick={closePanel}>×</button>
-    <div className="account-summary">
-      <div className="table-menu-toolbar"><em className={table.status}>{table.status === 'occupied' ? '● OCUPADA' : '○ LIBRE'}</em></div>
-      <h2>{table.name}</h2>
-      {table.status === 'occupied' ? <>
-        <div className="customer-card"><small>CLIENTE</small><strong>{table.customerName || 'Sin nombre'}</strong></div>
-        <div className="timers"><div><small>INICIO</small><b>{time(table.openedAt)}</b></div><div><small>TIEMPO EN MESA</small><b>{clock(table.openedAt, now)}</b></div><div><small>SIN CONSUMIR</small><b>{clock(table.lastConsumptionAt, now)}</b></div></div>
-        <form className="start-time-form" onSubmit={saveOpenedAt}>
-          <label htmlFor={`opened-at-${table.id}`}>Modificar inicio</label>
-          <div><input id={`opened-at-${table.id}`} type="datetime-local" required max={datetimeLocal(firstOrderTime)} value={openedAt} onChange={(event) => setOpenedAt(event.target.value)} /><button type="submit" disabled={savingStart}>{savingStart ? 'Guardando…' : 'Guardar'}</button></div>
-          {startError && <small className="start-time-error">{startError}</small>}
-        </form>
-      </> : <form className="open-table-form" onSubmit={openTable}><label htmlFor={`customer-${table.id}`}>Nombre del cliente</label><input id={`customer-${table.id}`} maxLength="80" autoComplete="off" autoFocus placeholder="Ej.: Martín" value={customerName} onChange={(event) => setCustomerName(event.target.value)} /><button className="primary wide" disabled={!customerName.trim()}>Abrir mesa e imprimir</button>{openError && <small className="start-time-error">{openError}</small>}</form>}
-      <h3>Agregar consumo</h3>
-      <div className="search-field"><span>⌕</span><input className="product-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar artículo o 2*medialunas..." /></div>
-      {search.trim() && <div className="products search-results">{results.length ? results.map((product) => <button key={product.id} onClick={() => addConsumption(product.id)}><span>{product.name}</span><b>{quantity === 1 ? 'Agregar' : `Agregar ${quantity}`}</b></button>) : <p className="empty-result">No se encontraron artículos.</p>}</div>}
-      <div className="orders-heading"><h3>Artículos cargados</h3><small>{orders.length} {orders.length === 1 ? 'registro' : 'registros'}</small></div>
-      {table.coworkingDisabled && <p className="coworking-disabled-note">Servicios coworking pausados hasta la próxima apertura.</p>}
-    </div>
-    <div className="orders-list">
-      {orderError && <p className="order-error">{orderError}</p>}
-      {orders.length ? orders.map((order) => {
-        const isCoworking = isCoworkingService(order.product)
-        return <div className={`order ${isCoworking ? 'coworking-order' : ''}`} key={order.id}>
-          <span><small>{order.quantity}×</small>{order.product.name}</span>
-          {!isCoworking && editingOrderId === order.id ? <form className="order-time-form" onSubmit={(event) => saveConsumptionTime(event, order)}>
-            <input type="datetime-local" required min={datetimeLocal(table.openedAt)} max={datetimeLocal(now)} value={orderTime} onChange={(event) => setOrderTime(event.target.value)} />
-            <button type="submit" disabled={savingOrderId === order.id}>✓</button>
-            <button type="button" title="Cancelar" onClick={() => setEditingOrderId(null)}>×</button>
-          </form> : <div className="order-actions">
-            <time dateTime={order.createdAt}>{time(order.createdAt)}</time>
-            {!isCoworking && <button type="button" aria-label={`Editar hora de ${order.product.name}`} title="Editar hora" onClick={() => beginEditingTime(order)}>✎</button>}
-            <button type="button" disabled={removingOrderId === order.id} aria-label={`Quitar ${order.product.name}`} title={isCoworking ? 'Quitar este servicio' : 'Quitar artículo'} onClick={() => removeConsumption(order)}>{removingOrderId === order.id ? '…' : '×'}</button>
-          </div>}
-        </div>
-      }) : <p className="empty-result">Todavía no hay consumos.</p>}
-    </div>
-    <footer className="table-menu-footer">
-      {table.status === 'occupied' && <button className="dark" onClick={() => closeTable(table.id)}>Cerrar y liberar mesa</button>}
-    </footer>
-  </aside>
-}
-
-function TableEditor({ table, saveTable, deleteTable, addTable, finishEditing }) {
-  const [name, setName] = useState(() => table?.name || '')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-
-  const saveName = async (event) => {
-    event.preventDefault()
-    const value = name.trim()
-    if (!table || !value) return
-    setSaving(true)
-    setError('')
-    try {
-      await saveTable(table.id, { name: value })
-    } catch {
-      setError('No se pudo guardar el nombre. Intentá nuevamente.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return <aside className="table-edit-panel" aria-live="polite">
-    <div className="table-edit-toolbar">
-      <div className="table-edit-heading">
-        <p className="eyebrow">EDICIÓN DEL SALÓN</p>
-        <h2>{table ? table.name : 'Elegí una mesa'}</h2>
-      </div>
-      <div className="editing-actions">
-        <button type="button" className="add-table-button" onClick={addTable}><span aria-hidden="true">+</span> Agregar mesa</button>
-        <button type="button" className="finish-editing-button" onClick={finishEditing}><span aria-hidden="true">✓</span> Finalizar</button>
-      </div>
-    </div>
-    {table ? <>
-      <form className="table-rename-form" onSubmit={saveName}>
-        <div className="table-rename-label">
-          <label htmlFor={`table-name-${table.id}`}>Nombre de la mesa</label>
-          <span>Podés moverla o cambiar su tamaño directamente en el plano.</span>
-        </div>
-        <div className="table-name-actions">
-          <input id={`table-name-${table.id}`} maxLength="80" autoFocus value={name} onChange={(event) => setName(event.target.value)} />
-          <button className="dark" disabled={!name.trim() || saving}>{saving ? 'Guardando…' : 'Guardar'}</button>
-        </div>
-        <button type="button" className="delete-table-button" onClick={() => deleteTable(table)}>Eliminar mesa</button>
-      </form>
-      {error && <p className="error">{error}</p>}
-    </> : <p className="table-edit-help">Seleccioná una mesa en el plano para cambiar su nombre, moverla o eliminarla.</p>}
-  </aside>
-}
 
 function App() {
   const [user, setUser] = useState(() => JSON.parse(sessionStorage.getItem('mesa-user') || 'null'))
@@ -318,6 +50,7 @@ function App() {
   const loadHistory = useCallback(async () => {
     try { setHistories(await api('/history')); setMessage('') } catch { setMessage('No se pudo cargar el historial.') }
   }, [api])
+
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (user) load() }, [user, load])
   useEffect(() => { sessionStorage.setItem('mesa-section', section) }, [section])
@@ -328,16 +61,23 @@ function App() {
     const timer = setInterval(load, 10000)
     return () => clearInterval(timer)
   }, [user, load])
-  useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer) }, [])
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   const selected = data.tables.find((table) => table.id === selectedId)
   const assigningPendingOrder = data.pendingOrders?.find((order) => order.id === assigningPendingOrderId)
-  const orders = useMemo(() => data.orders.filter((order) => order.tableId === selectedId).map((order) => ({ ...order, product: data.products.find((product) => product.id === order.productId) })).filter((order) => order.product), [data, selectedId])
+  const orders = useMemo(() => data.orders
+    .filter((order) => order.tableId === selectedId)
+    .map((order) => ({ ...order, product: data.products.find((product) => product.id === order.productId) }))
+    .filter((order) => order.product), [data, selectedId])
   const coworkingTableIds = useMemo(() => {
     const serviceIds = new Set(data.products.filter(isCoworkingService).map((product) => product.id))
     return new Set(data.orders.filter((order) => serviceIds.has(order.productId)).map((order) => order.tableId))
   }, [data])
   const coworkingTables = data.tables.filter((table) => coworkingTableIds.has(table.id))
+
   const saveTable = async (id, patch) => {
     setData((old) => ({ ...old, tables: old.tables.map((table) => table.id === id ? { ...table, ...patch } : table) }))
     const saved = await api(`/tables/${id}`, { method: 'PATCH', body: JSON.stringify(patch) })
@@ -387,10 +127,26 @@ function App() {
       return false
     }
   }
-  const showHistory = () => {
-    setSection('history')
-    setSelectedId(null)
-    setAssigningPendingOrderId(null)
+  const changeSection = (nextSection) => {
+    setSection(nextSection)
+    if (nextSection === 'pending') {
+      setSelectedId(null)
+      setEditingId(null)
+      setAssigningPendingOrderId(null)
+    }
+    if (nextSection === 'catalog') {
+      setSelectedId(null)
+      setAssigningPendingOrderId(null)
+    }
+    if (nextSection === 'cigarettes') {
+      setSelectedId(null)
+      setEditingId(null)
+      setAssigningPendingOrderId(null)
+    }
+    if (nextSection === 'history') {
+      setSelectedId(null)
+      setAssigningPendingOrderId(null)
+    }
   }
   const chooseTableForPendingOrder = (pendingOrderId) => {
     setSection('salon')
@@ -438,23 +194,15 @@ function App() {
       const result = await api('/login', { method: 'POST', body: JSON.stringify(login) })
       sessionStorage.setItem('mesa-user', JSON.stringify(result.user))
       setUser(result.user)
-    } catch (error) { setMessage(error.message) }
+    } catch (error) {
+      setMessage(error.message)
+    }
   }
 
-  if (!user) return <main className="login"><form onSubmit={loginSubmit}><div className="icon">☕</div><p className="eyebrow">GESTIÓN DE MESAS</p><h1>Bienvenido</h1><label>Usuario<input value={login.username} onChange={(event) => setLogin({ ...login, username: event.target.value })} /></label><label>Contraseña<input type="password" value={login.password} onChange={(event) => setLogin({ ...login, password: event.target.value })} /></label>{message && <p className="error">{message}</p>}<button className="primary wide">Ingresar →</button><small>Demo: <b>admin / admin</b></small></form></main>
+  if (!user) return <LoginForm login={login} error={message} onLoginChange={setLogin} onSubmit={loginSubmit} />
 
   return <main className="layout">
-    <aside className="sidebar">
-      <div className="logo">☕ Mesa<span>.</span></div>
-      <nav className="sidebar-nav" aria-label="Navegación principal">
-        <button className={section === 'salon' ? 'active' : ''} onClick={() => setSection('salon')}>▦ <span>Plano de mesas</span></button>
-        <button className={section === 'pending' ? 'active' : ''} onClick={() => { setSection('pending'); setSelectedId(null); setEditingId(null); setAssigningPendingOrderId(null) }}>⌛ <span>Pedidos{data.pendingOrders?.length ? ` (${data.pendingOrders.length})` : ''}</span></button>
-        <button className={section === 'catalog' ? 'active' : ''} onClick={() => { setSection('catalog'); setSelectedId(null); setAssigningPendingOrderId(null) }}>☷ <span>Artículos</span></button>
-        <button className={section === 'cigarettes' ? 'active' : ''} onClick={() => { setSection('cigarettes'); setSelectedId(null); setEditingId(null); setAssigningPendingOrderId(null) }}>▥ <span>Cigarrillos</span></button>
-        <button className={section === 'history' ? 'active' : ''} onClick={showHistory}>◷ <span>Historial de mesas</span></button>
-      </nav>
-      <div className="profile"><i>A</i><span><b>{user.name}</b><small>Administrador</small></span><button className="logout-button" title="Cerrar sesión" onClick={signOut}>↪</button></div>
-    </aside>
+    <Sidebar user={user} section={section} pendingOrdersCount={data.pendingOrders?.length} onSectionChange={changeSection} onSignOut={signOut} />
     <section className="page">
       {section === 'salon' ? <>
         <header><div><p className="eyebrow">OPERACIÓN EN VIVO</p><h1>Salón principal</h1><p>{editingMode ? 'Seleccioná una mesa para cambiar su nombre, moverla, redimensionarla o eliminarla.' : 'Un clic abre el menú. Usá Editar para modificar las mesas.'}</p></div><button className={editingMode ? 'edit-mode-button active' : 'primary'} onClick={() => { setEditingMode((value) => !value); setSelectedId(null); setEditingId(null) }}>{editingMode ? '✓ Listo' : '✎ Editar'}</button></header>
