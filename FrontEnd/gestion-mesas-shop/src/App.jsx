@@ -17,7 +17,9 @@ import './Navigation.css'
 import './FloorPlan.css'
 import './CoffeeSales.css'
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+const API = import.meta.env.VITE_API_URL || (import.meta.env.PROD
+  ? 'https://shop-mesas.onrender.com/api'
+  : 'http://localhost:5000/api')
 const sections = new Set(['salon', 'pending', 'catalog', 'cafeteria', 'cigarettes', 'shift-close', 'history'])
 
 function App() {
