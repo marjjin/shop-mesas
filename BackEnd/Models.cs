@@ -17,6 +17,9 @@ public class RestaurantContext(DbContextOptions<RestaurantContext> options) : Db
     public DbSet<CigarettePurchase> CigarettePurchases => Set<CigarettePurchase>();
     public DbSet<CigaretteShiftClose> CigaretteShiftCloses => Set<CigaretteShiftClose>();
     public DbSet<CigaretteShiftCloseItem> CigaretteShiftCloseItems => Set<CigaretteShiftCloseItem>();
+    public DbSet<CafeteriaProduct> CafeteriaProducts => Set<CafeteriaProduct>();
+    public DbSet<CafeteriaSale> CafeteriaSales => Set<CafeteriaSale>();
+    public DbSet<CafeteriaSaleItem> CafeteriaSaleItems => Set<CafeteriaSaleItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -37,6 +40,14 @@ public class RestaurantContext(DbContextOptions<RestaurantContext> options) : Db
             .OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<CigaretteShiftCloseItem>().Property(item => item.UnitPrice).HasPrecision(12, 2);
         modelBuilder.Entity<CigaretteShiftCloseItem>().Property(item => item.SalesAmount).HasPrecision(12, 2);
+        modelBuilder.Entity<CafeteriaProduct>().HasIndex(product => product.Name).IsUnique();
+        modelBuilder.Entity<CafeteriaProduct>().Property(product => product.Price).HasPrecision(12, 2);
+        modelBuilder.Entity<CafeteriaSale>()
+            .HasMany(sale => sale.Items)
+            .WithOne()
+            .HasForeignKey(item => item.CafeteriaSaleId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<CafeteriaSaleItem>().Property(item => item.UnitPrice).HasPrecision(12, 2);
     }
 }
 
@@ -53,6 +64,9 @@ public class CigaretteProduct { public int Id { get; set; } public string Name {
 public class CigarettePurchase { public int Id { get; set; } public int CigaretteProductId { get; set; } public int Quantity { get; set; } public decimal UnitCost { get; set; } public DateOnly BusinessDate { get; set; } public string Shift { get; set; } = "morning"; public DateTime CreatedAt { get; set; } }
 public class CigaretteShiftClose { public int Id { get; set; } public DateOnly BusinessDate { get; set; } public string Shift { get; set; } = "morning"; public DateTime ClosedAt { get; set; } public List<CigaretteShiftCloseItem> Items { get; set; } = []; }
 public class CigaretteShiftCloseItem { public int Id { get; set; } public int CigaretteShiftCloseId { get; set; } public int CigaretteProductId { get; set; } public string ProductName { get; set; } = ""; public decimal UnitPrice { get; set; } public int InitialStock { get; set; } public int PurchasedQuantity { get; set; } public int FinalStock { get; set; } public int SoldQuantity { get; set; } public decimal SalesAmount { get; set; } }
+public class CafeteriaProduct { public int Id { get; set; } public string Name { get; set; } = ""; public decimal Price { get; set; } public bool IsActive { get; set; } = true; public DateTime CreatedAt { get; set; } }
+public class CafeteriaSale { public int Id { get; set; } public DateTime CreatedAt { get; set; } public List<CafeteriaSaleItem> Items { get; set; } = []; }
+public class CafeteriaSaleItem { public int Id { get; set; } public int CafeteriaSaleId { get; set; } public int CafeteriaProductId { get; set; } public string ProductName { get; set; } = ""; public decimal UnitPrice { get; set; } }
 
 public record LoginRequest(string Username, string Password);
 public record TableRequest(string? Name, int? Seats);
@@ -88,6 +102,18 @@ public sealed record CigarettePurchaseResponse(int Id, int CigaretteProductId, s
 /// <summary>Detalle de ventas calculado durante un cierre.</summary>
 public sealed record CigaretteShiftCloseItemResponse(int CigaretteProductId, string ProductName, decimal UnitPrice, int InitialStock, int PurchasedQuantity, int FinalStock, int SoldQuantity, decimal SalesAmount);
 /// <summary>Cierre completo de un turno.</summary>
-public sealed record CigaretteShiftCloseResponse(int Id, DateOnly BusinessDate, string Shift, DateTimeOffset ClosedAt, int TotalSold, decimal TotalSales, IReadOnlyList<CigaretteShiftCloseItemResponse> Items);
+public sealed record CigaretteShiftCloseResponse(int Id, DateOnly BusinessDate, string Shift, DateTimeOffset ClosedAt, int TotalSold, decimal TotalSales, IReadOnlyList<CigaretteShiftCloseItemResponse> Items, CafeteriaSalesSummaryResponse Cafeteria);
 /// <summary>Datos operativos e históricos de cigarrillos para una fecha.</summary>
 public sealed record CigaretteDashboardResponse(DateOnly BusinessDate, IReadOnlyList<CigaretteProductResponse> Products, IReadOnlyList<CigarettePurchaseResponse> Purchases, IReadOnlyList<CigaretteShiftCloseResponse> Closes);
+/// <summary>Artículo configurable para las ventas rápidas de cafetería.</summary>
+public sealed record CreateCafeteriaProductRequest(string Name, decimal Price);
+/// <summary>Datos editables de un artículo de cafetería.</summary>
+public sealed record UpdateCafeteriaProductRequest(string Name, decimal Price);
+/// <summary>Artículo de cafetería disponible para una venta rápida.</summary>
+public sealed record CafeteriaProductResponse(int Id, string Name, decimal Price);
+/// <summary>Resumen acumulado de artículos vendidos por la caja de cafetería.</summary>
+public sealed record CafeteriaSalesSummaryResponse(int SaleCount, decimal TotalSales, IReadOnlyList<CafeteriaSalesSummaryItemResponse> Items);
+/// <summary>Artículo vendido por la caja de cafetería.</summary>
+public sealed record CafeteriaSalesSummaryItemResponse(string ProductName, int Quantity, decimal UnitPrice, decimal TotalSales);
+/// <summary>Información de la caja de cafetería para una fecha de trabajo.</summary>
+public sealed record CafeteriaDashboardResponse(DateOnly BusinessDate, IReadOnlyList<CafeteriaProductResponse> Products, CafeteriaSalesSummaryResponse Summary);

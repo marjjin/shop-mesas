@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Catalog from './Catalog.jsx'
+import Cafeteria from './Cafeteria.jsx'
 import Cigarettes from './Cigarettes.jsx'
 import History from './History.jsx'
 import PendingOrders from './PendingOrders.jsx'
@@ -14,9 +15,10 @@ import './App.css'
 import './Panel.css'
 import './Navigation.css'
 import './FloorPlan.css'
+import './CoffeeSales.css'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
-const sections = new Set(['salon', 'pending', 'catalog', 'cigarettes', 'history'])
+const sections = new Set(['salon', 'pending', 'catalog', 'cafeteria', 'cigarettes', 'shift-close', 'history'])
 
 function App() {
   const [user, setUser] = useState(() => JSON.parse(sessionStorage.getItem('mesa-user') || 'null'))
@@ -28,6 +30,8 @@ function App() {
   const [editingId, setEditingId] = useState(null)
   const [assigningPendingOrderId, setAssigningPendingOrderId] = useState(null)
   const [assigningTable, setAssigningTable] = useState(false)
+  const [coffeeSummary, setCoffeeSummary] = useState({ saleCount: 0, totalSales: 0 })
+  const [sellingCoffee, setSellingCoffee] = useState(false)
   const [section, setSection] = useState(() => {
     const storedSection = sessionStorage.getItem('mesa-section')
     return sections.has(storedSection) ? storedSection : 'salon'
@@ -50,9 +54,15 @@ function App() {
   const loadHistory = useCallback(async () => {
     try { setHistories(await api('/history')); setMessage('') } catch { setMessage('No se pudo cargar el historial.') }
   }, [api])
+  const loadCoffeeSummary = useCallback(async () => {
+    const dashboard = await api('/cafeteria/dashboard')
+    setCoffeeSummary(dashboard.summary)
+  }, [api])
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (user) load() }, [user, load])
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { if (user) loadCoffeeSummary().catch(() => {}) }, [user, loadCoffeeSummary])
   useEffect(() => { sessionStorage.setItem('mesa-section', section) }, [section])
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (user && section === 'history') loadHistory() }, [user, section, loadHistory])
@@ -77,6 +87,20 @@ function App() {
     return new Set(data.orders.filter((order) => serviceIds.has(order.productId)).map((order) => order.tableId))
   }, [data])
   const coworkingTables = data.tables.filter((table) => coworkingTableIds.has(table.id))
+
+  const registerCoffeeSale = async () => {
+    if (sellingCoffee) return
+    setSellingCoffee(true)
+    try {
+      const dashboard = await api('/cafeteria/sales', { method: 'POST' })
+      setCoffeeSummary(dashboard.summary)
+      setMessage('Venta de cafetería registrada.')
+    } catch (error) {
+      setMessage(error.message)
+    } finally {
+      setSellingCoffee(false)
+    }
+  }
 
   const saveTable = async (id, patch) => {
     setData((old) => ({ ...old, tables: old.tables.map((table) => table.id === id ? { ...table, ...patch } : table) }))
@@ -129,6 +153,7 @@ function App() {
   }
   const changeSection = (nextSection) => {
     setSection(nextSection)
+    if (nextSection === 'salon') loadCoffeeSummary().catch(() => {})
     if (nextSection === 'pending') {
       setSelectedId(null)
       setEditingId(null)
@@ -139,6 +164,16 @@ function App() {
       setAssigningPendingOrderId(null)
     }
     if (nextSection === 'cigarettes') {
+      setSelectedId(null)
+      setEditingId(null)
+      setAssigningPendingOrderId(null)
+    }
+    if (nextSection === 'shift-close') {
+      setSelectedId(null)
+      setEditingId(null)
+      setAssigningPendingOrderId(null)
+    }
+    if (nextSection === 'cafeteria') {
       setSelectedId(null)
       setEditingId(null)
       setAssigningPendingOrderId(null)
@@ -205,13 +240,13 @@ function App() {
     <Sidebar user={user} section={section} pendingOrdersCount={data.pendingOrders?.length} onSectionChange={changeSection} onSignOut={signOut} />
     <section className="page">
       {section === 'salon' ? <>
-        <header><div><p className="eyebrow">OPERACIÓN EN VIVO</p><h1>Salón principal</h1><p>{editingMode ? 'Seleccioná una mesa para cambiar su nombre, moverla, redimensionarla o eliminarla.' : 'Un clic abre el menú. Usá Editar para modificar las mesas.'}</p></div><button className={editingMode ? 'edit-mode-button active' : 'primary'} onClick={() => { setEditingMode((value) => !value); setSelectedId(null); setEditingId(null) }}>{editingMode ? '✓ Listo' : '✎ Editar'}</button></header>
+        <header><div><p className="eyebrow">OPERACIÓN EN VIVO</p><h1>Salón principal</h1><p>{editingMode ? 'Seleccioná una mesa para cambiar su nombre, moverla, redimensionarla o eliminarla.' : 'Un clic abre el menú. Usá Editar para modificar las mesas.'}</p></div><div className="salon-actions"><button type="button" className="coffee-sales-button" disabled={sellingCoffee} onClick={registerCoffeeSale} aria-label={`Registrar venta de cafetería. Total de hoy: ${coffeeSummary.saleCount}`}><span>☕ {sellingCoffee ? 'REGISTRANDO…' : 'VENTA CAFÉ'}</span><b>{coffeeSummary.saleCount}</b></button><button type="button" className={editingMode ? 'edit-mode-button active' : 'primary'} onClick={() => { setEditingMode((value) => !value); setSelectedId(null); setEditingId(null) }}>{editingMode ? '✓ Listo' : '✎ Editar'}</button></div></header>
         {assigningPendingOrder && <div className="table-assignment-notice" role="status"><div><strong>Elegí una mesa para {assigningPendingOrder.customerName}</strong><span>Las mesas libres están resaltadas en verde. Al elegir una se abrirá y se imprimirá el ticket.</span></div><button type="button" disabled={assigningTable} onClick={() => setAssigningPendingOrderId(null)}>Cancelar</button></div>}
         {coworkingTables.length > 0 && <div className="coworking-notice" role="alert"><strong>⚠ Alerta de coworking</strong><span>{coworkingTables.map((table) => table.name).join(', ')} {coworkingTables.length === 1 ? 'tiene' : 'tienen'} un servicio de coworking cargado.</span></div>}
         {message && <p className="error">{message}</p>}
         {editingMode && <TableEditor key={editingId ?? 'none'} table={data.tables.find((table) => table.id === editingId)} saveTable={saveTable} deleteTable={deleteTable} addTable={addTable} finishEditing={() => { setEditingMode(false); setEditingId(null) }} />}
         <FloorPlan tables={data.tables} coworkingTableIds={coworkingTableIds} editingMode={editingMode} editingId={editingId} assignmentOrder={assigningPendingOrder} assigningTable={assigningTable} onSelect={(id) => { setSelectedId(id); setEditingId(null) }} onEdit={(id) => { setSelectedId(null); setEditingId(id) }} onAssign={assignPendingOrderToTable} saveTable={saveTable} />
-      </> : section === 'pending' ? <PendingOrders data={data} api={api} load={load} onChooseTable={chooseTableForPendingOrder} /> : section === 'catalog' ? <Catalog data={data} api={api} load={load} /> : section === 'cigarettes' ? <Cigarettes api={api} /> : <History histories={histories} />}
+      </> : section === 'pending' ? <PendingOrders data={data} api={api} load={load} onChooseTable={chooseTableForPendingOrder} /> : section === 'catalog' ? <Catalog data={data} api={api} load={load} /> : section === 'cafeteria' ? <Cafeteria api={api} onSummaryChange={setCoffeeSummary} /> : section === 'cigarettes' ? <Cigarettes api={api} /> : section === 'shift-close' ? <Cigarettes api={api} mode="shift-close" onShiftClosed={() => loadCoffeeSummary().catch(() => {})} /> : <History histories={histories} />}
     </section>
     {selected && <TableMenu key={selected.id} table={selected} data={data} orders={orders} now={now} api={api} load={load} closePanel={() => setSelectedId(null)} closeTable={closeTable} updateOpenedAt={updateOpenedAt} />}
   </main>

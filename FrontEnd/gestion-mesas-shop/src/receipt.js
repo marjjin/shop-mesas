@@ -106,6 +106,9 @@ function cigaretteShiftReceiptMarkup(close) {
     <div class="calculation"><span>${item.soldQuantity} un. × ${currency.format(item.unitPrice)}</span><span>${currency.format(item.salesAmount)}</span></div>
     <small>Stock: ${item.initialStock} inicial + ${item.purchasedQuantity} compras − ${item.finalStock} final</small>
   </div>`).join('')
+  const cafeteria = close.cafeteria
+  const cafeteriaItems = cafeteria?.items?.map((item) => `<div class="cafeteria-item"><span>${escapeHtml(item.productName)} · ${item.quantity} × ${currency.format(item.unitPrice)}</span><b>${currency.format(item.totalSales)}</b></div>`).join('')
+  const cafeteriaSummary = cafeteria?.saleCount ? `<section class="cafeteria"><h3>CAJA CAFETERÍA</h3>${cafeteriaItems}<div class="cafeteria-total"><span>${cafeteria.saleCount} ${cafeteria.saleCount === 1 ? 'venta rápida' : 'ventas rápidas'}</span><strong>${currency.format(cafeteria.totalSales)}</strong></div></section>` : ''
 
   return `<!doctype html>
 <html lang="es">
@@ -128,6 +131,10 @@ function cigaretteShiftReceiptMarkup(close) {
     .item small { display: block; margin-top: 1.5mm; color: #333; font-size: 7.5pt; }
     .total { display: flex; justify-content: space-between; margin-top: 5mm; padding: 4mm 0; border-top: 2px solid #000; border-bottom: 2px solid #000; font-size: 13pt; font-weight: bold; }
     .units { margin-top: 2mm; text-align: right; font-size: 8pt; }
+    .cafeteria { margin-top: 5mm; padding-top: 3mm; border-top: 1px dashed #000; }
+    .cafeteria h3 { margin-top: 0; }
+    .cafeteria-item, .cafeteria-total { display: flex; justify-content: space-between; gap: 3mm; padding: 1.5mm 0; font-size: 8.5pt; }
+    .cafeteria-total { margin-top: 2mm; border-top: 1px solid #000; font-size: 10pt; }
     footer { margin-top: 5mm; text-align: center; font-weight: bold; font-size: 9pt; }
   </style>
 </head>
@@ -138,6 +145,7 @@ function cigaretteShiftReceiptMarkup(close) {
   ${items || '<p>Sin ventas registradas</p>'}
   <div class="total"><span>TOTAL TURNO</span><span>${currency.format(close.totalSales)}</span></div>
   <div class="units">Unidades vendidas: ${close.totalSold}</div>
+  ${cafeteriaSummary}
   <footer>COMPROBANTE DE CIERRE</footer>
   <script>window.addEventListener('load', () => setTimeout(() => { window.focus(); window.print(); }, 100)); window.addEventListener('afterprint', () => window.close());</script>
 </body>

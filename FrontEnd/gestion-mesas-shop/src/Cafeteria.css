@@ -1,0 +1,31 @@
+.cafeteria-page { display: grid; gap: 20px; }
+.cafeteria-header { align-items: start; }
+.cafeteria-total { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: hidden; border: 1px solid #e5c398; border-radius: 14px; background: #fffaf2; }
+.cafeteria-total > div { display: flex; flex-direction: column; gap: 5px; padding: 21px 24px; }
+.cafeteria-total > div + div { border-left: 1px solid #ead5b8; }
+.cafeteria-total small, .cafeteria-card > small { color: #9b5a21; font-size: 10px; font-weight: 800; letter-spacing: .7px; }
+.cafeteria-total b, .cafeteria-total strong { color: #663713; font-family: 'Playfair Display', serif; font-size: 34px; line-height: 1; }
+.cafeteria-total span { color: #806247; font-size: 12px; }
+.cafeteria-columns { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, .8fr); gap: 18px; align-items: start; }
+.cafeteria-card { padding: 22px; border: 1px solid #e7e6e0; border-radius: 14px; background: #fffdfa; box-shadow: 0 7px 20px rgba(37, 38, 42, .04); }
+.cafeteria-card .section-heading { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.cafeteria-card .section-heading h2 { margin: 3px 0 0; font-size: 25px; }
+.cafeteria-card .section-heading > span, .cafeteria-card .section-heading > b { color: #754018; font-size: 12px; }
+.cafeteria-help, .cafeteria-create > p { color: #858683; font-size: 12px; line-height: 1.5; }
+.cafeteria-product-list, .cafeteria-breakdown > div { margin-top: 14px; }
+.cafeteria-product-list article, .cafeteria-breakdown article { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #efeee8; }
+.cafeteria-product-list article:last-child, .cafeteria-breakdown article:last-child { border-bottom: 0; }
+.cafeteria-product-list article span, .cafeteria-breakdown article span { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; }
+.cafeteria-product-list small, .cafeteria-breakdown small { color: #858683; font-size: 11px; }
+.cafeteria-product-list strong, .cafeteria-breakdown strong { color: #4f321e; font-size: 13px; white-space: nowrap; }
+.cafeteria-product-list button, .cafeteria-edit button { padding: 6px 8px; border: 1px solid #e4b7aa; border-radius: 6px; background: #fff6f2; color: #a33b27; font-weight: 700; cursor: pointer; }
+.cafeteria-create { background: #fff8ed; border-color: #edd1ac; }
+.cafeteria-create h2 { margin: 4px 0; }
+.cafeteria-create label { display: block; margin-top: 15px; color: #5d4c3d; font-size: 12px; font-weight: 700; }
+.cafeteria-create input, .cafeteria-edit input { width: 100%; margin-top: 6px; padding: 11px 12px; border: 1px solid #d8d6cf; border-radius: 8px; background: #fff; color: #25262a; font: inherit; outline-color: #e56743; }
+.cafeteria-edit { display: grid; grid-template-columns: minmax(0, 1fr) 115px auto auto; gap: 7px; padding: 8px 0; border-bottom: 1px solid #efeee8; }
+.cafeteria-edit input { margin: 0; }
+.cafeteria-empty { margin-top: 14px; padding: 22px; border: 1px dashed #d8d6cf; border-radius: 10px; color: #858683; font-size: 12px; text-align: center; }
+.cafeteria-breakdown { max-width: 680px; }
+.cafeteria-message { margin: 0; color: #b42318; font-size: 12px; }.cafeteria-message.success { color: #167455; }
+@media (max-width: 760px) { .cafeteria-columns { grid-template-columns: 1fr; }.cafeteria-edit { grid-template-columns: 1fr 100px auto auto; }.cafeteria-total { grid-template-columns: 1fr; }.cafeteria-total > div + div { border-top: 1px solid #ead5b8; border-left: 0; } }

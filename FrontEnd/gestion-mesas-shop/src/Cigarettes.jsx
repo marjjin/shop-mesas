@@ -5,6 +5,8 @@ import './Cigarettes.css'
 const shifts = { morning: 'Mañana', afternoon: 'Tarde' }
 const money = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 })
 const cigaretteTabs = new Set(['stock', 'purchases', 'close', 'history'])
+const inventoryTabs = [['stock', '▦', 'Stock y precios'], ['purchases', '↓', 'Compras']]
+const closingTabs = [['close', '✓', 'Cerrar turno'], ['history', '◷', 'Calendario y cierres']]
 const closeDraftKey = (date, shift) => `mesa-cigarette-close-draft:${date}:${shift}`
 const closeContextKey = 'mesa-cigarette-close-context'
 
@@ -162,10 +164,14 @@ function CloseCard({ close, onEdit }) {
   </article>
 }
 
-export default function Cigarettes({ api }) {
+export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
+  const isClosingView = mode === 'shift-close'
+  const availableTabs = isClosingView ? closingTabs : inventoryTabs
   const [tab, setTab] = useState(() => {
     const savedTab = sessionStorage.getItem('mesa-cigarette-tab')
-    return cigaretteTabs.has(savedTab) ? savedTab : 'stock'
+    return cigaretteTabs.has(savedTab) && availableTabs.some(([value]) => value === savedTab)
+      ? savedTab
+      : availableTabs[0][0]
   })
   const [date, setDate] = useState(() => getCloseContext()?.date || localDateValue())
   const [shift, setShift] = useState(() => getCloseContext()?.shift || 'morning')
@@ -210,6 +216,8 @@ export default function Cigarettes({ api }) {
   useEffect(() => { load() }, [load])
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { loadMonthlyRanking() }, [loadMonthlyRanking])
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setTab(isClosingView ? 'close' : 'stock') }, [isClosingView])
   useEffect(() => { sessionStorage.setItem('mesa-cigarette-tab', tab) }, [tab])
   useEffect(() => { sessionStorage.setItem(closeContextKey, JSON.stringify({ date, shift })) }, [date, shift])
 
@@ -255,13 +263,15 @@ export default function Cigarettes({ api }) {
     await execute(() => api(`/cigarettes/purchases/${item.id}`, { method: 'DELETE' }), 'Compra eliminada y cierre recalculado.')
   }
   const saveShiftClose = async (request, sourceDraft = request) => {
-    const saved = await execute(() => api('/cigarettes/closes', { method: 'POST', body: JSON.stringify(request) }), 'Turno cerrado correctamente.')
+    let close
+    const saved = await execute(async () => { close = await api('/cigarettes/closes', { method: 'POST', body: JSON.stringify(request) }) }, 'Turno cerrado correctamente.')
     if (saved) {
       clearCloseDraft(sourceDraft.businessDate, sourceDraft.shift)
       clearCloseDraft(request.businessDate, request.shift)
       setDate(request.businessDate)
       setShift(request.shift)
       setTab('history')
+      onShiftClosed?.(close)
     }
   }
   const closeShift = async (request) => {
@@ -324,11 +334,11 @@ export default function Cigarettes({ api }) {
   }
 
   return <div className="cigarettes-page">
-    <header className="cigarettes-header"><div><p className="eyebrow">CONTROL DE INVENTARIO</p><h1>Cigarrillos</h1><p>Compras, stock y ventas de cada turno en un solo lugar.</p></div><label className="date-picker"><span>Fecha de trabajo</span><input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label></header>
-    <nav className="cigarette-tabs" aria-label="Secciones de cigarrillos">
-      {[['stock', '▦', 'Stock y precios'], ['purchases', '↓', 'Compras'], ['close', '✓', 'Cerrar turno'], ['history', '◷', 'Calendario y cierres']].map(([value, icon, label]) => <button key={value} className={tab === value ? 'active' : ''} onClick={() => setTab(value)}><i>{icon}</i>{label}</button>)}
+    <header className="cigarettes-header"><div><p className="eyebrow">{isClosingView ? 'ARQUEO Y REGISTRO' : 'CONTROL DE INVENTARIO'}</p><h1>{isClosingView ? 'Cierre de turno' : 'Cigarrillos'}</h1><p>{isClosingView ? 'Cerrá los turnos, consultá sus registros e imprimí los comprobantes.' : 'Compras, stock y ventas de cada turno en un solo lugar.'}</p></div><label className="date-picker"><span>Fecha de trabajo</span><input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label></header>
+    <nav className="cigarette-tabs" aria-label={isClosingView ? 'Secciones de cierre de turno' : 'Secciones de cigarrillos'}>
+      {availableTabs.map(([value, icon, label]) => <button key={value} className={tab === value ? 'active' : ''} onClick={() => setTab(value)}><i>{icon}</i>{label}</button>)}
     </nav>
-    <section className="inventory-value-card" aria-label="Resumen del inventario de cigarrillos"><div className="inventory-total"><span className="inventory-value-icon" aria-hidden="true">▥</span><div><small>VALOR DEL INVENTARIO</small><b>{money.format(inventoryValue)}</b><p>{dashboard.products.length} {dashboard.products.length === 1 ? 'variedad activa' : 'variedades activas'} · {dashboard.products.reduce((total, item) => total + item.stock, 0)} unidades</p></div></div><div className="inventory-insights"><div className="inventory-insight best-seller"><small>MÁS VENDIDO DEL MES</small><b>{loadingRanking ? 'Cargando…' : bestSeller?.name || 'Sin ventas aún'}</b><span>{bestSeller ? `${bestSeller.quantity} ${bestSeller.quantity === 1 ? 'unidad' : 'unidades'}` : 'Cierres del mes seleccionado'}</span><button type="button" onClick={showMonthlyRanking}>▤ Ver ranking mensual</button></div><div className="inventory-insight low-stock"><small>BAJO STOCK</small><b>{lowStockCount}</b><span>{lowStockCount === 1 ? 'variedad' : 'variedades'} · 1 a 5 un.</span><button type="button" onClick={() => setInventoryDetails('low')}>⌕ Ver detalles</button></div><div className="inventory-insight out-of-stock"><small>SIN STOCK</small><b>{outOfStockCount}</b><span>{outOfStockCount === 1 ? 'variedad agotada' : 'variedades agotadas'}</span><button type="button" onClick={() => setInventoryDetails('out')}>⌕ Ver detalles</button></div></div></section>
+    {!isClosingView && <section className="inventory-value-card" aria-label="Resumen del inventario de cigarrillos"><div className="inventory-total"><span className="inventory-value-icon" aria-hidden="true">▥</span><div><small>VALOR DEL INVENTARIO</small><b>{money.format(inventoryValue)}</b><p>{dashboard.products.length} {dashboard.products.length === 1 ? 'variedad activa' : 'variedades activas'} · {dashboard.products.reduce((total, item) => total + item.stock, 0)} unidades</p></div></div><div className="inventory-insights"><div className="inventory-insight best-seller"><small>MÁS VENDIDO DEL MES</small><b>{loadingRanking ? 'Cargando…' : bestSeller?.name || 'Sin ventas aún'}</b><span>{bestSeller ? `${bestSeller.quantity} ${bestSeller.quantity === 1 ? 'unidad' : 'unidades'}` : 'Cierres del mes seleccionado'}</span><button type="button" onClick={showMonthlyRanking}>▤ Ver ranking mensual</button></div><div className="inventory-insight low-stock"><small>BAJO STOCK</small><b>{lowStockCount}</b><span>{lowStockCount === 1 ? 'variedad' : 'variedades'} · 1 a 5 un.</span><button type="button" onClick={() => setInventoryDetails('low')}>⌕ Ver detalles</button></div><div className="inventory-insight out-of-stock"><small>SIN STOCK</small><b>{outOfStockCount}</b><span>{outOfStockCount === 1 ? 'variedad agotada' : 'variedades agotadas'}</span><button type="button" onClick={() => setInventoryDetails('out')}>⌕ Ver detalles</button></div></div></section>}
     {message && <p className={message.includes('correctamente') || message.includes('actualizado') ? 'cigarette-message success' : 'cigarette-message'}>{message}</p>}
     {inventoryDetails && <div className="inventory-details-backdrop" role="presentation"><section className="inventory-details" role="dialog" aria-modal="true" aria-labelledby="inventory-details-title"><header><div><small>{inventoryDetails === 'ranking' ? 'VENTAS DEL MES' : 'ALERTA DE INVENTARIO'}</small><h2 id="inventory-details-title">{inventoryDetails === 'ranking' ? `Ranking de ${new Date(`${date}T12:00:00`).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}` : inventoryDetails === 'low' ? 'Variedades con bajo stock' : 'Variedades sin stock'}</h2></div><button type="button" aria-label="Cerrar detalle" onClick={() => setInventoryDetails(null)}>×</button></header>{inventoryDetails === 'ranking' ? <div className="ranking-list">{loadingRanking ? <p>Cargando ranking…</p> : rankingError ? <p className="ranking-error">{rankingError}</p> : monthlyRanking.length ? monthlyRanking.map((item, index) => <div key={item.id}><strong>#{index + 1}</strong><span>{item.name}</span><b>{item.quantity} {item.quantity === 1 ? 'unidad' : 'unidades'}</b></div>) : <p>Este mes todavía no registra ventas de cigarrillos.</p>}</div> : <div className="stock-details-list">{(inventoryDetails === 'low' ? lowStockProducts : outOfStockProducts).length ? (inventoryDetails === 'low' ? lowStockProducts : outOfStockProducts).map((item) => <div key={item.id}><span><b>{item.name}</b><small>{money.format(item.price)} por unidad</small></span><strong>{item.stock} {item.stock === 1 ? 'unidad' : 'unidades'}</strong></div>) : <p>{inventoryDetails === 'low' ? 'No hay variedades con bajo stock.' : 'No hay variedades agotadas.'}</p>}</div>}</section></div>}
     {closeWarning && <div className="shift-warning-backdrop" role="presentation"><section className="shift-warning" role="dialog" aria-modal="true" aria-labelledby="shift-warning-title"><span className="shift-warning-icon">!</span><div><small>REVISÁ LA SECUENCIA DE CIERRES</small><h2 id="shift-warning-title">Hay un turno pendiente</h2><p>Antes de cerrar <b>{shifts[closeWarning.request.shift].toLowerCase()} del {new Date(`${closeWarning.request.businessDate}T12:00:00`).toLocaleDateString('es-AR')}</b>, falta cerrar <b>{shifts[closeWarning.previous.shift].toLowerCase()} del {new Date(`${closeWarning.previous.businessDate}T12:00:00`).toLocaleDateString('es-AR')}</b>.</p><p className="shift-warning-note">Podés cerrar ese turno ahora usando los stocks que ya cargaste; no tendrás que ingresarlos otra vez.</p></div><footer><button type="button" className="secondary" onClick={continueClosingShift}>Cerrar en el turno elegido</button><button type="button" className="primary" onClick={closeInPendingShift}>Cerrar en el turno correcto</button></footer></section></div>}

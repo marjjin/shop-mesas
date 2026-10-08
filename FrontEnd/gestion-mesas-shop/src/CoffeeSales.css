@@ -1,0 +1,54 @@
+.salon-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.coffee-sales-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 9px 8px 12px;
+  border: 1px solid #d7a468;
+  border-radius: 9px;
+  background: #fff8ed;
+  color: #754018;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .25px;
+  cursor: pointer;
+}
+
+.coffee-sales-button:hover {
+  border-color: #bd7537;
+  background: #fff0d9;
+}
+
+.coffee-sales-button:focus-visible {
+  outline: 3px solid rgba(229, 103, 67, .28);
+  outline-offset: 2px;
+}
+
+.coffee-sales-button b {
+  display: grid;
+  min-width: 28px;
+  height: 28px;
+  place-items: center;
+  padding: 0 6px;
+  border-radius: 7px;
+  background: #754018;
+  color: #fff;
+  font-size: 13px;
+}
+
+@media (max-width: 680px) {
+  .salon-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+.coffee-sales-button:disabled {
+  cursor: wait;
+  opacity: .65;
+}

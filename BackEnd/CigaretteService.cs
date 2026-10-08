@@ -19,7 +19,7 @@ public interface ICigaretteService
 public sealed class CigaretteValidationException(string message) : InvalidOperationException(message);
 public sealed class CigaretteNotFoundException(string message) : KeyNotFoundException(message);
 
-public sealed class CigaretteService(RestaurantContext db) : ICigaretteService
+public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? cafeteria = null) : ICigaretteService
 {
     private static readonly IReadOnlyDictionary<string, int> SpreadsheetOrder = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
     {
@@ -190,7 +190,7 @@ public sealed class CigaretteService(RestaurantContext db) : ICigaretteService
         db.CigaretteShiftCloses.Add(close);
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        return ToResponse(close);
+        return await ToResponseAsync(close, cancellationToken);
     }
 
     public async Task<CigaretteShiftCloseResponse?> UpdateCloseAsync(int id, UpdateCigaretteShiftCloseRequest request, CancellationToken cancellationToken)
@@ -229,7 +229,7 @@ public sealed class CigaretteService(RestaurantContext db) : ICigaretteService
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        return ToResponse(close);
+        return await ToResponseAsync(close, cancellationToken);
     }
 
     private static void AdjustClosedPurchase(CigaretteShiftClose close, int productId, int quantityDifference)
@@ -260,7 +260,7 @@ public sealed class CigaretteService(RestaurantContext db) : ICigaretteService
     {
         var closes = await db.CigaretteShiftCloses.AsNoTracking().Where(predicate).Include(close => close.Items)
             .OrderByDescending(close => close.BusinessDate).ThenByDescending(close => close.Shift).ToListAsync(cancellationToken);
-        return closes.Select(ToResponse).ToList();
+        return await Task.WhenAll(closes.Select(close => ToResponseAsync(close, cancellationToken)));
     }
 
     private static string ValidateProduct(string name, decimal price)
@@ -282,9 +282,13 @@ public sealed class CigaretteService(RestaurantContext db) : ICigaretteService
 
     private static CigaretteProductResponse ToResponse(CigaretteProduct product) => new(product.Id, product.Name, product.Price, product.Stock);
     private static CigarettePurchaseResponse ToResponse(CigarettePurchase purchase, string productName) => new(purchase.Id, purchase.CigaretteProductId, productName, purchase.Quantity, purchase.BusinessDate, purchase.Shift, new DateTimeOffset(purchase.CreatedAt, TimeSpan.Zero));
-    private static CigaretteShiftCloseResponse ToResponse(CigaretteShiftClose close)
+    private async Task<CigaretteShiftCloseResponse> ToResponseAsync(CigaretteShiftClose close, CancellationToken cancellationToken)
     {
         var items = close.Items.OrderBy(item => GetSpreadsheetOrder(item.ProductName)).ThenBy(item => item.Id).Select(item => new CigaretteShiftCloseItemResponse(item.CigaretteProductId, item.ProductName, item.UnitPrice, item.InitialStock, item.PurchasedQuantity, item.FinalStock, item.SoldQuantity, item.SalesAmount)).ToList();
-        return new CigaretteShiftCloseResponse(close.Id, close.BusinessDate, close.Shift, new DateTimeOffset(close.ClosedAt, TimeSpan.Zero), items.Sum(item => item.SoldQuantity), items.Sum(item => item.SalesAmount), items);
+        var previousCloseAt = await db.CigaretteShiftCloses.AsNoTracking()
+            .Where(item => item.BusinessDate == close.BusinessDate && item.Id != close.Id && item.ClosedAt < close.ClosedAt)
+            .OrderByDescending(item => item.ClosedAt).Select(item => (DateTime?)item.ClosedAt).FirstOrDefaultAsync(cancellationToken);
+        var summary = await (cafeteria ?? new CafeteriaService(db)).GetSummaryAsync(close.BusinessDate, previousCloseAt, close.ClosedAt, cancellationToken);
+        return new CigaretteShiftCloseResponse(close.Id, close.BusinessDate, close.Shift, new DateTimeOffset(close.ClosedAt, TimeSpan.Zero), items.Sum(item => item.SoldQuantity), items.Sum(item => item.SalesAmount), items, summary);
     }
 }
