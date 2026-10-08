@@ -230,6 +230,33 @@ public sealed class CigaretteServiceTests
         Assert.Contains("cada cigarrillo", exception.Message);
     }
 
+    [Fact]
+    public async Task KeepsHistoricalClosesVisibleWhenTheirCafeteriaSummaryCannotBeLoaded()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var service = new CigaretteService(fixture.Db, new FailingCafeteriaService());
+        var date = new DateOnly(2026, 9, 21);
+
+        var created = await service.CloseShiftAsync(
+            new CreateCigaretteShiftCloseRequest(date, "morning", [new CigaretteCloseItemRequest(fixture.ProductId, 8)]), default);
+        var closes = await service.GetClosesAsync(date, date, default);
+
+        var close = Assert.Single(closes);
+        Assert.Equal(created.Id, close.Id);
+        Assert.Equal(0, close.Cafeteria.SaleCount);
+        Assert.Equal(0m, close.Cafeteria.TotalSales);
+    }
+
+    private sealed class FailingCafeteriaService : ICafeteriaService
+    {
+        public Task<CafeteriaDashboardResponse> GetDashboardAsync(DateOnly date, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<CafeteriaDashboardResponse> RegisterSaleAsync(DateOnly date, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<CafeteriaProductResponse> CreateProductAsync(CreateCafeteriaProductRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<CafeteriaProductResponse?> UpdateProductAsync(int id, UpdateCafeteriaProductRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> DeleteProductAsync(int id, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<CafeteriaSalesSummaryResponse> GetSummaryAsync(DateOnly date, DateTime? from, DateTime? until, CancellationToken cancellationToken) => throw new InvalidOperationException("Resumen no disponible.");
+    }
+
     private sealed class TestFixture : IAsyncDisposable
     {
         private readonly SqliteConnection connection;

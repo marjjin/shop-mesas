@@ -85,8 +85,9 @@ public sealed class CafeteriaService(RestaurantContext db) : ICafeteriaService
     {
         var dayStart = date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
         var start = dayStart;
-        if (from.HasValue && from.Value > start) start = from.Value;
-        var end = until ?? dayStart.AddDays(1);
+        var fromUtc = from.HasValue ? AsUtc(from.Value) : (DateTime?)null;
+        if (fromUtc.HasValue && fromUtc.Value > start) start = fromUtc.Value;
+        var end = until.HasValue ? AsUtc(until.Value) : dayStart.AddDays(1);
         var sales = await db.CafeteriaSales.AsNoTracking().Where(sale => sale.CreatedAt >= start && sale.CreatedAt < end)
             .Include(sale => sale.Items).ToListAsync(cancellationToken);
         var items = sales.SelectMany(sale => sale.Items).GroupBy(item => new { item.ProductName, item.UnitPrice })
@@ -110,6 +111,10 @@ public sealed class CafeteriaService(RestaurantContext db) : ICafeteriaService
     }
 
     private static CafeteriaProductResponse ToResponse(CafeteriaProduct product) => new(product.Id, product.Name, product.Price);
+
+    private static DateTime AsUtc(DateTime value) => value.Kind == DateTimeKind.Utc
+        ? value
+        : DateTime.SpecifyKind(value, DateTimeKind.Utc);
 }
 
 public sealed class CafeteriaValidationException(string message) : InvalidOperationException(message);

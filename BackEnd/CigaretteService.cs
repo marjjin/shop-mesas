@@ -288,7 +288,25 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
         var previousCloseAt = await db.CigaretteShiftCloses.AsNoTracking()
             .Where(item => item.BusinessDate == close.BusinessDate && item.Id != close.Id && item.ClosedAt < close.ClosedAt)
             .OrderByDescending(item => item.ClosedAt).Select(item => (DateTime?)item.ClosedAt).FirstOrDefaultAsync(cancellationToken);
-        var summary = await (cafeteria ?? new CafeteriaService(db)).GetSummaryAsync(close.BusinessDate, previousCloseAt, close.ClosedAt, cancellationToken);
-        return new CigaretteShiftCloseResponse(close.Id, close.BusinessDate, close.Shift, new DateTimeOffset(close.ClosedAt, TimeSpan.Zero), items.Sum(item => item.SoldQuantity), items.Sum(item => item.SalesAmount), items, summary);
+        var closedAt = AsUtc(close.ClosedAt);
+        var summary = new CafeteriaSalesSummaryResponse(0, 0, []);
+        try
+        {
+            summary = await (cafeteria ?? new CafeteriaService(db)).GetSummaryAsync(
+                close.BusinessDate,
+                previousCloseAt.HasValue ? AsUtc(previousCloseAt.Value) : null,
+                closedAt,
+                cancellationToken);
+        }
+        catch (Exception)
+        {
+            // El resumen es adicional: los cierres anteriores a Caja Cafetería deben seguir siendo consultables.
+        }
+
+        return new CigaretteShiftCloseResponse(close.Id, close.BusinessDate, close.Shift, new DateTimeOffset(closedAt), items.Sum(item => item.SoldQuantity), items.Sum(item => item.SalesAmount), items, summary);
     }
+
+    private static DateTime AsUtc(DateTime value) => value.Kind == DateTimeKind.Utc
+        ? value
+        : DateTime.SpecifyKind(value, DateTimeKind.Utc);
 }
