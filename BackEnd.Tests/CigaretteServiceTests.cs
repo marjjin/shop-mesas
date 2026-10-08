@@ -247,6 +247,22 @@ public sealed class CigaretteServiceTests
         Assert.Equal(0m, close.Cafeteria.TotalSales);
     }
 
+    [Fact]
+    public async Task LoadsBothShiftClosesForTheSameDate()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var date = new DateOnly(2026, 9, 21);
+
+        await fixture.Service.CloseShiftAsync(
+            new CreateCigaretteShiftCloseRequest(date, "morning", [new CigaretteCloseItemRequest(fixture.ProductId, 9)]), default);
+        await fixture.Service.CloseShiftAsync(
+            new CreateCigaretteShiftCloseRequest(date, "afternoon", [new CigaretteCloseItemRequest(fixture.ProductId, 8)]), default);
+
+        var closes = await fixture.Service.GetClosesAsync(date, date, default);
+
+        Assert.Equal(["morning", "afternoon"], closes.Select(close => close.Shift));
+    }
+
     private sealed class FailingCafeteriaService : ICafeteriaService
     {
         public Task<CafeteriaDashboardResponse> GetDashboardAsync(DateOnly date, CancellationToken cancellationToken) => throw new NotSupportedException();

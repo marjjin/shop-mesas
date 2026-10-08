@@ -260,7 +260,10 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
     {
         var closes = await db.CigaretteShiftCloses.AsNoTracking().Where(predicate).Include(close => close.Items)
             .OrderByDescending(close => close.BusinessDate).ThenByDescending(close => close.Shift).ToListAsync(cancellationToken);
-        return await Task.WhenAll(closes.Select(close => ToResponseAsync(close, cancellationToken)));
+        var responses = new List<CigaretteShiftCloseResponse>(closes.Count);
+        foreach (var close in closes)
+            responses.Add(await ToResponseAsync(close, cancellationToken));
+        return responses;
     }
 
     private static string ValidateProduct(string name, decimal price)
