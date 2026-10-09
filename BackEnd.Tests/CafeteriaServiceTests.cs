@@ -51,6 +51,27 @@ public sealed class CafeteriaServiceTests
         Assert.Equal(1, Assert.Single(dashboard.Summary.Items).Quantity);
     }
 
+    [Fact]
+    public async Task DashboardResetsAfterClosingTheShift()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var date = new DateOnly(2026, 10, 7);
+        await fixture.Service.CreateProductAsync(new CreateCafeteriaProductRequest("Café", 2500m), default);
+        var cigarette = new CigaretteProduct { Name = "Marlboro Box", Price = 3500m, Stock = 10, CreatedAt = DateTime.UtcNow };
+        fixture.Db.CigaretteProducts.Add(cigarette);
+        await fixture.Db.SaveChangesAsync();
+        await fixture.Service.RegisterSaleAsync(date, default);
+
+        var cigaretteService = new CigaretteService(fixture.Db, fixture.Service);
+        await cigaretteService.CloseShiftAsync(
+            new CreateCigaretteShiftCloseRequest(date, "morning", [new CigaretteCloseItemRequest(cigarette.Id, 9)]), default);
+        var dashboard = await fixture.Service.GetDashboardAsync(date, default);
+
+        Assert.Equal(0, dashboard.Summary.SaleCount);
+        Assert.Equal(0m, dashboard.Summary.TotalSales);
+        Assert.Empty(dashboard.Summary.Items);
+    }
+
     private sealed class TestFixture : IAsyncDisposable
     {
         private readonly SqliteConnection connection;

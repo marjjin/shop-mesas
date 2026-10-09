@@ -56,8 +56,8 @@ function App() {
   const loadHistory = useCallback(async () => {
     try { setHistories(await api('/history')); setMessage('') } catch { setMessage('No se pudo cargar el historial.') }
   }, [api])
-  const loadCoffeeSummary = useCallback(async () => {
-    const dashboard = await api('/cafeteria/dashboard')
+  const loadCoffeeSummary = useCallback(async (date) => {
+    const dashboard = await api(`/cafeteria/dashboard${date ? `?date=${date}` : ''}`)
     setCoffeeSummary(dashboard.summary)
   }, [api])
 
@@ -248,7 +248,7 @@ function App() {
         {message && <p className="error">{message}</p>}
         {editingMode && <TableEditor key={editingId ?? 'none'} table={data.tables.find((table) => table.id === editingId)} saveTable={saveTable} deleteTable={deleteTable} addTable={addTable} finishEditing={() => { setEditingMode(false); setEditingId(null) }} />}
         <FloorPlan tables={data.tables} coworkingTableIds={coworkingTableIds} editingMode={editingMode} editingId={editingId} assignmentOrder={assigningPendingOrder} assigningTable={assigningTable} onSelect={(id) => { setSelectedId(id); setEditingId(null) }} onEdit={(id) => { setSelectedId(null); setEditingId(id) }} onAssign={assignPendingOrderToTable} saveTable={saveTable} />
-      </> : section === 'pending' ? <PendingOrders data={data} api={api} load={load} onChooseTable={chooseTableForPendingOrder} /> : section === 'catalog' ? <Catalog data={data} api={api} load={load} /> : section === 'cafeteria' ? <Cafeteria api={api} onSummaryChange={setCoffeeSummary} /> : section === 'cigarettes' ? <Cigarettes api={api} /> : section === 'shift-close' ? <Cigarettes api={api} mode="shift-close" onShiftClosed={() => loadCoffeeSummary().catch(() => {})} /> : <History histories={histories} />}
+      </> : section === 'pending' ? <PendingOrders data={data} api={api} load={load} onChooseTable={chooseTableForPendingOrder} /> : section === 'catalog' ? <Catalog data={data} api={api} load={load} /> : section === 'cafeteria' ? <Cafeteria api={api} onSummaryChange={setCoffeeSummary} /> : section === 'cigarettes' ? <Cigarettes api={api} /> : section === 'shift-close' ? <Cigarettes api={api} mode="shift-close" onShiftClosed={(close) => { setCoffeeSummary({ saleCount: 0, totalSales: 0 }); loadCoffeeSummary(close.businessDate).catch(() => {}) }} /> : <History histories={histories} />}
     </section>
     {selected && <TableMenu key={selected.id} table={selected} data={data} orders={orders} now={now} api={api} load={load} closePanel={() => setSelectedId(null)} closeTable={closeTable} updateOpenedAt={updateOpenedAt} />}
   </main>
