@@ -17,7 +17,7 @@ public sealed class CafeteriaServiceTests
 
         var sale = await fixture.Service.RegisterSaleAsync(date, default);
         await fixture.Service.UpdateProductAsync(cafe.Id, new UpdateCafeteriaProductRequest("Café", 3000m), default);
-        var summary = await fixture.Service.GetSummaryAsync(date, null, null, default);
+        var summary = await fixture.Service.GetSummaryAsync(date, "morning", default);
 
         Assert.Equal(1, sale.Summary.SaleCount);
         Assert.Equal(3000m, sale.Summary.TotalSales);
@@ -35,11 +35,11 @@ public sealed class CafeteriaServiceTests
         await using var fixture = await TestFixture.CreateAsync();
         var date = new DateOnly(2026, 10, 7);
         var product = await fixture.Service.CreateProductAsync(new CreateCafeteriaProductRequest("Café", 2500m), default);
-        var morningSale = new CafeteriaSale { CreatedAt = date.ToDateTime(new TimeOnly(9, 0), DateTimeKind.Utc) };
+        var morningSale = new CafeteriaSale { BusinessDate = date, Shift = "morning", CreatedAt = date.ToDateTime(new TimeOnly(9, 0), DateTimeKind.Utc) };
         morningSale.Items.Add(new CafeteriaSaleItem { CafeteriaProductId = product.Id, ProductName = product.Name, UnitPrice = product.Price });
         fixture.Db.CafeteriaSales.Add(morningSale);
         fixture.Db.CigaretteShiftCloses.Add(new CigaretteShiftClose { BusinessDate = date, Shift = "morning", ClosedAt = date.ToDateTime(new TimeOnly(12, 0), DateTimeKind.Utc) });
-        var afternoonSale = new CafeteriaSale { CreatedAt = date.ToDateTime(new TimeOnly(14, 0), DateTimeKind.Utc) };
+        var afternoonSale = new CafeteriaSale { BusinessDate = date, Shift = "afternoon", CreatedAt = date.ToDateTime(new TimeOnly(14, 0), DateTimeKind.Utc) };
         afternoonSale.Items.Add(new CafeteriaSaleItem { CafeteriaProductId = product.Id, ProductName = product.Name, UnitPrice = product.Price });
         fixture.Db.CafeteriaSales.Add(afternoonSale);
         await fixture.Db.SaveChangesAsync();
@@ -52,7 +52,7 @@ public sealed class CafeteriaServiceTests
     }
 
     [Fact]
-    public async Task DashboardResetsAfterClosingTheShift()
+    public async Task DashboardResetsOnlyAfterClosingTheShift()
     {
         await using var fixture = await TestFixture.CreateAsync();
         var date = new DateOnly(2026, 10, 7);
@@ -70,6 +70,34 @@ public sealed class CafeteriaServiceTests
         Assert.Equal(0, dashboard.Summary.SaleCount);
         Assert.Equal(0m, dashboard.Summary.TotalSales);
         Assert.Empty(dashboard.Summary.Items);
+    }
+
+    [Fact]
+    public async Task DashboardKeepsSalesAcrossDatesUntilTheShiftIsClosed()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var date = new DateOnly(2026, 10, 7);
+        var followingDate = date.AddDays(1);
+        await fixture.Service.CreateProductAsync(new CreateCafeteriaProductRequest("Café", 2500m), default);
+        var cigarette = new CigaretteProduct { Name = "Marlboro Box", Price = 3500m, Stock = 10, CreatedAt = DateTime.UtcNow };
+        fixture.Db.CigaretteProducts.Add(cigarette);
+        await fixture.Db.SaveChangesAsync();
+        var cigarettes = new CigaretteService(fixture.Db, fixture.Service);
+
+        await fixture.Service.RegisterSaleAsync(date, default);
+        await cigarettes.CloseShiftAsync(
+            new CreateCigaretteShiftCloseRequest(date, "morning", [new CigaretteCloseItemRequest(cigarette.Id, 9)]), default);
+        await fixture.Service.RegisterSaleAsync(followingDate, default);
+
+        var dashboardBeforeClose = await fixture.Service.GetDashboardAsync(followingDate, default);
+        var afternoonClose = await cigarettes.CloseShiftAsync(
+            new CreateCigaretteShiftCloseRequest(followingDate, "afternoon", [new CigaretteCloseItemRequest(cigarette.Id, 8)]), default);
+        var dashboardAfterClose = await fixture.Service.GetDashboardAsync(followingDate, default);
+
+        Assert.Equal(1, dashboardBeforeClose.Summary.SaleCount);
+        Assert.Equal("afternoon", dashboardBeforeClose.ActiveShift);
+        Assert.Equal(1, afternoonClose.Cafeteria.SaleCount);
+        Assert.Equal(0, dashboardAfterClose.Summary.SaleCount);
     }
 
     private sealed class TestFixture : IAsyncDisposable

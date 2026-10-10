@@ -164,6 +164,11 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
             throw new CigaretteValidationException("No se puede repetir un cigarrillo en el cierre.");
         if (await db.CigaretteShiftCloses.AnyAsync(close => close.BusinessDate == request.BusinessDate && close.Shift == shift, cancellationToken))
             throw new CigaretteValidationException("Ese turno ya fue cerrado.");
+        var allocations = request.SupplierAllocations ?? [];
+        if (allocations.Any(allocation => allocation.Amount < 0))
+            throw new CigaretteValidationException("El importe reservado para un proveedor no puede ser negativo.");
+        if (allocations.Select(allocation => allocation.SupplierId).Distinct().Count() != allocations.Count)
+            throw new CigaretteValidationException("No se puede repetir un proveedor en el cierre.");
 
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var ids = request.Items.Select(item => item.CigaretteProductId).ToList();
@@ -172,6 +177,11 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
         var purchases = await db.CigarettePurchases.Where(purchase => purchase.BusinessDate == request.BusinessDate && purchase.Shift == shift && ids.Contains(purchase.CigaretteProductId))
             .GroupBy(purchase => purchase.CigaretteProductId).Select(group => new { ProductId = group.Key, Quantity = group.Sum(item => item.Quantity) })
             .ToDictionaryAsync(item => item.ProductId, item => item.Quantity, cancellationToken);
+        var supplierIds = allocations.Where(allocation => allocation.Amount > 0).Select(allocation => allocation.SupplierId).ToList();
+        var suppliers = await db.Suppliers.Where(supplier => supplier.IsActive && supplierIds.Contains(supplier.Id))
+            .ToDictionaryAsync(supplier => supplier.Id, cancellationToken);
+        if (suppliers.Count != supplierIds.Count)
+            throw new CigaretteNotFoundException("Uno de los proveedores del cierre no existe o está inactivo.");
 
         var close = new CigaretteShiftClose { BusinessDate = request.BusinessDate, Shift = shift, ClosedAt = DateTime.UtcNow };
         foreach (var input in request.Items)
@@ -188,6 +198,17 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
         }
 
         db.CigaretteShiftCloses.Add(close);
+        await db.SaveChangesAsync(cancellationToken);
+        foreach (var allocation in allocations.Where(allocation => allocation.Amount > 0))
+        {
+            var supplier = suppliers[allocation.SupplierId];
+            supplier.Balance += allocation.Amount;
+            db.SupplierTransactions.Add(new SupplierTransaction
+            {
+                SupplierId = supplier.Id, CigaretteShiftCloseId = close.Id, Type = "allocation",
+                Amount = allocation.Amount, BusinessDate = request.BusinessDate, CreatedAt = close.ClosedAt
+            });
+        }
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return await ToResponseAsync(close, cancellationToken);
@@ -227,9 +248,60 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
             product.Stock = correctedCurrentStock;
         }
 
+        if (request.SupplierAllocations is not null)
+            await UpdateSupplierAllocationsAsync(close, request.SupplierAllocations, cancellationToken);
+
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return await ToResponseAsync(close, cancellationToken);
+    }
+
+    private async Task UpdateSupplierAllocationsAsync(CigaretteShiftClose close, IReadOnlyList<SupplierAllocationRequest> requestedAllocations, CancellationToken cancellationToken)
+    {
+        if (requestedAllocations.Any(allocation => allocation.Amount < 0))
+            throw new CigaretteValidationException("El importe reservado para un proveedor no puede ser negativo.");
+        if (requestedAllocations.Select(allocation => allocation.SupplierId).Distinct().Count() != requestedAllocations.Count)
+            throw new CigaretteValidationException("No se puede repetir un proveedor en el cierre.");
+
+        var requested = requestedAllocations.Where(allocation => allocation.Amount > 0)
+            .ToDictionary(allocation => allocation.SupplierId, allocation => allocation.Amount);
+        var existing = await db.SupplierTransactions
+            .Where(transaction => transaction.CigaretteShiftCloseId == close.Id && transaction.Type == "allocation")
+            .ToDictionaryAsync(transaction => transaction.SupplierId, cancellationToken);
+        var supplierIds = requested.Keys.Union(existing.Keys).ToList();
+        var suppliers = await db.Suppliers.Where(supplier => supplierIds.Contains(supplier.Id))
+            .ToDictionaryAsync(supplier => supplier.Id, cancellationToken);
+        if (suppliers.Count != supplierIds.Count)
+            throw new CigaretteNotFoundException("Uno de los proveedores del cierre no existe.");
+
+        foreach (var supplierId in supplierIds)
+        {
+            var currentAmount = existing.GetValueOrDefault(supplierId)?.Amount ?? 0;
+            var requestedAmount = requested.GetValueOrDefault(supplierId);
+            var supplier = suppliers[supplierId];
+            var difference = requestedAmount - currentAmount;
+            if (difference == 0) continue;
+            if (!existing.ContainsKey(supplierId) && !supplier.IsActive)
+                throw new CigaretteValidationException($"El proveedor {supplier.Name} está inactivo.");
+            if (supplier.Balance + difference < 0)
+                throw new CigaretteValidationException($"No se puede reducir la reserva de {supplier.Name}, porque ya se pagó parte de ese saldo.");
+
+            supplier.Balance += difference;
+            if (requestedAmount == 0)
+                db.SupplierTransactions.Remove(existing[supplierId]);
+            else if (existing.TryGetValue(supplierId, out var allocation))
+                allocation.Amount = requestedAmount;
+            else
+                db.SupplierTransactions.Add(new SupplierTransaction
+                {
+                    SupplierId = supplier.Id,
+                    CigaretteShiftCloseId = close.Id,
+                    Type = "allocation",
+                    Amount = requestedAmount,
+                    BusinessDate = close.BusinessDate,
+                    CreatedAt = close.ClosedAt
+                });
+        }
     }
 
     private static void AdjustClosedPurchase(CigaretteShiftClose close, int productId, int quantityDifference)
@@ -288,25 +360,24 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
     private async Task<CigaretteShiftCloseResponse> ToResponseAsync(CigaretteShiftClose close, CancellationToken cancellationToken)
     {
         var items = close.Items.OrderBy(item => GetSpreadsheetOrder(item.ProductName)).ThenBy(item => item.Id).Select(item => new CigaretteShiftCloseItemResponse(item.CigaretteProductId, item.ProductName, item.UnitPrice, item.InitialStock, item.PurchasedQuantity, item.FinalStock, item.SoldQuantity, item.SalesAmount)).ToList();
-        var previousCloseAt = await db.CigaretteShiftCloses.AsNoTracking()
-            .Where(item => item.BusinessDate == close.BusinessDate && item.Id != close.Id && item.ClosedAt < close.ClosedAt)
-            .OrderByDescending(item => item.ClosedAt).Select(item => (DateTime?)item.ClosedAt).FirstOrDefaultAsync(cancellationToken);
         var closedAt = AsUtc(close.ClosedAt);
         var summary = new CafeteriaSalesSummaryResponse(0, 0, []);
         try
         {
-            summary = await (cafeteria ?? new CafeteriaService(db)).GetSummaryAsync(
-                close.BusinessDate,
-                previousCloseAt.HasValue ? AsUtc(previousCloseAt.Value) : null,
-                closedAt,
-                cancellationToken);
+            summary = await (cafeteria ?? new CafeteriaService(db)).GetSummaryAsync(close.BusinessDate, close.Shift, cancellationToken);
         }
         catch (Exception)
         {
             // El resumen es adicional: los cierres anteriores a Caja Cafetería deben seguir siendo consultables.
         }
 
-        return new CigaretteShiftCloseResponse(close.Id, close.BusinessDate, close.Shift, new DateTimeOffset(closedAt), items.Sum(item => item.SoldQuantity), items.Sum(item => item.SalesAmount), items, summary);
+        var allocations = await (from transaction in db.SupplierTransactions.AsNoTracking()
+                                 join supplier in db.Suppliers.AsNoTracking() on transaction.SupplierId equals supplier.Id
+                                 where transaction.CigaretteShiftCloseId == close.Id && transaction.Type == "allocation"
+                                 orderby supplier.Name
+                                 select new SupplierAllocationResponse(supplier.Id, supplier.Name, transaction.Amount, supplier.Balance))
+            .ToListAsync(cancellationToken);
+        return new CigaretteShiftCloseResponse(close.Id, close.BusinessDate, close.Shift, new DateTimeOffset(closedAt), items.Sum(item => item.SoldQuantity), items.Sum(item => item.SalesAmount), items, summary, allocations);
     }
 
     private static DateTime AsUtc(DateTime value) => value.Kind == DateTimeKind.Utc

@@ -4,6 +4,7 @@ import Cafeteria from './Cafeteria.jsx'
 import Cigarettes from './Cigarettes.jsx'
 import History from './History.jsx'
 import PendingOrders from './PendingOrders.jsx'
+import Suppliers from './Suppliers.jsx'
 import LoginForm from './features/auth/LoginForm.jsx'
 import Sidebar from './features/layout/Sidebar.jsx'
 import FloorPlan from './features/salon/components/FloorPlan.jsx'
@@ -20,7 +21,7 @@ import './CoffeeSales.css'
 const API = import.meta.env.VITE_API_URL || (import.meta.env.PROD
   ? 'https://shop-mesas.onrender.com/api'
   : 'http://localhost:5000/api')
-const sections = new Set(['salon', 'pending', 'catalog', 'cafeteria', 'cigarettes', 'shift-close', 'history'])
+const sections = new Set(['salon', 'pending', 'catalog', 'cafeteria', 'cigarettes', 'suppliers', 'shift-close', 'history'])
 
 function App() {
   const [user, setUser] = useState(() => JSON.parse(sessionStorage.getItem('mesa-user') || 'null'))
@@ -170,7 +171,7 @@ function App() {
       setEditingId(null)
       setAssigningPendingOrderId(null)
     }
-    if (nextSection === 'shift-close') {
+    if (nextSection === 'shift-close' || nextSection === 'suppliers') {
       setSelectedId(null)
       setEditingId(null)
       setAssigningPendingOrderId(null)
@@ -248,7 +249,7 @@ function App() {
         {message && <p className="error">{message}</p>}
         {editingMode && <TableEditor key={editingId ?? 'none'} table={data.tables.find((table) => table.id === editingId)} saveTable={saveTable} deleteTable={deleteTable} addTable={addTable} finishEditing={() => { setEditingMode(false); setEditingId(null) }} />}
         <FloorPlan tables={data.tables} coworkingTableIds={coworkingTableIds} editingMode={editingMode} editingId={editingId} assignmentOrder={assigningPendingOrder} assigningTable={assigningTable} onSelect={(id) => { setSelectedId(id); setEditingId(null) }} onEdit={(id) => { setSelectedId(null); setEditingId(id) }} onAssign={assignPendingOrderToTable} saveTable={saveTable} />
-      </> : section === 'pending' ? <PendingOrders data={data} api={api} load={load} onChooseTable={chooseTableForPendingOrder} /> : section === 'catalog' ? <Catalog data={data} api={api} load={load} /> : section === 'cafeteria' ? <Cafeteria api={api} onSummaryChange={setCoffeeSummary} /> : section === 'cigarettes' ? <Cigarettes api={api} /> : section === 'shift-close' ? <Cigarettes api={api} mode="shift-close" onShiftClosed={(close) => { setCoffeeSummary({ saleCount: 0, totalSales: 0 }); loadCoffeeSummary(close.businessDate).catch(() => {}) }} /> : <History histories={histories} />}
+      </> : section === 'pending' ? <PendingOrders data={data} api={api} load={load} onChooseTable={chooseTableForPendingOrder} /> : section === 'catalog' ? <Catalog data={data} api={api} load={load} /> : section === 'cafeteria' ? <Cafeteria api={api} onSummaryChange={setCoffeeSummary} /> : section === 'cigarettes' ? <Cigarettes api={api} /> : section === 'suppliers' ? <Suppliers api={api} /> : section === 'shift-close' ? <Cigarettes api={api} mode="shift-close" onShiftClosed={(close) => { setCoffeeSummary({ saleCount: 0, totalSales: 0 }); loadCoffeeSummary(close.businessDate).catch(() => {}) }} /> : <History histories={histories} />}
     </section>
     {selected && <TableMenu key={selected.id} table={selected} data={data} orders={orders} now={now} api={api} load={load} closePanel={() => setSelectedId(null)} closeTable={closeTable} updateOpenedAt={updateOpenedAt} />}
   </main>

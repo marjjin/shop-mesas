@@ -8,6 +8,44 @@ namespace GestionMesas.Api.Tests;
 public sealed class CigaretteServiceTests
 {
     [Fact]
+    public async Task CloseAccumulatesSupplierAllocations()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var suppliers = new SupplierService(fixture.Db);
+        var supplier = await suppliers.CreateAsync(new CreateSupplierRequest("Distribuidora Norte"), default);
+        var date = new DateOnly(2026, 9, 21);
+
+        await fixture.Service.CloseShiftAsync(new CreateCigaretteShiftCloseRequest(date, "morning",
+            [new CigaretteCloseItemRequest(fixture.ProductId, 10)], [new SupplierAllocationRequest(supplier.Id, 1500m)]), default);
+        var secondProduct = await fixture.Service.CreateProductAsync(new CreateCigaretteProductRequest("Camel", 3000m, 5), default);
+        await fixture.Service.CloseShiftAsync(new CreateCigaretteShiftCloseRequest(date, "afternoon",
+            [new CigaretteCloseItemRequest(fixture.ProductId, 10), new CigaretteCloseItemRequest(secondProduct.Id, 5)],
+            [new SupplierAllocationRequest(supplier.Id, 2500m)]), default);
+
+        var saved = Assert.Single(await suppliers.GetAllAsync(default));
+        Assert.Equal(4000m, saved.Balance);
+        Assert.Equal(2, saved.Transactions.Count(transaction => transaction.Type == "allocation"));
+    }
+
+    [Fact]
+    public async Task PaymentDecrementsSupplierBalanceAndRejectsExcess()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var service = new SupplierService(fixture.Db);
+        var supplier = await service.CreateAsync(new CreateSupplierRequest("Proveedor Pago"), default);
+        fixture.Db.Suppliers.Single(item => item.Id == supplier.Id).Balance = 3000m;
+        await fixture.Db.SaveChangesAsync();
+
+        var paid = await service.RecordPaymentAsync(supplier.Id, new CreateSupplierPaymentRequest(1200m, "Transferencia"), default);
+        var exception = await Assert.ThrowsAsync<SupplierValidationException>(() =>
+            service.RecordPaymentAsync(supplier.Id, new CreateSupplierPaymentRequest(2000m, null), default));
+
+        Assert.Equal(1800m, paid.Balance);
+        Assert.Contains("no puede ser mayor", exception.Message);
+        Assert.Equal(1, await fixture.Db.SupplierTransactions.CountAsync(transaction => transaction.Type == "payment"));
+    }
+
+    [Fact]
     public async Task PurchaseIncreasesStockAndCloseCalculatesSales()
     {
         await using var fixture = await TestFixture.CreateAsync();
@@ -270,7 +308,7 @@ public sealed class CigaretteServiceTests
         public Task<CafeteriaProductResponse> CreateProductAsync(CreateCafeteriaProductRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<CafeteriaProductResponse?> UpdateProductAsync(int id, UpdateCafeteriaProductRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> DeleteProductAsync(int id, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<CafeteriaSalesSummaryResponse> GetSummaryAsync(DateOnly date, DateTime? from, DateTime? until, CancellationToken cancellationToken) => throw new InvalidOperationException("Resumen no disponible.");
+        public Task<CafeteriaSalesSummaryResponse> GetSummaryAsync(DateOnly businessDate, string shift, CancellationToken cancellationToken) => throw new InvalidOperationException("Resumen no disponible.");
     }
 
     private sealed class TestFixture : IAsyncDisposable

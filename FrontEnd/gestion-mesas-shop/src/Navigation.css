@@ -1,10 +1,29 @@
 .sidebar-nav {
   display: flex;
   width: 100%;
+  min-height: 0;
+  flex: 1;
   flex-direction: column;
+  gap: 22px;
+  overflow-y: auto;
 }
 
-.sidebar-nav > button {
+.sidebar-nav-group {
+  display: grid;
+  gap: 3px;
+}
+
+.sidebar-nav-group p {
+  margin: 0 0 5px;
+  padding: 0 14px;
+  color: #8f908a;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+}
+
+.sidebar-nav button {
   display: flex;
   align-items: center;
   gap: 13px;
@@ -18,12 +37,12 @@
   cursor: pointer;
 }
 
-.sidebar-nav > button:hover {
+.sidebar-nav button:hover {
   color: #fff;
   background: #343532;
 }
 
-.sidebar-nav > button.active {
+.sidebar-nav button.active {
   color: #fff;
   background: #3d3e3b;
 }
@@ -60,22 +79,32 @@
 
   .sidebar-nav {
     width: calc(100% + 24px);
+    flex: 0 0 calc(100% + 24px);
     flex-basis: calc(100% + 24px);
     flex-direction: row;
-    order: 3;
     gap: 5px;
+    order: 3;
     margin: 0 -12px -8px;
     padding: 2px 12px 9px;
     overflow-x: auto;
+    overflow-y: hidden;
     scrollbar-width: none;
     scroll-snap-type: x proximity;
+  }
+
+  .sidebar-nav-group {
+    display: contents;
+  }
+
+  .sidebar-nav-group p {
+    display: none;
   }
 
   .sidebar-nav::-webkit-scrollbar {
     display: none;
   }
 
-  .sidebar-nav > button {
+  .sidebar-nav button {
     min-height: 40px;
     flex: none;
     justify-content: center;
@@ -86,7 +115,7 @@
     scroll-snap-align: start;
   }
 
-  .sidebar-nav > button span {
+  .sidebar-nav button span {
     display: inline;
   }
 

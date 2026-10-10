@@ -20,6 +20,8 @@ public class RestaurantContext(DbContextOptions<RestaurantContext> options) : Db
     public DbSet<CafeteriaProduct> CafeteriaProducts => Set<CafeteriaProduct>();
     public DbSet<CafeteriaSale> CafeteriaSales => Set<CafeteriaSale>();
     public DbSet<CafeteriaSaleItem> CafeteriaSaleItems => Set<CafeteriaSaleItem>();
+    public DbSet<Supplier> Suppliers => Set<Supplier>();
+    public DbSet<SupplierTransaction> SupplierTransactions => Set<SupplierTransaction>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -47,7 +49,12 @@ public class RestaurantContext(DbContextOptions<RestaurantContext> options) : Db
             .WithOne()
             .HasForeignKey(item => item.CafeteriaSaleId)
             .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<CafeteriaSale>().HasIndex(sale => new { sale.BusinessDate, sale.Shift });
         modelBuilder.Entity<CafeteriaSaleItem>().Property(item => item.UnitPrice).HasPrecision(12, 2);
+        modelBuilder.Entity<Supplier>().HasIndex(supplier => supplier.Name).IsUnique();
+        modelBuilder.Entity<Supplier>().Property(supplier => supplier.Balance).HasPrecision(12, 2);
+        modelBuilder.Entity<SupplierTransaction>().Property(transaction => transaction.Amount).HasPrecision(12, 2);
+        modelBuilder.Entity<SupplierTransaction>().HasIndex(transaction => new { transaction.SupplierId, transaction.CigaretteShiftCloseId }).IsUnique();
     }
 }
 
@@ -65,8 +72,10 @@ public class CigarettePurchase { public int Id { get; set; } public int Cigarett
 public class CigaretteShiftClose { public int Id { get; set; } public DateOnly BusinessDate { get; set; } public string Shift { get; set; } = "morning"; public DateTime ClosedAt { get; set; } public List<CigaretteShiftCloseItem> Items { get; set; } = []; }
 public class CigaretteShiftCloseItem { public int Id { get; set; } public int CigaretteShiftCloseId { get; set; } public int CigaretteProductId { get; set; } public string ProductName { get; set; } = ""; public decimal UnitPrice { get; set; } public int InitialStock { get; set; } public int PurchasedQuantity { get; set; } public int FinalStock { get; set; } public int SoldQuantity { get; set; } public decimal SalesAmount { get; set; } }
 public class CafeteriaProduct { public int Id { get; set; } public string Name { get; set; } = ""; public decimal Price { get; set; } public bool IsActive { get; set; } = true; public DateTime CreatedAt { get; set; } }
-public class CafeteriaSale { public int Id { get; set; } public DateTime CreatedAt { get; set; } public List<CafeteriaSaleItem> Items { get; set; } = []; }
+public class CafeteriaSale { public int Id { get; set; } public DateOnly BusinessDate { get; set; } public string Shift { get; set; } = "morning"; public DateTime CreatedAt { get; set; } public List<CafeteriaSaleItem> Items { get; set; } = []; }
 public class CafeteriaSaleItem { public int Id { get; set; } public int CafeteriaSaleId { get; set; } public int CafeteriaProductId { get; set; } public string ProductName { get; set; } = ""; public decimal UnitPrice { get; set; } }
+public class Supplier { public int Id { get; set; } public string Name { get; set; } = ""; public decimal Balance { get; set; } public bool IsActive { get; set; } = true; public DateTime CreatedAt { get; set; } }
+public class SupplierTransaction { public int Id { get; set; } public int SupplierId { get; set; } public int? CigaretteShiftCloseId { get; set; } public string Type { get; set; } = ""; public decimal Amount { get; set; } public DateOnly BusinessDate { get; set; } public string? Note { get; set; } public DateTime CreatedAt { get; set; } }
 
 public record LoginRequest(string Username, string Password);
 public record TableRequest(string? Name, int? Seats);
@@ -92,9 +101,9 @@ public sealed record UpdateCigarettePurchaseRequest(int Quantity);
 /// <summary>Stock físico contado al finalizar un turno.</summary>
 public sealed record CigaretteCloseItemRequest(int CigaretteProductId, int FinalStock);
 /// <summary>Datos para cerrar un turno de cigarrillos.</summary>
-public sealed record CreateCigaretteShiftCloseRequest(DateOnly BusinessDate, string Shift, IReadOnlyList<CigaretteCloseItemRequest> Items);
+public sealed record CreateCigaretteShiftCloseRequest(DateOnly BusinessDate, string Shift, IReadOnlyList<CigaretteCloseItemRequest> Items, IReadOnlyList<SupplierAllocationRequest>? SupplierAllocations = null);
 /// <summary>Stock físico corregido para los productos de un cierre existente.</summary>
-public sealed record UpdateCigaretteShiftCloseRequest(IReadOnlyList<CigaretteCloseItemRequest> Items);
+public sealed record UpdateCigaretteShiftCloseRequest(IReadOnlyList<CigaretteCloseItemRequest> Items, IReadOnlyList<SupplierAllocationRequest>? SupplierAllocations = null);
 /// <summary>Presentación de cigarrillos disponible para operar.</summary>
 public sealed record CigaretteProductResponse(int Id, string Name, decimal Price, int Stock);
 /// <summary>Compra de cigarrillos registrada.</summary>
@@ -102,7 +111,7 @@ public sealed record CigarettePurchaseResponse(int Id, int CigaretteProductId, s
 /// <summary>Detalle de ventas calculado durante un cierre.</summary>
 public sealed record CigaretteShiftCloseItemResponse(int CigaretteProductId, string ProductName, decimal UnitPrice, int InitialStock, int PurchasedQuantity, int FinalStock, int SoldQuantity, decimal SalesAmount);
 /// <summary>Cierre completo de un turno.</summary>
-public sealed record CigaretteShiftCloseResponse(int Id, DateOnly BusinessDate, string Shift, DateTimeOffset ClosedAt, int TotalSold, decimal TotalSales, IReadOnlyList<CigaretteShiftCloseItemResponse> Items, CafeteriaSalesSummaryResponse Cafeteria);
+public sealed record CigaretteShiftCloseResponse(int Id, DateOnly BusinessDate, string Shift, DateTimeOffset ClosedAt, int TotalSold, decimal TotalSales, IReadOnlyList<CigaretteShiftCloseItemResponse> Items, CafeteriaSalesSummaryResponse Cafeteria, IReadOnlyList<SupplierAllocationResponse> SupplierAllocations);
 /// <summary>Datos operativos e históricos de cigarrillos para una fecha.</summary>
 public sealed record CigaretteDashboardResponse(DateOnly BusinessDate, IReadOnlyList<CigaretteProductResponse> Products, IReadOnlyList<CigarettePurchaseResponse> Purchases, IReadOnlyList<CigaretteShiftCloseResponse> Closes);
 /// <summary>Artículo configurable para las ventas rápidas de cafetería.</summary>
@@ -116,4 +125,18 @@ public sealed record CafeteriaSalesSummaryResponse(int SaleCount, decimal TotalS
 /// <summary>Artículo vendido por la caja de cafetería.</summary>
 public sealed record CafeteriaSalesSummaryItemResponse(string ProductName, int Quantity, decimal UnitPrice, decimal TotalSales);
 /// <summary>Información de la caja de cafetería para una fecha de trabajo.</summary>
-public sealed record CafeteriaDashboardResponse(DateOnly BusinessDate, IReadOnlyList<CafeteriaProductResponse> Products, CafeteriaSalesSummaryResponse Summary);
+public sealed record CafeteriaDashboardResponse(DateOnly BusinessDate, string? ActiveShift, IReadOnlyList<CafeteriaProductResponse> Products, CafeteriaSalesSummaryResponse Summary);
+/// <summary>Datos para crear un proveedor.</summary>
+public sealed record CreateSupplierRequest(string Name);
+/// <summary>Datos para actualizar un proveedor.</summary>
+public sealed record UpdateSupplierRequest(string Name);
+/// <summary>Importe reservado para un proveedor al cerrar un turno.</summary>
+public sealed record SupplierAllocationRequest(int SupplierId, decimal Amount);
+/// <summary>Pago registrado para descontar el saldo de un proveedor.</summary>
+public sealed record CreateSupplierPaymentRequest(decimal Amount, string? Note);
+/// <summary>Movimiento de saldo de un proveedor.</summary>
+public sealed record SupplierTransactionResponse(int Id, string Type, decimal Amount, decimal BalanceAfter, DateOnly BusinessDate, string? Shift, string? Note, DateTimeOffset CreatedAt);
+/// <summary>Proveedor y sus movimientos de saldo.</summary>
+public sealed record SupplierResponse(int Id, string Name, decimal Balance, bool IsActive, IReadOnlyList<SupplierTransactionResponse> Transactions);
+/// <summary>Asignación reservada para un proveedor en un cierre.</summary>
+public sealed record SupplierAllocationResponse(int SupplierId, string SupplierName, decimal Amount, decimal Balance);

@@ -9,7 +9,7 @@ public interface ICafeteriaService
     Task<CafeteriaProductResponse> CreateProductAsync(CreateCafeteriaProductRequest request, CancellationToken cancellationToken);
     Task<CafeteriaProductResponse?> UpdateProductAsync(int id, UpdateCafeteriaProductRequest request, CancellationToken cancellationToken);
     Task<bool> DeleteProductAsync(int id, CancellationToken cancellationToken);
-    Task<CafeteriaSalesSummaryResponse> GetSummaryAsync(DateOnly date, DateTime? from, DateTime? until, CancellationToken cancellationToken);
+    Task<CafeteriaSalesSummaryResponse> GetSummaryAsync(DateOnly businessDate, string shift, CancellationToken cancellationToken);
 }
 
 public sealed class CafeteriaService(RestaurantContext db) : ICafeteriaService
@@ -17,8 +17,10 @@ public sealed class CafeteriaService(RestaurantContext db) : ICafeteriaService
     public async Task<CafeteriaDashboardResponse> GetDashboardAsync(DateOnly date, CancellationToken cancellationToken)
     {
         var products = await GetProductsAsync(cancellationToken);
-        var lastCloseAt = await GetLastCloseAtAsync(date, cancellationToken);
-        return new CafeteriaDashboardResponse(date, products, await GetSummaryAsync(date, lastCloseAt, null, cancellationToken));
+        var lastClose = await GetLastCloseAsync(cancellationToken);
+        var activeShift = lastClose?.Shift == "morning" ? "afternoon" : "morning";
+        var summary = await GetSummaryAfterAsync(lastClose?.ClosedAt, cancellationToken);
+        return new CafeteriaDashboardResponse(date, activeShift, products, summary);
     }
 
     public async Task<CafeteriaDashboardResponse> RegisterSaleAsync(DateOnly date, CancellationToken cancellationToken)
@@ -29,9 +31,9 @@ public sealed class CafeteriaService(RestaurantContext db) : ICafeteriaService
         var now = DateTime.UtcNow;
         var sale = new CafeteriaSale
         {
-            CreatedAt = date == DateOnly.FromDateTime(now)
-                ? now
-                : date.ToDateTime(TimeOnly.FromDateTime(now), DateTimeKind.Utc)
+            BusinessDate = date,
+            Shift = (await GetLastCloseAsync(cancellationToken))?.Shift == "morning" ? "afternoon" : "morning",
+            CreatedAt = now
         };
         sale.Items.AddRange(products.Select(product => new CafeteriaSaleItem { CafeteriaProductId = product.Id, ProductName = product.Name, UnitPrice = product.Price }));
         db.CafeteriaSales.Add(sale);
@@ -81,14 +83,32 @@ public sealed class CafeteriaService(RestaurantContext db) : ICafeteriaService
         return true;
     }
 
-    public async Task<CafeteriaSalesSummaryResponse> GetSummaryAsync(DateOnly date, DateTime? from, DateTime? until, CancellationToken cancellationToken)
+    public async Task<CafeteriaSalesSummaryResponse> GetSummaryAsync(DateOnly businessDate, string shift, CancellationToken cancellationToken)
     {
-        var dayStart = date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
-        var start = dayStart;
-        var fromUtc = from.HasValue ? AsUtc(from.Value) : (DateTime?)null;
-        if (fromUtc.HasValue && fromUtc.Value > start) start = fromUtc.Value;
-        var end = until.HasValue ? AsUtc(until.Value) : dayStart.AddDays(1);
-        var sales = await db.CafeteriaSales.AsNoTracking().Where(sale => sale.CreatedAt >= start && sale.CreatedAt < end)
+        var close = await db.CigaretteShiftCloses.AsNoTracking()
+            .SingleOrDefaultAsync(item => item.BusinessDate == businessDate && item.Shift == shift, cancellationToken);
+        if (close is null)
+            return await GetSummaryAsync(sale => sale.BusinessDate == businessDate && sale.Shift == shift, cancellationToken);
+
+        var previousCloseAt = await db.CigaretteShiftCloses.AsNoTracking()
+            .Where(item => item.ClosedAt < close.ClosedAt)
+            .OrderByDescending(item => item.ClosedAt)
+            .Select(item => (DateTime?)item.ClosedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+        return await GetSummaryAsync(sale =>
+            (!previousCloseAt.HasValue || sale.CreatedAt > previousCloseAt.Value) &&
+            sale.CreatedAt <= close.ClosedAt, cancellationToken);
+    }
+
+    private async Task<CafeteriaSalesSummaryResponse> GetSummaryAfterAsync(DateTime? closedAt, CancellationToken cancellationToken) =>
+        await GetSummaryAsync(sale => !closedAt.HasValue || sale.CreatedAt > closedAt.Value, cancellationToken);
+
+    private async Task<CafeteriaSalesSummaryResponse> GetSummaryAsync(
+        System.Linq.Expressions.Expression<Func<CafeteriaSale, bool>> predicate,
+        CancellationToken cancellationToken)
+    {
+        var sales = await db.CafeteriaSales.AsNoTracking()
+            .Where(predicate)
             .Include(sale => sale.Items).ToListAsync(cancellationToken);
         var items = sales.SelectMany(sale => sale.Items).GroupBy(item => new { item.ProductName, item.UnitPrice })
             .OrderBy(group => group.Key.ProductName).Select(group => new CafeteriaSalesSummaryItemResponse(group.Key.ProductName, group.Count(), group.Key.UnitPrice, group.Sum(item => item.UnitPrice))).ToList();
@@ -98,9 +118,8 @@ public sealed class CafeteriaService(RestaurantContext db) : ICafeteriaService
     private async Task<IReadOnlyList<CafeteriaProductResponse>> GetProductsAsync(CancellationToken cancellationToken) =>
         await db.CafeteriaProducts.AsNoTracking().Where(product => product.IsActive).OrderBy(product => product.CreatedAt).Select(product => new CafeteriaProductResponse(product.Id, product.Name, product.Price)).ToListAsync(cancellationToken);
 
-    private async Task<DateTime?> GetLastCloseAtAsync(DateOnly date, CancellationToken cancellationToken) =>
-        await db.CigaretteShiftCloses.AsNoTracking().Where(close => close.BusinessDate == date)
-            .OrderByDescending(close => close.ClosedAt).Select(close => (DateTime?)close.ClosedAt).FirstOrDefaultAsync(cancellationToken);
+    private Task<CigaretteShiftClose?> GetLastCloseAsync(CancellationToken cancellationToken) =>
+        db.CigaretteShiftCloses.AsNoTracking().OrderByDescending(close => close.ClosedAt).FirstOrDefaultAsync(cancellationToken);
 
     private static (string Name, decimal Price) ValidateProduct(string name, decimal price)
     {
@@ -112,9 +131,6 @@ public sealed class CafeteriaService(RestaurantContext db) : ICafeteriaService
 
     private static CafeteriaProductResponse ToResponse(CafeteriaProduct product) => new(product.Id, product.Name, product.Price);
 
-    private static DateTime AsUtc(DateTime value) => value.Kind == DateTimeKind.Utc
-        ? value
-        : DateTime.SpecifyKind(value, DateTimeKind.Utc);
 }
 
 public sealed class CafeteriaValidationException(string message) : InvalidOperationException(message);

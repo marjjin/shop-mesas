@@ -10,6 +10,20 @@ const closingTabs = [['close', '✓', 'Cerrar turno'], ['history', '◷', 'Calen
 const closeDraftKey = (date, shift) => `mesa-cigarette-close-draft:${date}:${shift}`
 const closeContextKey = 'mesa-cigarette-close-context'
 
+function CafeteriaCloseSummary({ summary, error }) {
+  return <section className="cafeteria-close-card" aria-label="Caja Cafetería">
+    <div className="cafeteria-close-heading"><h2>Caja Cafetería</h2></div>
+    {error ? <p className="cafeteria-close-error">{error}</p> : <div className="cafeteria-close-amount"><span>{summary?.saleCount || 0} {(summary?.saleCount || 0) === 1 ? 'venta' : 'ventas'}</span><strong>{money.format(summary?.totalSales || 0)}</strong></div>}
+  </section>
+}
+
+function SupplierAllocations({ suppliers, allocations, onAllocationsChange }) {
+  return <section className="supplier-allocations">
+    <div><small>PROVEEDORES ACTIVOS</small><h3>Fondos reservados para este turno</h3><p>Los importes se sumarán al saldo del proveedor al confirmar el cierre.</p></div>
+    {suppliers.length ? suppliers.map((supplier, index) => <label className="supplier-allocation-card" key={supplier.id}><span><b>Proveedor {index + 1}</b><strong>{supplier.name}</strong><small>Saldo actual: {money.format(supplier.balance)}</small></span><input type="number" min="0" step="0.01" inputMode="decimal" value={allocations[supplier.id] ?? ''} onChange={(event) => onAllocationsChange({ ...allocations, [supplier.id]: event.target.value })} aria-label={`Monto reservado para ${supplier.name}`} placeholder="$ 0" /></label>) : <p className="supplier-allocation-empty">No hay proveedores activos. Podés crearlos desde Proveedores.</p>}
+  </section>
+}
+
 function getCloseDraft(date, shift) {
   try {
     const draft = JSON.parse(localStorage.getItem(closeDraftKey(date, shift)) || 'null')
@@ -67,7 +81,7 @@ function buildMonthlyRanking(closes) {
   }, new Map()).values()].sort((left, right) => right.quantity - left.quantity || left.name.localeCompare(right.name, 'es'))
 }
 
-function ShiftCloseForm({ products, purchases, shift, date, onClose }) {
+function ShiftCloseForm({ products, purchases, suppliers, allocations, onAllocationsChange, cafeteriaSummary, cafeteriaError, shift, date, onClose }) {
   const purchasedByProduct = useMemo(() => purchases
     .filter((purchase) => purchase.shift === shift)
     .reduce((totals, purchase) => ({ ...totals, [purchase.cigaretteProductId]: (totals[purchase.cigaretteProductId] || 0) + purchase.quantity }), {}), [purchases, shift])
@@ -88,7 +102,7 @@ function ShiftCloseForm({ products, purchases, shift, date, onClose }) {
 
   const submit = (event) => {
     event.preventDefault()
-    onClose({ businessDate: date, shift, items: rows.map((row) => ({ cigaretteProductId: row.id, finalStock: row.final })) })
+    onClose({ businessDate: date, shift, items: rows.map((row) => ({ cigaretteProductId: row.id, finalStock: row.final })), supplierAllocations: suppliers.map((supplier) => ({ supplierId: supplier.id, amount: Number(allocations[supplier.id] || 0) })).filter((allocation) => allocation.amount > 0) })
   }
   const changeFinalStock = (productId, value) => {
     const updated = { ...finalStocks, [productId]: value }
@@ -104,6 +118,8 @@ function ShiftCloseForm({ products, purchases, shift, date, onClose }) {
 
   return <form className="shift-close" onSubmit={submit}>
     <div className="close-draft-notice"><span>●</span><p>{hasDraft ? 'Borrador guardado automáticamente en este dispositivo.' : 'Los cambios se guardarán automáticamente mientras cargás el cierre.'}</p>{hasDraft && <button type="button" onClick={discardDraft}>Descartar borrador</button>}</div>
+    <SupplierAllocations suppliers={suppliers} allocations={allocations} onAllocationsChange={onAllocationsChange} />
+    <CafeteriaCloseSummary summary={cafeteriaSummary} error={cafeteriaError} />
     {rows.some((row) => row.invalidInitial) && <p className="close-validation-error">Hay un stock actual menor a las compras del turno. Corregí el stock del producto antes de cerrar.</p>}
     <div className="close-grid-header"><span>Producto</span><span>Inicial</span><span>Compras</span><span>Final</span><span>Vendidos</span><span>Importe</span></div>
     {rows.map((row) => <div className={`close-grid-row ${row.stock <= 0 ? 'stock-empty' : ''}`} key={row.id}>
@@ -115,12 +131,13 @@ function ShiftCloseForm({ products, purchases, shift, date, onClose }) {
       <span className="close-metric amount-metric"><small>Importe</small><b>{row.invalidInitial ? '—' : money.format(row.amount)}</b></span>
     </div>)}
     {!products.length && <div className="cigarette-empty">Primero cargá al menos un cigarrillo.</div>}
-    <div className="close-total"><span><small>UNIDADES VENDIDAS</small><b>{totalUnits}</b></span><span><small>VENTA DEL TURNO</small><b>{money.format(totalSales)}</b></span><button className="primary" disabled={!isValid}>Cerrar turno {shifts[shift].toLowerCase()}</button></div>
+    <div className="close-total"><span><small>UNIDADES VENDIDAS</small><b>{totalUnits}</b></span><span><small>VENTA CIGARRILLOS</small><b>{money.format(totalSales)}</b></span><button className="primary" disabled={!isValid}>Cerrar turno {shifts[shift].toLowerCase()}</button></div>
   </form>
 }
 
-function EditShiftCloseForm({ close, onSave, onCancel, busy }) {
+function EditShiftCloseForm({ close, suppliers, cafeteria, onSave, onCancel, busy }) {
   const [finalStocks, setFinalStocks] = useState(() => Object.fromEntries(close.items.map((item) => [item.cigaretteProductId, item.finalStock])))
+  const [allocations, setAllocations] = useState(() => Object.fromEntries(close.supplierAllocations.map((allocation) => [allocation.supplierId, allocation.amount])))
   const rows = close.items.map((item) => {
     const final = Number(finalStocks[item.cigaretteProductId] ?? item.finalStock)
     const available = item.initialStock + item.purchasedQuantity
@@ -133,10 +150,15 @@ function EditShiftCloseForm({ close, onSave, onCancel, busy }) {
 
   const submit = (event) => {
     event.preventDefault()
-    onSave({ items: rows.map((row) => ({ cigaretteProductId: row.cigaretteProductId, finalStock: row.final })) })
+    onSave({
+      items: rows.map((row) => ({ cigaretteProductId: row.cigaretteProductId, finalStock: row.final })),
+      supplierAllocations: suppliers.map((supplier) => ({ supplierId: supplier.id, amount: Number(allocations[supplier.id] || 0) })).filter((allocation) => allocation.amount > 0)
+    })
   }
 
   return <form className="shift-close" onSubmit={submit}>
+    <SupplierAllocations suppliers={suppliers} allocations={allocations} onAllocationsChange={setAllocations} />
+    <CafeteriaCloseSummary summary={cafeteria} />
     <div className="close-grid-header"><span>Producto</span><span>Inicial</span><span>Compras</span><span>Final</span><span>Vendidos</span><span>Importe</span></div>
     {rows.map((row) => <div className="close-grid-row" key={row.cigaretteProductId}>
       <span className="close-product"><b>{row.productName}</b><small>{money.format(row.unitPrice)} c/u</small></span>
@@ -156,11 +178,12 @@ function CloseCard({ close, onEdit }) {
     <button type="button" className="close-card-summary" onClick={() => setOpen(!open)}>
       <span className={`shift-badge ${close.shift}`}>{shifts[close.shift]}</span>
       <span><small>FECHA</small><b>{new Date(`${close.businessDate}T12:00:00`).toLocaleDateString('es-AR')}</b></span>
-      <span><small>VENDIDOS</small><b>{close.totalSold} un.</b></span>
-      <span><small>TOTAL</small><b>{money.format(close.totalSales)}</b></span>
+      <span><small>CIGARRILLOS VENDIDOS</small><b>{close.totalSold} {close.totalSold === 1 ? 'unidad' : 'unidades'}</b></span>
+      <span><small>VENTA CIGARRILLOS</small><b>{money.format(close.totalSales)}</b></span>
+      <span className="calendar-cafeteria-total"><small>CAJA CAFETERÍA</small><b>{money.format(close.cafeteria?.totalSales || 0)}</b></span>
       <i>{open ? '−' : '+'}</i>
     </button>
-    {open && <div className="close-card-detail">{close.items.map((item) => <div key={item.cigaretteProductId}><span><b>{item.productName}</b><small>{item.initialStock} inicial + {item.purchasedQuantity} compras − {item.finalStock} final</small></span><strong>{item.soldQuantity} × {money.format(item.unitPrice)}</strong><b>{money.format(item.salesAmount)}</b></div>)}<footer><button type="button" className="edit-close-button" onClick={() => onEdit(close)}>✎ Corregir cierre</button><button type="button" className="print-shift-ticket" onClick={() => printCigaretteShiftReceipt(close)}>▤ Imprimir ticket 80 mm</button></footer></div>}
+    {open && <div className="close-card-detail">{close.items.map((item) => <div key={item.cigaretteProductId}><span><b>{item.productName}</b><small>{item.initialStock} inicial + {item.purchasedQuantity} compras − {item.finalStock} final</small></span><strong>{item.soldQuantity} × {money.format(item.unitPrice)}</strong><b>{money.format(item.salesAmount)}</b></div>)}<div className="closed-cafeteria-summary"><span><b>Caja Cafetería</b><small>{close.cafeteria?.saleCount || 0} {(close.cafeteria?.saleCount || 0) === 1 ? 'venta' : 'ventas'}</small></span><strong>{money.format(close.cafeteria?.totalSales || 0)}</strong></div>{close.supplierAllocations?.length > 0 && <div className="closed-supplier-summary"><span><b>Reservas para proveedores</b><small>{close.supplierAllocations.map((allocation) => allocation.supplierName).join(', ')}</small></span><strong>{money.format(close.supplierAllocations.reduce((total, allocation) => total + allocation.amount, 0))}</strong></div>}<footer><button type="button" className="edit-close-button" onClick={() => onEdit(close)}>✎ Corregir cierre</button><button type="button" className="print-shift-ticket" onClick={() => printCigaretteShiftReceipt(close)}>▤ Imprimir ticket 80 mm</button></footer></div>}
   </article>
 }
 
@@ -176,6 +199,10 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
   const [date, setDate] = useState(() => getCloseContext()?.date || localDateValue())
   const [shift, setShift] = useState(() => getCloseContext()?.shift || 'morning')
   const [dashboard, setDashboard] = useState({ products: [], purchases: [], closes: [] })
+  const [suppliers, setSuppliers] = useState([])
+  const [supplierAllocations, setSupplierAllocations] = useState({})
+  const [cafeteriaSummary, setCafeteriaSummary] = useState(null)
+  const [cafeteriaError, setCafeteriaError] = useState('')
   const [product, setProduct] = useState({ name: '', price: '', initialStock: '' })
   const [purchase, setPurchase] = useState({ cigaretteProductId: '', quantity: '' })
   const [stockSearch, setStockSearch] = useState('')
@@ -194,7 +221,21 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
 
   const load = useCallback(async () => {
     try {
-      setDashboard(await api(`/cigarettes?date=${date}`))
+      const [cigarettesResult, cafeteriaResult, suppliersResult] = await Promise.allSettled([
+        api(`/cigarettes?date=${date}`),
+        api('/cafeteria/dashboard'),
+        api('/suppliers')
+      ])
+      if (cigarettesResult.status === 'rejected') throw cigarettesResult.reason
+      setDashboard(cigarettesResult.value)
+      if (cafeteriaResult.status === 'fulfilled') {
+        setCafeteriaSummary(cafeteriaResult.value.summary)
+        setCafeteriaError('')
+      } else {
+        setCafeteriaSummary(null)
+        setCafeteriaError('No se pudo cargar la Caja Cafetería.')
+      }
+      setSuppliers(suppliersResult.status === 'fulfilled' ? suppliersResult.value.filter((supplier) => supplier.isActive) : [])
       setMessage('')
     } catch { setMessage('No se pudo cargar la información de cigarrillos.') }
   }, [api, date])
@@ -270,6 +311,7 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
       clearCloseDraft(request.businessDate, request.shift)
       setDate(request.businessDate)
       setShift(request.shift)
+      setSupplierAllocations({})
       setTab('history')
       onShiftClosed?.(close)
     }
@@ -334,7 +376,7 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
   }
 
   return <div className="cigarettes-page">
-    <header className="cigarettes-header"><div><p className="eyebrow">{isClosingView ? 'ARQUEO Y REGISTRO' : 'CONTROL DE INVENTARIO'}</p><h1>{isClosingView ? 'Cierre de turno' : 'Cigarrillos'}</h1><p>{isClosingView ? 'Cerrá los turnos, consultá sus registros e imprimí los comprobantes.' : 'Compras, stock y ventas de cada turno en un solo lugar.'}</p></div><label className="date-picker"><span>Fecha de trabajo</span><input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label></header>
+    <header className="cigarettes-header"><div><p className="eyebrow">{isClosingView ? 'ARQUEO Y REGISTRO' : 'CONTROL DE INVENTARIO'}</p><h1>{isClosingView ? 'Cierre de turno' : 'Cigarrillos'}</h1><p>{isClosingView ? 'Cerrá los turnos, consultá sus registros e imprimí los comprobantes.' : 'Compras, stock y ventas de cada turno en un solo lugar.'}</p></div><label className="date-picker"><span>Fecha de trabajo</span><input type="date" value={date} onChange={(event) => { setDate(event.target.value); setSupplierAllocations({}) }} /></label></header>
     <nav className="cigarette-tabs" aria-label={isClosingView ? 'Secciones de cierre de turno' : 'Secciones de cigarrillos'}>
       {availableTabs.map(([value, icon, label]) => <button key={value} className={tab === value ? 'active' : ''} onClick={() => setTab(value)}><i>{icon}</i>{label}</button>)}
     </nav>
@@ -357,8 +399,8 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
       <section className="cigarette-card"><div className="section-heading"><div><small>MOVIMIENTOS DEL DÍA</small><h2>Compras del turno</h2></div><b>{purchasedUnits} unidades</b></div><div className="purchase-list">{purchases.map((item) => editingPurchase?.id === item.id ? <form className="purchase-edit" key={item.id} onSubmit={savePurchase}><span><b>{item.productName}</b><small>Cantidad comprada{selectedClose ? ' · actualiza el cierre' : ''}</small></span><input required type="number" min="1" step="1" value={editingPurchase.quantity} onChange={(event) => setEditingPurchase({ ...editingPurchase, quantity: event.target.value })} /><button disabled={busy}>Guardar</button><button type="button" onClick={() => setEditingPurchase(null)}>Cancelar</button></form> : <article key={item.id}><span><b>{item.productName}</b><small>{selectedClose ? 'Compra incluida en el cierre' : 'Stock incorporado'}</small></span><strong>+{item.quantity} unidades</strong><footer><button type="button" disabled={busy} title="Editar cantidad" onClick={() => setEditingPurchase({ ...item })}>✎</button><button type="button" className="remove-purchase" disabled={busy} title="Quitar compra" onClick={() => deletePurchase(item)}>×</button></footer></article>)}{!purchases.length && <div className="cigarette-empty">No hay compras para este turno.</div>}</div></section>
     </div>}
 
-    {tab === 'close' && <section className="cigarette-card close-section"><div className="section-heading"><div><small>ARQUEO DE INVENTARIO</small><h2>{editingClose ? 'Corregir cierre' : 'Cierre de turno'}</h2></div><div className="shift-switch">{Object.entries(shifts).map(([value, label]) => <button key={value} className={shift === value ? 'active' : ''} onClick={() => { setShift(value); setEditingClose(null) }}>{label}</button>)}</div></div><p className="close-help">{editingClose ? 'Corregí el stock físico final. Las ventas y el stock actual se ajustarán automáticamente.' : 'Ingresá el stock físico final. Las ventas se calculan automáticamente con el stock inicial y las compras del turno.'}</p>{editingClose && selectedClose?.id === editingClose.id ? <EditShiftCloseForm key={editingClose.id} close={editingClose} onSave={saveCloseCorrection} onCancel={() => setEditingClose(null)} busy={busy} /> : selectedClose ? <div className="already-closed"><span>✓</span><div><b>Turno {shifts[shift].toLowerCase()} cerrado</b><p>Se vendieron {selectedClose.totalSold} unidades por {money.format(selectedClose.totalSales)}.</p><button type="button" className="edit-close-button" onClick={() => setEditingClose(selectedClose)}>✎ Corregir cierre</button></div></div> : <ShiftCloseForm key={`${date}-${shift}-${dashboard.products.map((item) => item.stock).join('-')}`} products={dashboard.products} purchases={dashboard.purchases} shift={shift} date={date} onClose={closeShift} />}</section>}
+    {tab === 'close' && <><section className="cigarette-card close-section"><div className="section-heading"><div><small>ARQUEO DE INVENTARIO</small><h2>{editingClose ? 'Corregir cierre' : 'Cierre de turno'}</h2></div><div className="shift-switch">{Object.entries(shifts).map(([value, label]) => <button key={value} className={shift === value ? 'active' : ''} onClick={() => { setShift(value); setSupplierAllocations({}); setEditingClose(null) }}>{label}</button>)}</div></div><p className="close-help">{editingClose ? 'Corregí el stock físico final. Las ventas y el stock actual se ajustarán automáticamente.' : 'Ingresá el stock físico final. Las ventas se calculan automáticamente con el stock inicial y las compras del turno.'}</p>{editingClose && selectedClose?.id === editingClose.id ? <EditShiftCloseForm key={editingClose.id} close={editingClose} suppliers={suppliers} cafeteria={editingClose.cafeteria} onSave={saveCloseCorrection} onCancel={() => setEditingClose(null)} busy={busy} /> : selectedClose ? <div className="already-closed"><span>✓</span><div><b>Turno {shifts[shift].toLowerCase()} cerrado</b><p>Se vendieron {selectedClose.totalSold} unidades por {money.format(selectedClose.totalSales)}.</p><button type="button" className="edit-close-button" onClick={() => setEditingClose(selectedClose)}>✎ Corregir cierre</button></div></div> : <ShiftCloseForm key={`${date}-${shift}-${dashboard.products.map((item) => item.stock).join('-')}`} products={dashboard.products} purchases={dashboard.purchases} suppliers={suppliers} allocations={supplierAllocations} onAllocationsChange={setSupplierAllocations} cafeteriaSummary={cafeteriaSummary} cafeteriaError={cafeteriaError} shift={shift} date={date} onClose={closeShift} />}</section></>}
 
-    {tab === 'history' && <section className="cigarette-card history-section"><div className="calendar-hero"><div><small>CALENDARIO</small><h2>Cierres del {new Date(`${date}T12:00:00`).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}</h2><p>Elegí otra fecha arriba para consultar sus cierres.</p></div><div className="daily-total"><small>VENTA DEL DÍA</small><b>{money.format(dashboard.closes.reduce((total, close) => total + close.totalSales, 0))}</b></div></div><div className="closes-list">{dashboard.closes.map((close) => <CloseCard key={close.id} close={close} onEdit={startEditingClose} />)}{!dashboard.closes.length && <div className="cigarette-empty large">No hay cierres registrados en esta fecha.</div>}</div></section>}
+    {tab === 'history' && <section className="cigarette-card history-section"><div className="calendar-hero"><div><small>CALENDARIO</small><h2>Cierres del {new Date(`${date}T12:00:00`).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}</h2><p>Elegí otra fecha arriba para consultar sus cierres.</p></div><div className="daily-total"><small>VENTA DEL DÍA</small><b>{money.format(dashboard.closes.reduce((total, close) => total + close.totalSales + (close.cafeteria?.totalSales || 0), 0))}</b></div></div><div className="closes-list">{dashboard.closes.map((close) => <CloseCard key={close.id} close={close} onEdit={startEditingClose} />)}{!dashboard.closes.length && <div className="cigarette-empty large">No hay cierres registrados en esta fecha.</div>}</div></section>}
   </div>
 }

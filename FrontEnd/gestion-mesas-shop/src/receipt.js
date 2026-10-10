@@ -101,7 +101,7 @@ function cigaretteShiftReceiptMarkup(close) {
   const currency = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 })
   const shiftName = close.shift === 'morning' ? 'MAÑANA' : 'TARDE'
   const businessDate = new Date(`${close.businessDate}T12:00:00`).toLocaleDateString('es-AR')
-  const items = close.items.map((item) => `<div class="item">
+  const items = close.items.filter((item) => item.soldQuantity > 0).map((item) => `<div class="item">
     <div class="item-title"><b>${escapeHtml(item.productName)}</b><strong>${currency.format(item.salesAmount)}</strong></div>
     <div class="calculation"><span>${item.soldQuantity} un. × ${currency.format(item.unitPrice)}</span><span>${currency.format(item.salesAmount)}</span></div>
     <small>Stock: ${item.initialStock} inicial + ${item.purchasedQuantity} compras − ${item.finalStock} final</small>
@@ -109,6 +109,8 @@ function cigaretteShiftReceiptMarkup(close) {
   const cafeteria = close.cafeteria
   const cafeteriaItems = cafeteria?.items?.map((item) => `<div class="cafeteria-item"><span>${escapeHtml(item.productName)} · ${item.quantity} × ${currency.format(item.unitPrice)}</span><b>${currency.format(item.totalSales)}</b></div>`).join('')
   const cafeteriaSummary = cafeteria?.saleCount ? `<section class="cafeteria"><h3>CAJA CAFETERÍA</h3>${cafeteriaItems}<div class="cafeteria-total"><span>${cafeteria.saleCount} ${cafeteria.saleCount === 1 ? 'venta rápida' : 'ventas rápidas'}</span><strong>${currency.format(cafeteria.totalSales)}</strong></div></section>` : ''
+  const supplierAllocations = close.supplierAllocations || []
+  const supplierSummary = supplierAllocations.length ? `<section class="suppliers"><h3>PROVEEDORES</h3>${supplierAllocations.map((allocation) => `<div class="supplier-item"><span><b>${escapeHtml(allocation.supplierName)}</b><small>Reservado: ${currency.format(allocation.amount)}</small></span><strong>Saldo: ${currency.format(allocation.balance)}</strong></div>`).join('')}</section>` : ''
 
   return `<!doctype html>
 <html lang="es">
@@ -135,6 +137,12 @@ function cigaretteShiftReceiptMarkup(close) {
     .cafeteria h3 { margin-top: 0; }
     .cafeteria-item, .cafeteria-total { display: flex; justify-content: space-between; gap: 3mm; padding: 1.5mm 0; font-size: 8.5pt; }
     .cafeteria-total { margin-top: 2mm; border-top: 1px solid #000; font-size: 10pt; }
+    .suppliers { margin-top: 5mm; padding-top: 3mm; border-top: 1px dashed #000; }
+    .suppliers h3 { margin-top: 0; }
+    .supplier-item { display: flex; justify-content: space-between; gap: 3mm; padding: 2mm 0; border-bottom: 1px dashed #777; font-size: 8.5pt; }
+    .supplier-item span { display: flex; flex-direction: column; gap: 1mm; }
+    .supplier-item small { color: #333; font-size: 7.5pt; }
+    .supplier-item strong { white-space: nowrap; }
     footer { margin-top: 5mm; text-align: center; font-weight: bold; font-size: 9pt; }
   </style>
 </head>
@@ -146,6 +154,7 @@ function cigaretteShiftReceiptMarkup(close) {
   <div class="total"><span>TOTAL TURNO</span><span>${currency.format(close.totalSales)}</span></div>
   <div class="units">Unidades vendidas: ${close.totalSold}</div>
   ${cafeteriaSummary}
+  ${supplierSummary}
   <footer>COMPROBANTE DE CIERRE</footer>
   <script>window.addEventListener('load', () => setTimeout(() => { window.focus(); window.print(); }, 100)); window.addEventListener('afterprint', () => window.close());</script>
 </body>
