@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { printCigaretteShiftReceipt } from './receipt.js'
+import { printCigaretteDailyReceipt, printCigaretteShiftReceipt } from './receipt.js'
 import './Cigarettes.css'
 
 const shifts = { morning: 'Mañana', afternoon: 'Tarde' }
@@ -17,24 +17,38 @@ function CafeteriaCloseSummary({ summary, error }) {
   </section>
 }
 
+function EndingBalances({ balances, onChange, onReceivedChange }) {
+  const receivedChange = Number(balances.receivedChange || 0)
+  const nextShiftChange = Number(balances.change || 0)
+  const totalCash = Number(balances.cash || 0) + Number(balances.mercadoPago || 0) + Number(balances.posnet || 0) + nextShiftChange - receivedChange
+  return <section className="ending-balances">
+    <header className="ending-balances-header"><div><small>ARQUEO DE CAJA</small><h3>Dinero al finalizar el turno</h3><p>Registrá cada medio de cobro antes de confirmar el cierre.</p></div></header>
+    <div className="ending-arqueo-layout"><div className="ending-arqueo-inputs"><div className="ending-payment-inputs">
+      <label><span>Efectivo</span><input type="number" min="0" step="0.01" inputMode="decimal" value={balances.cash} onChange={(event) => onChange({ ...balances, cash: event.target.value })} placeholder="$ 0" /></label>
+      <label><span>Mercado Pago</span><input type="number" min="0" step="0.01" inputMode="decimal" value={balances.mercadoPago} onChange={(event) => onChange({ ...balances, mercadoPago: event.target.value })} placeholder="$ 0" /></label>
+      <label><span>Total Posnet</span><input type="number" min="0" step="0.01" inputMode="decimal" value={balances.posnet} onChange={(event) => onChange({ ...balances, posnet: event.target.value })} placeholder="$ 0" /></label>
+    </div><div className="shift-change-inputs"><div><small>CAMBIO ENTRE TURNOS</small><p>Importes en efectivo que entran y quedan preparados en caja.</p></div><div className="shift-change-fields"><label><span>Recibido del turno anterior</span><input type="number" min="0" step="0.01" inputMode="decimal" value={balances.receivedChange} onChange={(event) => { onReceivedChange?.(); onChange({ ...balances, receivedChange: event.target.value }) }} placeholder="$ 0" /></label><label><span>Para el próximo turno</span><input type="number" min="0" step="0.01" inputMode="decimal" value={balances.change} onChange={(event) => onChange({ ...balances, change: event.target.value })} placeholder="$ 0" /></label></div></div></div><aside className="ending-total-preview"><span>RESULTADO DEL ARQUEO</span><div className="ending-total-breakdown"><small>+ Efectivo <b>{money.format(Number(balances.cash || 0))}</b></small><small>+ Mercado Pago <b>{money.format(Number(balances.mercadoPago || 0))}</b></small><small>+ Posnet <b>{money.format(Number(balances.posnet || 0))}</b></small>{nextShiftChange > 0 && <small>+ Cambio próximo <b>{money.format(nextShiftChange)}</b></small>}{receivedChange > 0 && <small>− Cambio recibido <b>{money.format(receivedChange)}</b></small>}</div><strong>{money.format(totalCash)}</strong></aside></div>
+  </section>
+}
+
 function SupplierAllocations({ suppliers, allocations, onAllocationsChange }) {
   return <section className="supplier-allocations">
-    <div><small>PROVEEDORES ACTIVOS</small><h3>Fondos reservados para este turno</h3><p>Los importes se sumarán al saldo del proveedor al confirmar el cierre.</p></div>
-    {suppliers.length ? suppliers.map((supplier, index) => <label className="supplier-allocation-card" key={supplier.id}><span><b>Proveedor {index + 1}</b><strong>{supplier.name}</strong><small>Saldo actual: {money.format(supplier.balance)}</small></span><input type="number" min="0" step="0.01" inputMode="decimal" value={allocations[supplier.id] ?? ''} onChange={(event) => onAllocationsChange({ ...allocations, [supplier.id]: event.target.value })} aria-label={`Monto reservado para ${supplier.name}`} placeholder="$ 0" /></label>) : <p className="supplier-allocation-empty">No hay proveedores activos. Podés crearlos desde Proveedores.</p>}
+    <div><small>PROVEEDORES ACTIVOS</small><h3>Fondos reservados para este turno</h3><p>Indicá lo reservado en efectivo, Mercado Pago o ambos. Se acredita al proveedor al confirmar el cierre.</p></div>
+    {suppliers.length ? suppliers.map((supplier) => <div className={`supplier-allocation-card ${supplier.isSeparateCashBox ? 'separate-cash-box' : ''}`} key={supplier.id}><div className="supplier-allocation-header"><div><small>PROVEEDOR</small><strong>{supplier.name}</strong>{supplier.isSeparateCashBox && <em>Caja aparte · No descuenta del total</em>}</div><span><small>YA RESERVADO</small><b>{money.format(supplier.reservedBalance)}</b></span></div><div className="supplier-allocation-inputs"><label><span>Efectivo</span><input type="number" min="0" step="0.01" inputMode="decimal" value={allocations[supplier.id]?.cashAmount ?? ''} onChange={(event) => onAllocationsChange({ ...allocations, [supplier.id]: { ...allocations[supplier.id], cashAmount: event.target.value } })} aria-label={`Efectivo reservado para ${supplier.name}`} placeholder="$ 0" /></label><label><span>Mercado Pago</span><input type="number" min="0" step="0.01" inputMode="decimal" value={allocations[supplier.id]?.mercadoPagoAmount ?? ''} onChange={(event) => onAllocationsChange({ ...allocations, [supplier.id]: { ...allocations[supplier.id], mercadoPagoAmount: event.target.value } })} aria-label={`Mercado Pago reservado para ${supplier.name}`} placeholder="$ 0" /></label></div></div>) : <p className="supplier-allocation-empty">No hay proveedores activos. Podés crearlos desde Proveedores.</p>}
   </section>
 }
 
 function getCloseDraft(date, shift) {
   try {
     const draft = JSON.parse(localStorage.getItem(closeDraftKey(date, shift)) || 'null')
-    return draft && typeof draft.finalStocks === 'object' ? draft : null
+    return draft && (typeof draft.finalStocks === 'object' || typeof draft.endingBalances === 'object' || typeof draft.supplierAllocations === 'object') ? draft : null
   } catch {
     return null
   }
 }
 
-function saveCloseDraft(date, shift, finalStocks) {
-  localStorage.setItem(closeDraftKey(date, shift), JSON.stringify({ finalStocks, savedAt: new Date().toISOString() }))
+function saveCloseDraft(date, shift, changes) {
+  localStorage.setItem(closeDraftKey(date, shift), JSON.stringify({ ...getCloseDraft(date, shift), ...changes, savedAt: new Date().toISOString() }))
 }
 
 function clearCloseDraft(date, shift) {
@@ -81,13 +95,33 @@ function buildMonthlyRanking(closes) {
   }, new Map()).values()].sort((left, right) => right.quantity - left.quantity || left.name.localeCompare(right.name, 'es'))
 }
 
-function ShiftCloseForm({ products, purchases, suppliers, allocations, onAllocationsChange, cafeteriaSummary, cafeteriaError, shift, date, onClose }) {
+function getCloseFinancialSummary(close, suppliers) {
+  const archaeologicalResult = (close.endingCashBalance || 0) + (close.endingMercadoPagoBalance || 0) + (close.posnetTotal || 0) + (close.nextShiftChangeCash || 0) - (close.receivedChangeCash || 0)
+  const separateSupplierIds = new Set(suppliers.filter((supplier) => supplier.isSeparateCashBox).map((supplier) => supplier.id))
+  const normalSupplierReservations = (close.supplierAllocations || []).filter((allocation) => !separateSupplierIds.has(allocation.supplierId))
+    .reduce((total, allocation) => total + allocation.amount, 0)
+  const separateCashBoxReservations = (close.supplierAllocations || []).filter((allocation) => separateSupplierIds.has(allocation.supplierId))
+    .reduce((total, allocation) => total + allocation.amount, 0)
+  return {
+    archaeologicalResult,
+    cashTotal: archaeologicalResult - normalSupplierReservations - close.totalSales - (close.cafeteria?.totalSales || 0),
+    shiftSales: archaeologicalResult + separateCashBoxReservations
+  }
+}
+
+function ShiftCloseForm({ products, purchases, suppliers, allocations, onAllocationsChange, cafeteriaSummary, cafeteriaError, shift, date, previousChangeCash, onClose }) {
   const purchasedByProduct = useMemo(() => purchases
     .filter((purchase) => purchase.shift === shift)
     .reduce((totals, purchase) => ({ ...totals, [purchase.cigaretteProductId]: (totals[purchase.cigaretteProductId] || 0) + purchase.quantity }), {}), [purchases, shift])
   const [storedDraft] = useState(() => getCloseDraft(date, shift))
   const [finalStocks, setFinalStocks] = useState(() => Object.fromEntries(products.map((product) => [product.id, storedDraft?.finalStocks?.[product.id] ?? product.stock])))
   const [hasDraft, setHasDraft] = useState(Boolean(storedDraft))
+  const [endingBalances, setEndingBalances] = useState(() => storedDraft?.endingBalances || { cash: '', mercadoPago: '', posnet: '', receivedChange: '', change: '' })
+  const [receivedChangeEdited, setReceivedChangeEdited] = useState(() => Object.hasOwn(storedDraft?.endingBalances || {}, 'receivedChange'))
+  useEffect(() => {
+    if (!receivedChangeEdited && previousChangeCash !== null)
+      setEndingBalances((balances) => ({ ...balances, receivedChange: String(previousChangeCash) }))
+  }, [previousChangeCash, receivedChangeEdited])
   const rows = products.map((product) => {
     const purchased = purchasedByProduct[product.id] || 0
     const initial = product.stock - purchased
@@ -96,29 +130,48 @@ function ShiftCloseForm({ products, purchases, suppliers, allocations, onAllocat
     const sold = invalidInitial ? 0 : Math.max(0, initial + purchased - final)
     return { ...product, purchased, initial, invalidInitial, final, sold, amount: sold * product.price }
   })
-  const totalUnits = rows.reduce((total, row) => total + row.sold, 0)
   const totalSales = rows.reduce((total, row) => total + row.amount, 0)
+  const archaeologicalResult = Number(endingBalances.cash || 0) + Number(endingBalances.mercadoPago || 0) + Number(endingBalances.posnet || 0) + Number(endingBalances.change || 0) - Number(endingBalances.receivedChange || 0)
+  const normalSupplierReservations = suppliers.filter((supplier) => !supplier.isSeparateCashBox)
+    .reduce((total, supplier) => total + Number(allocations[supplier.id]?.cashAmount || 0) + Number(allocations[supplier.id]?.mercadoPagoAmount || 0), 0)
+  const cashTotal = archaeologicalResult - normalSupplierReservations - (cafeteriaSummary?.totalSales || 0) - totalSales
+  const separateCashBoxTotal = suppliers.filter((supplier) => supplier.isSeparateCashBox)
+    .reduce((total, supplier) => total + Number(allocations[supplier.id]?.cashAmount || 0) + Number(allocations[supplier.id]?.mercadoPagoAmount || 0), 0)
+  const dailySalesTotal = archaeologicalResult + separateCashBoxTotal
   const isValid = rows.length > 0 && rows.every((row) => !row.invalidInitial && row.final >= 0 && row.final <= row.initial + row.purchased)
 
   const submit = (event) => {
     event.preventDefault()
-    onClose({ businessDate: date, shift, items: rows.map((row) => ({ cigaretteProductId: row.id, finalStock: row.final })), supplierAllocations: suppliers.map((supplier) => ({ supplierId: supplier.id, amount: Number(allocations[supplier.id] || 0) })).filter((allocation) => allocation.amount > 0) })
+    onClose({ businessDate: date, shift, items: rows.map((row) => ({ cigaretteProductId: row.id, finalStock: row.final })), supplierAllocations: suppliers.map((supplier) => ({ supplierId: supplier.id, cashAmount: Number(allocations[supplier.id]?.cashAmount || 0), mercadoPagoAmount: Number(allocations[supplier.id]?.mercadoPagoAmount || 0) })).filter((allocation) => allocation.cashAmount + allocation.mercadoPagoAmount > 0), endingCashBalance: Number(endingBalances.cash || 0), endingMercadoPagoBalance: Number(endingBalances.mercadoPago || 0), posnetTotal: Number(endingBalances.posnet || 0), receivedChangeCash: Number(endingBalances.receivedChange || 0), nextShiftChangeCash: Number(endingBalances.change || 0) })
   }
   const changeFinalStock = (productId, value) => {
     const updated = { ...finalStocks, [productId]: value }
     setFinalStocks(updated)
-    saveCloseDraft(date, shift, updated)
+    saveCloseDraft(date, shift, { finalStocks: updated })
+    setHasDraft(true)
+  }
+  const changeEndingBalances = (updated) => {
+    setEndingBalances(updated)
+    saveCloseDraft(date, shift, { endingBalances: updated })
+    setHasDraft(true)
+  }
+  const changeAllocations = (updated) => {
+    onAllocationsChange(updated)
+    saveCloseDraft(date, shift, { supplierAllocations: updated })
     setHasDraft(true)
   }
   const discardDraft = () => {
     clearCloseDraft(date, shift)
     setFinalStocks(Object.fromEntries(products.map((product) => [product.id, product.stock])))
+    setEndingBalances({ cash: '', mercadoPago: '', posnet: '', receivedChange: '', change: '' })
+    onAllocationsChange({})
     setHasDraft(false)
   }
 
   return <form className="shift-close" onSubmit={submit}>
     <div className="close-draft-notice"><span>●</span><p>{hasDraft ? 'Borrador guardado automáticamente en este dispositivo.' : 'Los cambios se guardarán automáticamente mientras cargás el cierre.'}</p>{hasDraft && <button type="button" onClick={discardDraft}>Descartar borrador</button>}</div>
-    <SupplierAllocations suppliers={suppliers} allocations={allocations} onAllocationsChange={onAllocationsChange} />
+    <EndingBalances balances={endingBalances} onChange={changeEndingBalances} onReceivedChange={() => setReceivedChangeEdited(true)} />
+    <SupplierAllocations suppliers={suppliers} allocations={allocations} onAllocationsChange={changeAllocations} />
     <CafeteriaCloseSummary summary={cafeteriaSummary} error={cafeteriaError} />
     {rows.some((row) => row.invalidInitial) && <p className="close-validation-error">Hay un stock actual menor a las compras del turno. Corregí el stock del producto antes de cerrar.</p>}
     <div className="close-grid-header"><span>Producto</span><span>Inicial</span><span>Compras</span><span>Final</span><span>Vendidos</span><span>Importe</span></div>
@@ -131,32 +184,45 @@ function ShiftCloseForm({ products, purchases, suppliers, allocations, onAllocat
       <span className="close-metric amount-metric"><small>Importe</small><b>{row.invalidInitial ? '—' : money.format(row.amount)}</b></span>
     </div>)}
     {!products.length && <div className="cigarette-empty">Primero cargá al menos un cigarrillo.</div>}
-    <div className="close-total"><span><small>UNIDADES VENDIDAS</small><b>{totalUnits}</b></span><span><small>VENTA CIGARRILLOS</small><b>{money.format(totalSales)}</b></span><button className="primary" disabled={!isValid}>Cerrar turno {shifts[shift].toLowerCase()}</button></div>
+    <div className="close-total"><span className="cash-total-summary"><small>CAJA</small><b>{money.format(cashTotal)}</b><i>Arqueo − proveedores sin caja aparte − cafetería − cigarrillos</i></span><span className="daily-sales-summary"><small>VENTAS DEL DÍA</small><b>{money.format(dailySalesTotal)}</b><i>Arqueo {money.format(archaeologicalResult)}{separateCashBoxTotal > 0 ? ` + cajas aparte ${money.format(separateCashBoxTotal)}` : ''}</i></span><button className="primary" disabled={!isValid}>Cerrar turno {shifts[shift].toLowerCase()}</button></div>
   </form>
 }
 
 function EditShiftCloseForm({ close, suppliers, cafeteria, onSave, onCancel, busy }) {
   const [finalStocks, setFinalStocks] = useState(() => Object.fromEntries(close.items.map((item) => [item.cigaretteProductId, item.finalStock])))
-  const [allocations, setAllocations] = useState(() => Object.fromEntries(close.supplierAllocations.map((allocation) => [allocation.supplierId, allocation.amount])))
+  const [allocations, setAllocations] = useState(() => Object.fromEntries(close.supplierAllocations.map((allocation) => [allocation.supplierId, { cashAmount: allocation.cashAmount, mercadoPagoAmount: allocation.mercadoPagoAmount }])))
+  const [endingBalances, setEndingBalances] = useState(() => ({ cash: close.endingCashBalance, mercadoPago: close.endingMercadoPagoBalance, posnet: close.posnetTotal, receivedChange: close.receivedChangeCash, change: close.nextShiftChangeCash }))
   const rows = close.items.map((item) => {
     const final = Number(finalStocks[item.cigaretteProductId] ?? item.finalStock)
     const available = item.initialStock + item.purchasedQuantity
     const sold = available - final
     return { ...item, final, available, sold, amount: sold * item.unitPrice }
   })
-  const totalUnits = rows.reduce((total, row) => total + row.sold, 0)
   const totalSales = rows.reduce((total, row) => total + row.amount, 0)
+  const archaeologicalResult = Number(endingBalances.cash || 0) + Number(endingBalances.mercadoPago || 0) + Number(endingBalances.posnet || 0) + Number(endingBalances.change || 0) - Number(endingBalances.receivedChange || 0)
+  const normalSupplierReservations = suppliers.filter((supplier) => !supplier.isSeparateCashBox)
+    .reduce((total, supplier) => total + Number(allocations[supplier.id]?.cashAmount || 0) + Number(allocations[supplier.id]?.mercadoPagoAmount || 0), 0)
+  const cashTotal = archaeologicalResult - normalSupplierReservations - (cafeteria?.totalSales || 0) - totalSales
+  const separateCashBoxTotal = suppliers.filter((supplier) => supplier.isSeparateCashBox)
+    .reduce((total, supplier) => total + Number(allocations[supplier.id]?.cashAmount || 0) + Number(allocations[supplier.id]?.mercadoPagoAmount || 0), 0)
+  const dailySalesTotal = archaeologicalResult + separateCashBoxTotal
   const isValid = rows.every((row) => row.final >= 0 && row.final <= row.available)
 
   const submit = (event) => {
     event.preventDefault()
     onSave({
       items: rows.map((row) => ({ cigaretteProductId: row.cigaretteProductId, finalStock: row.final })),
-      supplierAllocations: suppliers.map((supplier) => ({ supplierId: supplier.id, amount: Number(allocations[supplier.id] || 0) })).filter((allocation) => allocation.amount > 0)
+      supplierAllocations: suppliers.map((supplier) => ({ supplierId: supplier.id, cashAmount: Number(allocations[supplier.id]?.cashAmount || 0), mercadoPagoAmount: Number(allocations[supplier.id]?.mercadoPagoAmount || 0) })).filter((allocation) => allocation.cashAmount + allocation.mercadoPagoAmount > 0),
+      endingCashBalance: Number(endingBalances.cash || 0),
+      endingMercadoPagoBalance: Number(endingBalances.mercadoPago || 0),
+      posnetTotal: Number(endingBalances.posnet || 0),
+      receivedChangeCash: Number(endingBalances.receivedChange || 0),
+      nextShiftChangeCash: Number(endingBalances.change || 0)
     })
   }
 
   return <form className="shift-close" onSubmit={submit}>
+    <EndingBalances balances={endingBalances} onChange={setEndingBalances} />
     <SupplierAllocations suppliers={suppliers} allocations={allocations} onAllocationsChange={setAllocations} />
     <CafeteriaCloseSummary summary={cafeteria} />
     <div className="close-grid-header"><span>Producto</span><span>Inicial</span><span>Compras</span><span>Final</span><span>Vendidos</span><span>Importe</span></div>
@@ -168,22 +234,24 @@ function EditShiftCloseForm({ close, suppliers, cafeteria, onSave, onCancel, bus
       <span className="close-metric"><small>Vendidos</small><strong className="sold-value">{row.sold}</strong></span>
       <span className="close-metric amount-metric"><small>Importe</small><b>{money.format(row.amount)}</b></span>
     </div>)}
-    <div className="close-total"><span><small>UNIDADES VENDIDAS</small><b>{totalUnits}</b></span><span><small>VENTA CORREGIDA</small><b>{money.format(totalSales)}</b></span><button type="button" className="secondary" onClick={onCancel}>Cancelar</button><button className="primary" disabled={busy || !isValid}>Guardar corrección</button></div>
+    <div className="close-total"><span className="cash-total-summary"><small>CAJA</small><b>{money.format(cashTotal)}</b><i>Arqueo − proveedores sin caja aparte − cafetería − cigarrillos</i></span><span className="daily-sales-summary"><small>VENTAS DEL DÍA</small><b>{money.format(dailySalesTotal)}</b><i>Arqueo {money.format(archaeologicalResult)}{separateCashBoxTotal > 0 ? ` + cajas aparte ${money.format(separateCashBoxTotal)}` : ''}</i></span><button type="button" className="secondary" onClick={onCancel}>Cancelar</button><button className="primary" disabled={busy || !isValid}>Guardar corrección</button></div>
   </form>
 }
 
-function CloseCard({ close, onEdit }) {
+function CloseCard({ close, suppliers, onEdit }) {
   const [open, setOpen] = useState(false)
+  const { archaeologicalResult, cashTotal, shiftSales } = getCloseFinancialSummary(close, suppliers)
+  const reservedTotal = (close.supplierAllocations || []).reduce((total, allocation) => total + allocation.amount, 0)
   return <article className="close-card">
-    <button type="button" className="close-card-summary" onClick={() => setOpen(!open)}>
+    <button type="button" className="close-card-summary" onClick={() => setOpen(!open)} aria-expanded={open}>
       <span className={`shift-badge ${close.shift}`}>{shifts[close.shift]}</span>
       <span><small>FECHA</small><b>{new Date(`${close.businessDate}T12:00:00`).toLocaleDateString('es-AR')}</b></span>
-      <span><small>CIGARRILLOS VENDIDOS</small><b>{close.totalSold} {close.totalSold === 1 ? 'unidad' : 'unidades'}</b></span>
-      <span><small>VENTA CIGARRILLOS</small><b>{money.format(close.totalSales)}</b></span>
-      <span className="calendar-cafeteria-total"><small>CAJA CAFETERÍA</small><b>{money.format(close.cafeteria?.totalSales || 0)}</b></span>
-      <i>{open ? '−' : '+'}</i>
+      <span><small>CAJA</small><b>{money.format(cashTotal)}</b></span>
+      <span><small>ARQUEO DE CAJA</small><b>{money.format(archaeologicalResult)}</b></span>
+      <span className="calendar-cafeteria-total"><small>VENTA DEL TURNO</small><b>{money.format(shiftSales)}</b></span>
+      <span className="close-card-action"><small>{open ? 'OCULTAR' : 'VER DETALLE'}</small><b>{open ? '−' : '+'}</b></span>
     </button>
-    {open && <div className="close-card-detail">{close.items.map((item) => <div key={item.cigaretteProductId}><span><b>{item.productName}</b><small>{item.initialStock} inicial + {item.purchasedQuantity} compras − {item.finalStock} final</small></span><strong>{item.soldQuantity} × {money.format(item.unitPrice)}</strong><b>{money.format(item.salesAmount)}</b></div>)}<div className="closed-cafeteria-summary"><span><b>Caja Cafetería</b><small>{close.cafeteria?.saleCount || 0} {(close.cafeteria?.saleCount || 0) === 1 ? 'venta' : 'ventas'}</small></span><strong>{money.format(close.cafeteria?.totalSales || 0)}</strong></div>{close.supplierAllocations?.length > 0 && <div className="closed-supplier-summary"><span><b>Reservas para proveedores</b><small>{close.supplierAllocations.map((allocation) => allocation.supplierName).join(', ')}</small></span><strong>{money.format(close.supplierAllocations.reduce((total, allocation) => total + allocation.amount, 0))}</strong></div>}<footer><button type="button" className="edit-close-button" onClick={() => onEdit(close)}>✎ Corregir cierre</button><button type="button" className="print-shift-ticket" onClick={() => printCigaretteShiftReceipt(close)}>▤ Imprimir ticket 80 mm</button></footer></div>}
+    {open && <div className="close-card-detail"><section className="close-financial-section"><header><small>ARQUEO DEL TURNO</small><b>Saldos registrados al cierre</b></header><div className="closed-ending-balances"><span><b>Efectivo final</b><small>Arqueo de caja</small></span><strong>{money.format(close.endingCashBalance || 0)}</strong><span><b>Mercado Pago final</b><small>Arqueo de caja</small></span><strong>{money.format(close.endingMercadoPagoBalance || 0)}</strong></div><div className="close-financial-grid"><div className="closed-change-cash"><span><b>Total Posnet</b><small>Importe cobrado con terminales</small></span><strong>{money.format(close.posnetTotal || 0)}</strong></div><div className="closed-change-cash"><span><b>Cambio recibido</b><small>Del turno anterior</small></span><strong>{money.format(close.receivedChangeCash || 0)}</strong></div><div className="closed-change-cash"><span><b>Cambio preparado</b><small>Para el próximo turno</small></span><strong>{money.format(close.nextShiftChangeCash || 0)}</strong></div></div><div className="close-result-summary"><span><small>ARQUEO DE CAJA</small><b>{money.format(archaeologicalResult)}</b></span><span><small>CAJA</small><b>{money.format(cashTotal)}</b></span></div></section><section className="close-sales-section"><header><small>VENTAS Y RESERVAS</small><b>Detalle del cierre</b></header>{close.items.map((item) => <div className="close-sale-row" key={item.cigaretteProductId}><span><b>{item.productName}</b><small>{item.initialStock} inicial + {item.purchasedQuantity} compras − {item.finalStock} final</small></span><strong>{item.soldQuantity} × {money.format(item.unitPrice)}</strong><b>{money.format(item.salesAmount)}</b></div>)}<div className="closed-cafeteria-summary"><span><b>Caja Cafetería</b><small>{close.cafeteria?.saleCount || 0} {(close.cafeteria?.saleCount || 0) === 1 ? 'venta' : 'ventas'}</small></span><strong>{money.format(close.cafeteria?.totalSales || 0)}</strong></div>{close.supplierAllocations?.length > 0 && <div className="closed-supplier-summary"><span><b>Reservas para proveedores</b><small>{close.supplierAllocations.map((allocation) => allocation.supplierName).join(', ')}</small></span>    <strong>{money.format(reservedTotal)}</strong></div>}</section><footer><button type="button" className="edit-close-button" onClick={() => onEdit(close)}>✎ Corregir cierre</button><button type="button" className="print-shift-ticket" onClick={() => printCigaretteShiftReceipt(close, suppliers)}>▤ Imprimir ticket 80 mm</button></footer></div>}
   </article>
 }
 
@@ -200,9 +268,10 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
   const [shift, setShift] = useState(() => getCloseContext()?.shift || 'morning')
   const [dashboard, setDashboard] = useState({ products: [], purchases: [], closes: [] })
   const [suppliers, setSuppliers] = useState([])
-  const [supplierAllocations, setSupplierAllocations] = useState({})
+  const [supplierAllocations, setSupplierAllocations] = useState(() => getCloseDraft(date, shift)?.supplierAllocations || {})
   const [cafeteriaSummary, setCafeteriaSummary] = useState(null)
   const [cafeteriaError, setCafeteriaError] = useState('')
+  const [previousChangeCash, setPreviousChangeCash] = useState(null)
   const [product, setProduct] = useState({ name: '', price: '', initialStock: '' })
   const [purchase, setPurchase] = useState({ cigaretteProductId: '', quantity: '' })
   const [stockSearch, setStockSearch] = useState('')
@@ -218,6 +287,7 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
   const [monthlyRanking, setMonthlyRanking] = useState([])
   const [loadingRanking, setLoadingRanking] = useState(false)
   const [rankingError, setRankingError] = useState('')
+  const dailyShiftSalesTotal = dashboard.closes.reduce((total, close) => total + getCloseFinancialSummary(close, suppliers).shiftSales, 0)
 
   const load = useCallback(async () => {
     try {
@@ -261,6 +331,28 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
   useEffect(() => { setTab(isClosingView ? 'close' : 'stock') }, [isClosingView])
   useEffect(() => { sessionStorage.setItem('mesa-cigarette-tab', tab) }, [tab])
   useEffect(() => { sessionStorage.setItem(closeContextKey, JSON.stringify({ date, shift })) }, [date, shift])
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setSupplierAllocations(getCloseDraft(date, shift)?.supplierAllocations || {}) }, [date, shift])
+  useEffect(() => {
+    let cancelled = false
+    const previous = previousShift(date, shift)
+    const setPreviousChange = (close) => {
+      if (!cancelled) setPreviousChangeCash(close?.nextShiftChangeCash ?? 0)
+    }
+    if (previous.businessDate === date) {
+      setPreviousChange(dashboard.closes.find((close) => close.shift === previous.shift))
+      return () => { cancelled = true }
+    }
+    api(`/cigarettes?date=${previous.businessDate}`)
+      .then((previousDashboard) => setPreviousChange(previousDashboard.closes.find((close) => close.shift === previous.shift)))
+      .catch(() => {
+        if (!cancelled) {
+          setPreviousChangeCash(null)
+          setMessage('No se pudo cargar el cambio dejado por el turno anterior.')
+        }
+      })
+    return () => { cancelled = true }
+  }, [api, dashboard.closes, date, shift])
 
   const execute = async (operation, successMessage) => {
     setBusy(true)
@@ -399,8 +491,8 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
       <section className="cigarette-card"><div className="section-heading"><div><small>MOVIMIENTOS DEL DÍA</small><h2>Compras del turno</h2></div><b>{purchasedUnits} unidades</b></div><div className="purchase-list">{purchases.map((item) => editingPurchase?.id === item.id ? <form className="purchase-edit" key={item.id} onSubmit={savePurchase}><span><b>{item.productName}</b><small>Cantidad comprada{selectedClose ? ' · actualiza el cierre' : ''}</small></span><input required type="number" min="1" step="1" value={editingPurchase.quantity} onChange={(event) => setEditingPurchase({ ...editingPurchase, quantity: event.target.value })} /><button disabled={busy}>Guardar</button><button type="button" onClick={() => setEditingPurchase(null)}>Cancelar</button></form> : <article key={item.id}><span><b>{item.productName}</b><small>{selectedClose ? 'Compra incluida en el cierre' : 'Stock incorporado'}</small></span><strong>+{item.quantity} unidades</strong><footer><button type="button" disabled={busy} title="Editar cantidad" onClick={() => setEditingPurchase({ ...item })}>✎</button><button type="button" className="remove-purchase" disabled={busy} title="Quitar compra" onClick={() => deletePurchase(item)}>×</button></footer></article>)}{!purchases.length && <div className="cigarette-empty">No hay compras para este turno.</div>}</div></section>
     </div>}
 
-    {tab === 'close' && <><section className="cigarette-card close-section"><div className="section-heading"><div><small>ARQUEO DE INVENTARIO</small><h2>{editingClose ? 'Corregir cierre' : 'Cierre de turno'}</h2></div><div className="shift-switch">{Object.entries(shifts).map(([value, label]) => <button key={value} className={shift === value ? 'active' : ''} onClick={() => { setShift(value); setSupplierAllocations({}); setEditingClose(null) }}>{label}</button>)}</div></div><p className="close-help">{editingClose ? 'Corregí el stock físico final. Las ventas y el stock actual se ajustarán automáticamente.' : 'Ingresá el stock físico final. Las ventas se calculan automáticamente con el stock inicial y las compras del turno.'}</p>{editingClose && selectedClose?.id === editingClose.id ? <EditShiftCloseForm key={editingClose.id} close={editingClose} suppliers={suppliers} cafeteria={editingClose.cafeteria} onSave={saveCloseCorrection} onCancel={() => setEditingClose(null)} busy={busy} /> : selectedClose ? <div className="already-closed"><span>✓</span><div><b>Turno {shifts[shift].toLowerCase()} cerrado</b><p>Se vendieron {selectedClose.totalSold} unidades por {money.format(selectedClose.totalSales)}.</p><button type="button" className="edit-close-button" onClick={() => setEditingClose(selectedClose)}>✎ Corregir cierre</button></div></div> : <ShiftCloseForm key={`${date}-${shift}-${dashboard.products.map((item) => item.stock).join('-')}`} products={dashboard.products} purchases={dashboard.purchases} suppliers={suppliers} allocations={supplierAllocations} onAllocationsChange={setSupplierAllocations} cafeteriaSummary={cafeteriaSummary} cafeteriaError={cafeteriaError} shift={shift} date={date} onClose={closeShift} />}</section></>}
+    {tab === 'close' && <><section className="cigarette-card close-section"><div className="section-heading"><div><small>ARQUEO DE INVENTARIO</small><h2>{editingClose ? 'Corregir cierre' : 'Cierre de turno'}</h2></div><div className="shift-switch">{Object.entries(shifts).map(([value, label]) => <button key={value} className={shift === value ? 'active' : ''} onClick={() => { setShift(value); setSupplierAllocations({}); setEditingClose(null) }}>{label}</button>)}</div></div><p className="close-help">{editingClose ? 'Corregí el stock físico final. Las ventas y el stock actual se ajustarán automáticamente.' : 'Ingresá el stock físico final. Las ventas se calculan automáticamente con el stock inicial y las compras del turno.'}</p>{editingClose && selectedClose?.id === editingClose.id ? <EditShiftCloseForm key={editingClose.id} close={editingClose} suppliers={suppliers} cafeteria={editingClose.cafeteria} onSave={saveCloseCorrection} onCancel={() => setEditingClose(null)} busy={busy} /> : selectedClose ? <div className="already-closed"><span>✓</span><div><b>Turno {shifts[shift].toLowerCase()} cerrado</b><p>Se vendieron {selectedClose.totalSold} unidades por {money.format(selectedClose.totalSales)}.</p><button type="button" className="edit-close-button" onClick={() => setEditingClose(selectedClose)}>✎ Corregir cierre</button></div></div> : <ShiftCloseForm key={`${date}-${shift}-${dashboard.products.map((item) => item.stock).join('-')}`} products={dashboard.products} purchases={dashboard.purchases} suppliers={suppliers} allocations={supplierAllocations} onAllocationsChange={setSupplierAllocations} cafeteriaSummary={cafeteriaSummary} cafeteriaError={cafeteriaError} shift={shift} date={date} previousChangeCash={previousChangeCash} onClose={closeShift} />}</section></>}
 
-    {tab === 'history' && <section className="cigarette-card history-section"><div className="calendar-hero"><div><small>CALENDARIO</small><h2>Cierres del {new Date(`${date}T12:00:00`).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}</h2><p>Elegí otra fecha arriba para consultar sus cierres.</p></div><div className="daily-total"><small>VENTA DEL DÍA</small><b>{money.format(dashboard.closes.reduce((total, close) => total + close.totalSales + (close.cafeteria?.totalSales || 0), 0))}</b></div></div><div className="closes-list">{dashboard.closes.map((close) => <CloseCard key={close.id} close={close} onEdit={startEditingClose} />)}{!dashboard.closes.length && <div className="cigarette-empty large">No hay cierres registrados en esta fecha.</div>}</div></section>}
+    {tab === 'history' && <section className="cigarette-card history-section"><div className="calendar-hero"><div><small>CALENDARIO</small><h2>Cierres del {new Date(`${date}T12:00:00`).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}</h2><p>{dashboard.closes.length} {dashboard.closes.length === 1 ? 'turno cerrado' : 'turnos cerrados'}. Tocá un turno para ver Caja, Arqueo de caja y el detalle de la venta.</p></div><div className="daily-total"><small>VENTAS DEL DÍA</small><b>{money.format(dailyShiftSalesTotal)}</b><span>Suma de las ventas por turno</span><button type="button" onClick={() => printCigaretteDailyReceipt(dashboard.closes, suppliers, date)} disabled={!dashboard.closes.length}>▤ Imprimir resumen</button></div></div><div className="closes-list">{dashboard.closes.map((close) => <CloseCard key={close.id} close={close} suppliers={suppliers} onEdit={startEditingClose} />)}{!dashboard.closes.length && <div className="cigarette-empty large">No hay cierres registrados en esta fecha.</div>}</div></section>}
   </div>
 }

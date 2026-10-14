@@ -10,6 +10,7 @@ public interface ICafeteriaService
     Task<CafeteriaProductResponse?> UpdateProductAsync(int id, UpdateCafeteriaProductRequest request, CancellationToken cancellationToken);
     Task<bool> DeleteProductAsync(int id, CancellationToken cancellationToken);
     Task<CafeteriaSalesSummaryResponse> GetSummaryAsync(DateOnly businessDate, string shift, CancellationToken cancellationToken);
+    Task<IReadOnlyList<CafeteriaShiftSalesHistoryResponse>> GetShiftHistoryAsync(DateOnly date, CancellationToken cancellationToken);
 }
 
 public sealed class CafeteriaService(RestaurantContext db) : ICafeteriaService
@@ -20,7 +21,11 @@ public sealed class CafeteriaService(RestaurantContext db) : ICafeteriaService
         var lastClose = await GetLastCloseAsync(cancellationToken);
         var activeShift = lastClose?.Shift == "morning" ? "afternoon" : "morning";
         var summary = await GetSummaryAfterAsync(lastClose?.ClosedAt, cancellationToken);
-        return new CafeteriaDashboardResponse(date, activeShift, products, summary);
+        var daySummary = await GetPeriodSummaryAsync(date, date.AddDays(1), cancellationToken);
+        var monthStart = new DateOnly(date.Year, date.Month, 1);
+        var monthSummary = await GetPeriodSummaryAsync(monthStart, monthStart.AddMonths(1), cancellationToken);
+        var recentShiftHistory = await GetRecentShiftHistoryAsync(date, cancellationToken);
+        return new CafeteriaDashboardResponse(date, activeShift, products, summary, daySummary, monthSummary, recentShiftHistory);
     }
 
     public async Task<CafeteriaDashboardResponse> RegisterSaleAsync(DateOnly date, CancellationToken cancellationToken)
@@ -100,6 +105,9 @@ public sealed class CafeteriaService(RestaurantContext db) : ICafeteriaService
             sale.CreatedAt <= close.ClosedAt, cancellationToken);
     }
 
+    public Task<IReadOnlyList<CafeteriaShiftSalesHistoryResponse>> GetShiftHistoryAsync(DateOnly date, CancellationToken cancellationToken) =>
+        GetShiftHistoryForPeriodAsync(date, date.AddDays(1), cancellationToken);
+
     private async Task<CafeteriaSalesSummaryResponse> GetSummaryAfterAsync(DateTime? closedAt, CancellationToken cancellationToken) =>
         await GetSummaryAsync(sale => !closedAt.HasValue || sale.CreatedAt > closedAt.Value, cancellationToken);
 
@@ -113,6 +121,35 @@ public sealed class CafeteriaService(RestaurantContext db) : ICafeteriaService
         var items = sales.SelectMany(sale => sale.Items).GroupBy(item => new { item.ProductName, item.UnitPrice })
             .OrderBy(group => group.Key.ProductName).Select(group => new CafeteriaSalesSummaryItemResponse(group.Key.ProductName, group.Count(), group.Key.UnitPrice, group.Sum(item => item.UnitPrice))).ToList();
         return new CafeteriaSalesSummaryResponse(sales.Count, items.Sum(item => item.TotalSales), items);
+    }
+
+    private async Task<CafeteriaPeriodSummaryResponse> GetPeriodSummaryAsync(DateOnly from, DateOnly until, CancellationToken cancellationToken)
+    {
+        var sales = db.CafeteriaSales.AsNoTracking().Where(sale => sale.BusinessDate >= from && sale.BusinessDate < until);
+        var saleCount = await sales.CountAsync(cancellationToken);
+        var totalSales = await sales.SelectMany(sale => sale.Items).SumAsync(item => (decimal?)item.UnitPrice, cancellationToken) ?? 0;
+        return new CafeteriaPeriodSummaryResponse(saleCount, totalSales);
+    }
+
+    private async Task<IReadOnlyList<CafeteriaShiftSalesHistoryResponse>> GetRecentShiftHistoryAsync(DateOnly date, CancellationToken cancellationToken) =>
+        await GetShiftHistoryForPeriodAsync(date.AddDays(-29), date.AddDays(1), cancellationToken);
+
+    private async Task<IReadOnlyList<CafeteriaShiftSalesHistoryResponse>> GetShiftHistoryForPeriodAsync(DateOnly from, DateOnly until, CancellationToken cancellationToken)
+    {
+        var sales = await db.CafeteriaSales.AsNoTracking()
+            .Where(sale => sale.BusinessDate >= from && sale.BusinessDate < until)
+            .Include(sale => sale.Items)
+            .ToListAsync(cancellationToken);
+
+        return sales.GroupBy(sale => new { sale.BusinessDate, sale.Shift })
+            .OrderByDescending(group => group.Key.BusinessDate)
+            .ThenByDescending(group => group.Key.Shift)
+            .Select(group => new CafeteriaShiftSalesHistoryResponse(
+                group.Key.BusinessDate,
+                group.Key.Shift,
+                group.Count(),
+                group.Sum(sale => sale.Items.Sum(item => item.UnitPrice))))
+            .ToList();
     }
 
     private async Task<IReadOnlyList<CafeteriaProductResponse>> GetProductsAsync(CancellationToken cancellationToken) =>

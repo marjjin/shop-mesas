@@ -54,11 +54,44 @@ using (var scope = app.Services.CreateScope())
         db.Database.ExecuteSqlRaw("""UPDATE "CafeteriaSales" SET "BusinessDate" = date("CreatedAt") WHERE "BusinessDate" = '0001-01-01';""");
         db.Database.ExecuteSqlRaw("""CREATE INDEX IF NOT EXISTS "IX_CafeteriaSales_BusinessDate_Shift" ON "CafeteriaSales" ("BusinessDate", "Shift");""");
         db.Database.ExecuteSqlRaw("""
-            CREATE TABLE IF NOT EXISTS "Suppliers" ("Id" INTEGER PRIMARY KEY AUTOINCREMENT, "Name" TEXT NOT NULL, "Balance" TEXT NOT NULL DEFAULT '0', "IsActive" INTEGER NOT NULL DEFAULT 1, "CreatedAt" TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS "Suppliers" ("Id" INTEGER PRIMARY KEY AUTOINCREMENT, "Name" TEXT NOT NULL, "ReservedBalance" TEXT NOT NULL DEFAULT '0', "ReservedCashBalance" TEXT NOT NULL DEFAULT '0', "ReservedMercadoPagoBalance" TEXT NOT NULL DEFAULT '0', "CurrentAccountBalance" TEXT NOT NULL DEFAULT '0', "IsSeparateCashBox" INTEGER NOT NULL DEFAULT 0, "IsActive" INTEGER NOT NULL DEFAULT 1, "CreatedAt" TEXT NOT NULL);
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_Suppliers_Name" ON "Suppliers" ("Name");
-            CREATE TABLE IF NOT EXISTS "SupplierTransactions" ("Id" INTEGER PRIMARY KEY AUTOINCREMENT, "SupplierId" INTEGER NOT NULL REFERENCES "Suppliers" ("Id"), "CigaretteShiftCloseId" INTEGER NULL REFERENCES "CigaretteShiftCloses" ("Id") ON DELETE CASCADE, "Type" TEXT NOT NULL, "Amount" TEXT NOT NULL, "BusinessDate" TEXT NOT NULL, "Note" TEXT NULL, "CreatedAt" TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS "SupplierTransactions" ("Id" INTEGER PRIMARY KEY AUTOINCREMENT, "SupplierId" INTEGER NOT NULL REFERENCES "Suppliers" ("Id"), "CigaretteShiftCloseId" INTEGER NULL REFERENCES "CigaretteShiftCloses" ("Id") ON DELETE CASCADE, "Type" TEXT NOT NULL, "Amount" TEXT NOT NULL, "CashAmount" TEXT NOT NULL DEFAULT '0', "MercadoPagoAmount" TEXT NOT NULL DEFAULT '0', "BusinessDate" TEXT NOT NULL, "Note" TEXT NULL, "CreatedAt" TEXT NOT NULL);
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_SupplierTransactions_SupplierId_CigaretteShiftCloseId" ON "SupplierTransactions" ("SupplierId", "CigaretteShiftCloseId");
             """);
+        if (!SqliteColumnExists(db, "Suppliers", "ReservedBalance"))
+        {
+            db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ADD COLUMN "ReservedBalance" TEXT NOT NULL DEFAULT '0';""");
+            db.Database.ExecuteSqlRaw("""UPDATE "Suppliers" SET "ReservedBalance" = "Balance";""");
+        }
+        if (!SqliteColumnExists(db, "Suppliers", "CurrentAccountBalance"))
+            db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ADD COLUMN "CurrentAccountBalance" TEXT NOT NULL DEFAULT '0';""");
+        if (!SqliteColumnExists(db, "Suppliers", "ReservedCashBalance"))
+        {
+            db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ADD COLUMN "ReservedCashBalance" TEXT NOT NULL DEFAULT '0';""");
+            db.Database.ExecuteSqlRaw("""UPDATE "Suppliers" SET "ReservedCashBalance" = "ReservedBalance";""");
+        }
+        if (!SqliteColumnExists(db, "Suppliers", "ReservedMercadoPagoBalance"))
+            db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ADD COLUMN "ReservedMercadoPagoBalance" TEXT NOT NULL DEFAULT '0';""");
+        if (!SqliteColumnExists(db, "Suppliers", "IsSeparateCashBox"))
+            db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ADD COLUMN "IsSeparateCashBox" INTEGER NOT NULL DEFAULT 0;""");
+        if (!SqliteColumnExists(db, "SupplierTransactions", "CashAmount"))
+        {
+            db.Database.ExecuteSqlRaw("""ALTER TABLE "SupplierTransactions" ADD COLUMN "CashAmount" TEXT NOT NULL DEFAULT '0';""");
+            db.Database.ExecuteSqlRaw("""UPDATE "SupplierTransactions" SET "CashAmount" = "Amount" WHERE "Type" IN ('allocation', 'cash_purchase', 'reserved_purchase', 'payment', 'reserved_transfer_in', 'reserved_transfer_out', 'reserved_adjustment');""");
+        }
+        if (!SqliteColumnExists(db, "SupplierTransactions", "MercadoPagoAmount"))
+            db.Database.ExecuteSqlRaw("""ALTER TABLE "SupplierTransactions" ADD COLUMN "MercadoPagoAmount" TEXT NOT NULL DEFAULT '0';""");
+        if (!SqliteColumnExists(db, "CigaretteShiftCloses", "EndingCashBalance"))
+            db.Database.ExecuteSqlRaw("""ALTER TABLE "CigaretteShiftCloses" ADD COLUMN "EndingCashBalance" TEXT NOT NULL DEFAULT '0';""");
+        if (!SqliteColumnExists(db, "CigaretteShiftCloses", "EndingMercadoPagoBalance"))
+            db.Database.ExecuteSqlRaw("""ALTER TABLE "CigaretteShiftCloses" ADD COLUMN "EndingMercadoPagoBalance" TEXT NOT NULL DEFAULT '0';""");
+        if (!SqliteColumnExists(db, "CigaretteShiftCloses", "NextShiftChangeCash"))
+            db.Database.ExecuteSqlRaw("""ALTER TABLE "CigaretteShiftCloses" ADD COLUMN "NextShiftChangeCash" TEXT NOT NULL DEFAULT '0';""");
+        if (!SqliteColumnExists(db, "CigaretteShiftCloses", "ReceivedChangeCash"))
+            db.Database.ExecuteSqlRaw("""ALTER TABLE "CigaretteShiftCloses" ADD COLUMN "ReceivedChangeCash" TEXT NOT NULL DEFAULT '0';""");
+        if (!SqliteColumnExists(db, "CigaretteShiftCloses", "PosnetTotal"))
+            db.Database.ExecuteSqlRaw("""ALTER TABLE "CigaretteShiftCloses" ADD COLUMN "PosnetTotal" TEXT NOT NULL DEFAULT '0';""");
     }
     if (db.Database.IsNpgsql())
     {
@@ -103,6 +136,11 @@ using (var scope = app.Services.CreateScope())
             "Id" integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
             "BusinessDate" date NOT NULL,
             "Shift" character varying(16) NOT NULL,
+            "EndingCashBalance" numeric(12,2) NOT NULL DEFAULT 0,
+            "EndingMercadoPagoBalance" numeric(12,2) NOT NULL DEFAULT 0,
+            "NextShiftChangeCash" numeric(12,2) NOT NULL DEFAULT 0,
+            "ReceivedChangeCash" numeric(12,2) NOT NULL DEFAULT 0,
+            "PosnetTotal" numeric(12,2) NOT NULL DEFAULT 0,
             "ClosedAt" timestamp with time zone NOT NULL
         );
         CREATE UNIQUE INDEX IF NOT EXISTS "IX_CigaretteShiftCloses_BusinessDate_Shift" ON "CigaretteShiftCloses" ("BusinessDate", "Shift");
@@ -142,7 +180,11 @@ using (var scope = app.Services.CreateScope())
         CREATE TABLE IF NOT EXISTS "Suppliers" (
             "Id" integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
             "Name" character varying(100) NOT NULL,
-            "Balance" numeric(12,2) NOT NULL DEFAULT 0,
+            "ReservedBalance" numeric(12,2) NOT NULL DEFAULT 0,
+            "ReservedCashBalance" numeric(12,2) NOT NULL DEFAULT 0,
+            "ReservedMercadoPagoBalance" numeric(12,2) NOT NULL DEFAULT 0,
+            "CurrentAccountBalance" numeric(12,2) NOT NULL DEFAULT 0,
+            "IsSeparateCashBox" boolean NOT NULL DEFAULT FALSE,
             "IsActive" boolean NOT NULL DEFAULT TRUE,
             "CreatedAt" timestamp with time zone NOT NULL
         );
@@ -153,6 +195,8 @@ using (var scope = app.Services.CreateScope())
             "CigaretteShiftCloseId" integer NULL REFERENCES "CigaretteShiftCloses" ("Id") ON DELETE CASCADE,
             "Type" character varying(16) NOT NULL,
             "Amount" numeric(12,2) NOT NULL,
+            "CashAmount" numeric(12,2) NOT NULL DEFAULT 0,
+            "MercadoPagoAmount" numeric(12,2) NOT NULL DEFAULT 0,
             "BusinessDate" date NOT NULL,
             "Note" character varying(250),
             "CreatedAt" timestamp with time zone NOT NULL
@@ -181,6 +225,31 @@ using (var scope = app.Services.CreateScope())
     db.Database.ExecuteSqlRaw("""ALTER TABLE "CafeteriaSales" ALTER COLUMN "BusinessDate" SET NOT NULL;""");
     db.Database.ExecuteSqlRaw("""ALTER TABLE "CafeteriaSales" ALTER COLUMN "Shift" SET NOT NULL;""");
     db.Database.ExecuteSqlRaw("""CREATE INDEX IF NOT EXISTS "IX_CafeteriaSales_BusinessDate_Shift" ON "CafeteriaSales" ("BusinessDate", "Shift");""");
+    db.Database.ExecuteSqlRaw("""ALTER TABLE "CigaretteShiftCloses" ADD COLUMN IF NOT EXISTS "EndingCashBalance" numeric(12,2) NOT NULL DEFAULT 0;""");
+    db.Database.ExecuteSqlRaw("""ALTER TABLE "CigaretteShiftCloses" ADD COLUMN IF NOT EXISTS "EndingMercadoPagoBalance" numeric(12,2) NOT NULL DEFAULT 0;""");
+    db.Database.ExecuteSqlRaw("""ALTER TABLE "CigaretteShiftCloses" ADD COLUMN IF NOT EXISTS "NextShiftChangeCash" numeric(12,2) NOT NULL DEFAULT 0;""");
+    db.Database.ExecuteSqlRaw("""ALTER TABLE "CigaretteShiftCloses" ADD COLUMN IF NOT EXISTS "ReceivedChangeCash" numeric(12,2) NOT NULL DEFAULT 0;""");
+    db.Database.ExecuteSqlRaw("""ALTER TABLE "CigaretteShiftCloses" ADD COLUMN IF NOT EXISTS "PosnetTotal" numeric(12,2) NOT NULL DEFAULT 0;""");
+    db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ADD COLUMN IF NOT EXISTS "ReservedBalance" numeric(12,2);""");
+    db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ADD COLUMN IF NOT EXISTS "ReservedCashBalance" numeric(12,2);""");
+    db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ADD COLUMN IF NOT EXISTS "ReservedMercadoPagoBalance" numeric(12,2);""");
+    db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ADD COLUMN IF NOT EXISTS "CurrentAccountBalance" numeric(12,2);""");
+    db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ADD COLUMN IF NOT EXISTS "IsSeparateCashBox" boolean NOT NULL DEFAULT FALSE;""");
+    db.Database.ExecuteSqlRaw("""UPDATE "Suppliers" SET "ReservedBalance" = "Balance" WHERE "ReservedBalance" IS NULL;""");
+    db.Database.ExecuteSqlRaw("""UPDATE "Suppliers" SET "ReservedCashBalance" = "ReservedBalance" WHERE "ReservedCashBalance" IS NULL;""");
+    db.Database.ExecuteSqlRaw("""UPDATE "Suppliers" SET "ReservedMercadoPagoBalance" = 0 WHERE "ReservedMercadoPagoBalance" IS NULL;""");
+    db.Database.ExecuteSqlRaw("""UPDATE "Suppliers" SET "CurrentAccountBalance" = 0 WHERE "CurrentAccountBalance" IS NULL;""");
+    db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ALTER COLUMN "ReservedBalance" SET DEFAULT 0;""");
+    db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ALTER COLUMN "ReservedCashBalance" SET DEFAULT 0;""");
+    db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ALTER COLUMN "ReservedMercadoPagoBalance" SET DEFAULT 0;""");
+    db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ALTER COLUMN "CurrentAccountBalance" SET DEFAULT 0;""");
+    db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ALTER COLUMN "ReservedBalance" SET NOT NULL;""");
+    db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ALTER COLUMN "ReservedCashBalance" SET NOT NULL;""");
+    db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ALTER COLUMN "ReservedMercadoPagoBalance" SET NOT NULL;""");
+    db.Database.ExecuteSqlRaw("""ALTER TABLE "SupplierTransactions" ADD COLUMN IF NOT EXISTS "CashAmount" numeric(12,2) NOT NULL DEFAULT 0;""");
+    db.Database.ExecuteSqlRaw("""ALTER TABLE "SupplierTransactions" ADD COLUMN IF NOT EXISTS "MercadoPagoAmount" numeric(12,2) NOT NULL DEFAULT 0;""");
+    db.Database.ExecuteSqlRaw("""UPDATE "SupplierTransactions" SET "CashAmount" = "Amount" WHERE "CashAmount" = 0 AND "MercadoPagoAmount" = 0 AND "Type" IN ('allocation', 'cash_purchase', 'reserved_purchase', 'payment', 'reserved_transfer_in', 'reserved_transfer_out', 'reserved_adjustment');""");
+    db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ALTER COLUMN "CurrentAccountBalance" SET NOT NULL;""");
     }
     if (!db.Users.Any())
     {

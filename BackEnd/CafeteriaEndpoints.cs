@@ -6,6 +6,7 @@ public static class CafeteriaEndpoints
     {
         var group = api.MapGroup("/cafeteria").WithTags("Caja Cafetería");
         group.MapGet("/dashboard", GetDashboardAsync).WithSummary("Obtiene los artículos y la caja de cafetería de una fecha");
+        group.MapGet("/history", GetShiftHistoryAsync).WithSummary("Obtiene las ventas de cafetería agrupadas por turno para una fecha");
         group.MapPost("/sales", RegisterSaleAsync).WithSummary("Registra una venta rápida con todos los artículos activos de cafetería");
         group.MapPost("/products", CreateProductAsync).WithSummary("Crea un artículo de cafetería sin control de stock");
         group.MapPut("/products/{id:int}", UpdateProductAsync).WithSummary("Actualiza un artículo de cafetería");
@@ -15,6 +16,9 @@ public static class CafeteriaEndpoints
 
     private static async Task<IResult> GetDashboardAsync(DateOnly? date, ICafeteriaService service, CancellationToken cancellationToken) =>
         Results.Ok(await service.GetDashboardAsync(date ?? DateOnly.FromDateTime(DateTime.Today), cancellationToken));
+
+    private static async Task<IResult> GetShiftHistoryAsync(DateOnly? date, ICafeteriaService service, CancellationToken cancellationToken) =>
+        Results.Ok(await service.GetShiftHistoryAsync(date ?? DateOnly.FromDateTime(DateTime.Today), cancellationToken));
 
     private static async Task<IResult> RegisterSaleAsync(DateOnly? date, ICafeteriaService service, CancellationToken cancellationToken)
     {

@@ -16,15 +16,41 @@ public sealed class CigaretteServiceTests
         var date = new DateOnly(2026, 9, 21);
 
         await fixture.Service.CloseShiftAsync(new CreateCigaretteShiftCloseRequest(date, "morning",
-            [new CigaretteCloseItemRequest(fixture.ProductId, 10)], [new SupplierAllocationRequest(supplier.Id, 1500m)]), default);
+            [new CigaretteCloseItemRequest(fixture.ProductId, 10)], [new SupplierAllocationRequest(supplier.Id, 1000m, 500m)]), default);
         var secondProduct = await fixture.Service.CreateProductAsync(new CreateCigaretteProductRequest("Camel", 3000m, 5), default);
         await fixture.Service.CloseShiftAsync(new CreateCigaretteShiftCloseRequest(date, "afternoon",
             [new CigaretteCloseItemRequest(fixture.ProductId, 10), new CigaretteCloseItemRequest(secondProduct.Id, 5)],
-            [new SupplierAllocationRequest(supplier.Id, 2500m)]), default);
+            [new SupplierAllocationRequest(supplier.Id, 1500m, 1000m)]), default);
 
         var saved = Assert.Single(await suppliers.GetAllAsync(default));
-        Assert.Equal(4000m, saved.Balance);
+        Assert.Equal(4000m, saved.ReservedBalance);
+        Assert.Equal(2500m, saved.ReservedCashBalance);
+        Assert.Equal(1500m, saved.ReservedMercadoPagoBalance);
+        Assert.Equal(0m, saved.CurrentAccountBalance);
         Assert.Equal(2, saved.Transactions.Count(transaction => transaction.Type == "allocation"));
+    }
+
+    [Fact]
+    public async Task CloseStoresEndingCashAndMercadoPagoBalances()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var date = new DateOnly(2026, 9, 21);
+
+        var close = await fixture.Service.CloseShiftAsync(
+            new CreateCigaretteShiftCloseRequest(date, "morning", [new CigaretteCloseItemRequest(fixture.ProductId, 8)],
+                EndingCashBalance: 14500m, EndingMercadoPagoBalance: 6200m, NextShiftChangeCash: 3000m, ReceivedChangeCash: 2500m, PosnetTotal: 4800m), default);
+
+        Assert.Equal(14500m, close.EndingCashBalance);
+        Assert.Equal(6200m, close.EndingMercadoPagoBalance);
+        Assert.Equal(3000m, close.NextShiftChangeCash);
+        Assert.Equal(2500m, close.ReceivedChangeCash);
+        Assert.Equal(4800m, close.PosnetTotal);
+        var saved = await fixture.Db.CigaretteShiftCloses.SingleAsync();
+        Assert.Equal(14500m, saved.EndingCashBalance);
+        Assert.Equal(6200m, saved.EndingMercadoPagoBalance);
+        Assert.Equal(3000m, saved.NextShiftChangeCash);
+        Assert.Equal(2500m, saved.ReceivedChangeCash);
+        Assert.Equal(4800m, saved.PosnetTotal);
     }
 
     [Fact]
@@ -33,16 +59,141 @@ public sealed class CigaretteServiceTests
         await using var fixture = await TestFixture.CreateAsync();
         var service = new SupplierService(fixture.Db);
         var supplier = await service.CreateAsync(new CreateSupplierRequest("Proveedor Pago"), default);
-        fixture.Db.Suppliers.Single(item => item.Id == supplier.Id).Balance = 3000m;
+        var savedSupplier = fixture.Db.Suppliers.Single(item => item.Id == supplier.Id);
+        savedSupplier.CurrentAccountBalance = 3000m;
+        savedSupplier.ReservedBalance = 3000m;
+        savedSupplier.ReservedCashBalance = 1000m;
+        savedSupplier.ReservedMercadoPagoBalance = 2000m;
         await fixture.Db.SaveChangesAsync();
 
-        var paid = await service.RecordPaymentAsync(supplier.Id, new CreateSupplierPaymentRequest(1200m, "Transferencia"), default);
+        var paid = await service.RecordPaymentAsync(supplier.Id, new CreateSupplierPaymentRequest(700m, 500m, "Transferencia"), default);
         var exception = await Assert.ThrowsAsync<SupplierValidationException>(() =>
-            service.RecordPaymentAsync(supplier.Id, new CreateSupplierPaymentRequest(2000m, null), default));
+            service.RecordPaymentAsync(supplier.Id, new CreateSupplierPaymentRequest(2000m, 0m, null), default));
 
-        Assert.Equal(1800m, paid.Balance);
+        Assert.Equal(1800m, paid.CurrentAccountBalance);
+        Assert.Equal(1800m, paid.ReservedBalance);
+        Assert.Equal(300m, paid.ReservedCashBalance);
+        Assert.Equal(1500m, paid.ReservedMercadoPagoBalance);
         Assert.Contains("no puede ser mayor", exception.Message);
         Assert.Equal(1, await fixture.Db.SupplierTransactions.CountAsync(transaction => transaction.Type == "payment"));
+    }
+
+    [Fact]
+    public async Task PurchaseOnAccountIncreasesSupplierBalanceWithoutChangingStock()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var service = new SupplierService(fixture.Db);
+        var supplier = await service.CreateAsync(new CreateSupplierRequest("Proveedor Cuenta Corriente"), default);
+
+        var updated = await service.RecordPurchaseAsync(
+            supplier.Id, new CreateSupplierPurchaseRequest(2400m, "Compra semanal", "account"), default);
+
+        Assert.Equal(2400m, updated.CurrentAccountBalance);
+        Assert.Equal(0m, updated.ReservedBalance);
+        var transaction = Assert.Single(updated.Transactions);
+        Assert.Equal("purchase", transaction.Type);
+        Assert.Equal("Compra semanal", transaction.Note);
+        Assert.Equal(10, (await fixture.Db.CigaretteProducts.FindAsync(fixture.ProductId))!.Stock);
+    }
+
+    [Fact]
+    public async Task CashPurchaseUsesReservedFundsWithoutIncreasingCurrentAccount()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var service = new SupplierService(fixture.Db);
+        var supplier = await service.CreateAsync(new CreateSupplierRequest("Proveedor Contado"), default);
+        var savedSupplier = fixture.Db.Suppliers.Single(item => item.Id == supplier.Id);
+        savedSupplier.ReservedBalance = 3000m;
+        savedSupplier.ReservedCashBalance = 3000m;
+        await fixture.Db.SaveChangesAsync();
+
+        var updated = await service.RecordPurchaseAsync(
+            supplier.Id, new CreateSupplierPurchaseRequest(1200m, "Compra al contado", "reserved", 1200m, 0m), default);
+
+        Assert.Equal(1800m, updated.ReservedBalance);
+        Assert.Equal(0m, updated.CurrentAccountBalance);
+        Assert.Equal("reserved_purchase", Assert.Single(updated.Transactions).Type);
+    }
+
+    [Fact]
+    public async Task ReservedFundsTransferMovesBalanceAndRecordsBothMovements()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var service = new SupplierService(fixture.Db);
+        var source = await service.CreateAsync(new CreateSupplierRequest("Proveedor Origen"), default);
+        var target = await service.CreateAsync(new CreateSupplierRequest("Proveedor Destino"), default);
+        var sourceBalances = fixture.Db.Suppliers.Single(supplier => supplier.Id == source.Id);
+        sourceBalances.ReservedBalance = 5000m;
+        sourceBalances.ReservedCashBalance = 5000m;
+        await fixture.Db.SaveChangesAsync();
+
+        await service.TransferReservedFundsAsync(
+            new CreateSupplierReservedFundsTransferRequest(source.Id, target.Id, 1750m, 0m, "Compra compartida"), default);
+
+        var suppliers = await service.GetAllAsync(default);
+        Assert.Equal(3250m, suppliers.Single(supplier => supplier.Id == source.Id).ReservedBalance);
+        Assert.Equal(1750m, suppliers.Single(supplier => supplier.Id == target.Id).ReservedBalance);
+        Assert.Equal("reserved_transfer_out", Assert.Single(suppliers.Single(supplier => supplier.Id == source.Id).Transactions).Type);
+        Assert.Equal("reserved_transfer_in", Assert.Single(suppliers.Single(supplier => supplier.Id == target.Id).Transactions).Type);
+    }
+
+    [Fact]
+    public async Task MercadoPagoPurchaseAndTransferKeepTheirReservedSplit()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var service = new SupplierService(fixture.Db);
+        var source = await service.CreateAsync(new CreateSupplierRequest("Proveedor MP"), default);
+        var target = await service.CreateAsync(new CreateSupplierRequest("Proveedor destino MP"), default);
+        var saved = fixture.Db.Suppliers.Single(supplier => supplier.Id == source.Id);
+        saved.ReservedCashBalance = 1000m;
+        saved.ReservedMercadoPagoBalance = 3000m;
+        saved.ReservedBalance = 4000m;
+        await fixture.Db.SaveChangesAsync();
+
+        var afterPurchase = await service.RecordPurchaseAsync(source.Id,
+            new CreateSupplierPurchaseRequest(1200m, null, "reserved", 200m, 1000m), default);
+        await service.TransferReservedFundsAsync(
+            new CreateSupplierReservedFundsTransferRequest(source.Id, target.Id, 300m, 500m, null), default);
+
+        Assert.Equal(800m, afterPurchase.ReservedCashBalance);
+        Assert.Equal(2000m, afterPurchase.ReservedMercadoPagoBalance);
+        var suppliers = await service.GetAllAsync(default);
+        Assert.Equal(500m, suppliers.Single(supplier => supplier.Id == source.Id).ReservedCashBalance);
+        Assert.Equal(1500m, suppliers.Single(supplier => supplier.Id == source.Id).ReservedMercadoPagoBalance);
+        Assert.Equal(300m, suppliers.Single(supplier => supplier.Id == target.Id).ReservedCashBalance);
+        Assert.Equal(500m, suppliers.Single(supplier => supplier.Id == target.Id).ReservedMercadoPagoBalance);
+    }
+
+    [Fact]
+    public async Task UpdatingSupplierBalancesRecordsAdjustments()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var service = new SupplierService(fixture.Db);
+        var supplier = await service.CreateAsync(new CreateSupplierRequest("Proveedor Ajustes"), default);
+
+        var updated = await service.UpdateBalancesAsync(
+            supplier.Id, new UpdateSupplierBalancesRequest(3000m, 0m, 1200m, "Saldos iniciales"), default);
+
+        Assert.NotNull(updated);
+        Assert.Equal(3000m, updated.ReservedBalance);
+        Assert.Equal(1200m, updated.CurrentAccountBalance);
+        Assert.Contains(updated.Transactions, transaction => transaction.Type == "reserved_adjustment" && transaction.Amount == 3000m);
+        Assert.Contains(updated.Transactions, transaction => transaction.Type == "current_account_adjustment" && transaction.Amount == 1200m);
+    }
+
+    [Fact]
+    public async Task RecreatesDeactivatedSupplierWithSameName()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var service = new SupplierService(fixture.Db);
+        var original = await service.CreateAsync(new CreateSupplierRequest("Distribuidora Centro"), default);
+
+        Assert.True(await service.DeactivateAsync(original.Id, default));
+        var reactivated = await service.CreateAsync(new CreateSupplierRequest("distribuidora centro"), default);
+
+        Assert.Equal(original.Id, reactivated.Id);
+        Assert.True(reactivated.IsActive);
+        Assert.Equal(1, await fixture.Db.Suppliers.CountAsync());
     }
 
     [Fact]
@@ -309,6 +460,7 @@ public sealed class CigaretteServiceTests
         public Task<CafeteriaProductResponse?> UpdateProductAsync(int id, UpdateCafeteriaProductRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> DeleteProductAsync(int id, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<CafeteriaSalesSummaryResponse> GetSummaryAsync(DateOnly businessDate, string shift, CancellationToken cancellationToken) => throw new InvalidOperationException("Resumen no disponible.");
+        public Task<IReadOnlyList<CafeteriaShiftSalesHistoryResponse>> GetShiftHistoryAsync(DateOnly date, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     private sealed class TestFixture : IAsyncDisposable

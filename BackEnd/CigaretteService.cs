@@ -165,8 +165,10 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
         if (await db.CigaretteShiftCloses.AnyAsync(close => close.BusinessDate == request.BusinessDate && close.Shift == shift, cancellationToken))
             throw new CigaretteValidationException("Ese turno ya fue cerrado.");
         var allocations = request.SupplierAllocations ?? [];
-        if (allocations.Any(allocation => allocation.Amount < 0))
+        if (allocations.Any(allocation => allocation.CashAmount < 0 || allocation.MercadoPagoAmount < 0))
             throw new CigaretteValidationException("El importe reservado para un proveedor no puede ser negativo.");
+        if (request.EndingCashBalance < 0 || request.EndingMercadoPagoBalance < 0 || request.NextShiftChangeCash < 0 || request.ReceivedChangeCash < 0 || request.PosnetTotal < 0)
+            throw new CigaretteValidationException("Los importes del arqueo de caja no pueden ser negativos.");
         if (allocations.Select(allocation => allocation.SupplierId).Distinct().Count() != allocations.Count)
             throw new CigaretteValidationException("No se puede repetir un proveedor en el cierre.");
 
@@ -183,7 +185,7 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
         if (suppliers.Count != supplierIds.Count)
             throw new CigaretteNotFoundException("Uno de los proveedores del cierre no existe o está inactivo.");
 
-        var close = new CigaretteShiftClose { BusinessDate = request.BusinessDate, Shift = shift, ClosedAt = DateTime.UtcNow };
+        var close = new CigaretteShiftClose { BusinessDate = request.BusinessDate, Shift = shift, EndingCashBalance = request.EndingCashBalance, EndingMercadoPagoBalance = request.EndingMercadoPagoBalance, NextShiftChangeCash = request.NextShiftChangeCash, ReceivedChangeCash = request.ReceivedChangeCash, PosnetTotal = request.PosnetTotal, ClosedAt = DateTime.UtcNow };
         foreach (var input in request.Items)
         {
             var product = products[input.CigaretteProductId];
@@ -202,12 +204,9 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
         foreach (var allocation in allocations.Where(allocation => allocation.Amount > 0))
         {
             var supplier = suppliers[allocation.SupplierId];
-            supplier.Balance += allocation.Amount;
-            db.SupplierTransactions.Add(new SupplierTransaction
-            {
-                SupplierId = supplier.Id, CigaretteShiftCloseId = close.Id, Type = "allocation",
-                Amount = allocation.Amount, BusinessDate = request.BusinessDate, CreatedAt = close.ClosedAt
-            });
+            SupplierService.ApplyReserved(supplier, allocation.CashAmount, allocation.MercadoPagoAmount);
+            db.SupplierTransactions.Add(SupplierService.Transaction(supplier.Id, "allocation", allocation.Amount, allocation.CashAmount,
+                allocation.MercadoPagoAmount, close.ClosedAt, closeId: close.Id, businessDate: request.BusinessDate));
         }
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -250,6 +249,13 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
 
         if (request.SupplierAllocations is not null)
             await UpdateSupplierAllocationsAsync(close, request.SupplierAllocations, cancellationToken);
+        if (request.EndingCashBalance is < 0 || request.EndingMercadoPagoBalance is < 0 || request.NextShiftChangeCash is < 0 || request.ReceivedChangeCash is < 0 || request.PosnetTotal is < 0)
+            throw new CigaretteValidationException("Los importes del arqueo de caja no pueden ser negativos.");
+        if (request.EndingCashBalance.HasValue) close.EndingCashBalance = request.EndingCashBalance.Value;
+        if (request.EndingMercadoPagoBalance.HasValue) close.EndingMercadoPagoBalance = request.EndingMercadoPagoBalance.Value;
+        if (request.NextShiftChangeCash.HasValue) close.NextShiftChangeCash = request.NextShiftChangeCash.Value;
+        if (request.ReceivedChangeCash.HasValue) close.ReceivedChangeCash = request.ReceivedChangeCash.Value;
+        if (request.PosnetTotal.HasValue) close.PosnetTotal = request.PosnetTotal.Value;
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -258,13 +264,13 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
 
     private async Task UpdateSupplierAllocationsAsync(CigaretteShiftClose close, IReadOnlyList<SupplierAllocationRequest> requestedAllocations, CancellationToken cancellationToken)
     {
-        if (requestedAllocations.Any(allocation => allocation.Amount < 0))
+        if (requestedAllocations.Any(allocation => allocation.CashAmount < 0 || allocation.MercadoPagoAmount < 0))
             throw new CigaretteValidationException("El importe reservado para un proveedor no puede ser negativo.");
         if (requestedAllocations.Select(allocation => allocation.SupplierId).Distinct().Count() != requestedAllocations.Count)
             throw new CigaretteValidationException("No se puede repetir un proveedor en el cierre.");
 
         var requested = requestedAllocations.Where(allocation => allocation.Amount > 0)
-            .ToDictionary(allocation => allocation.SupplierId, allocation => allocation.Amount);
+            .ToDictionary(allocation => allocation.SupplierId);
         var existing = await db.SupplierTransactions
             .Where(transaction => transaction.CigaretteShiftCloseId == close.Id && transaction.Type == "allocation")
             .ToDictionaryAsync(transaction => transaction.SupplierId, cancellationToken);
@@ -276,31 +282,33 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
 
         foreach (var supplierId in supplierIds)
         {
-            var currentAmount = existing.GetValueOrDefault(supplierId)?.Amount ?? 0;
-            var requestedAmount = requested.GetValueOrDefault(supplierId);
+            var current = existing.GetValueOrDefault(supplierId);
+            var currentCash = current?.CashAmount ?? 0;
+            var currentMercadoPago = current?.MercadoPagoAmount ?? 0;
+            var requestedAllocation = requested.GetValueOrDefault(supplierId);
+            var requestedCash = requestedAllocation?.CashAmount ?? 0;
+            var requestedMercadoPago = requestedAllocation?.MercadoPagoAmount ?? 0;
             var supplier = suppliers[supplierId];
-            var difference = requestedAmount - currentAmount;
-            if (difference == 0) continue;
+            var cashDifference = requestedCash - currentCash;
+            var mercadoPagoDifference = requestedMercadoPago - currentMercadoPago;
+            if (cashDifference == 0 && mercadoPagoDifference == 0) continue;
             if (!existing.ContainsKey(supplierId) && !supplier.IsActive)
                 throw new CigaretteValidationException($"El proveedor {supplier.Name} está inactivo.");
-            if (supplier.Balance + difference < 0)
+            if (supplier.ReservedCashBalance + cashDifference < 0 || supplier.ReservedMercadoPagoBalance + mercadoPagoDifference < 0)
                 throw new CigaretteValidationException($"No se puede reducir la reserva de {supplier.Name}, porque ya se pagó parte de ese saldo.");
 
-            supplier.Balance += difference;
-            if (requestedAmount == 0)
+            SupplierService.ApplyReserved(supplier, cashDifference, mercadoPagoDifference);
+            if (requestedAllocation is null)
                 db.SupplierTransactions.Remove(existing[supplierId]);
             else if (existing.TryGetValue(supplierId, out var allocation))
-                allocation.Amount = requestedAmount;
+            {
+                allocation.Amount = requestedAllocation.Amount;
+                allocation.CashAmount = requestedCash;
+                allocation.MercadoPagoAmount = requestedMercadoPago;
+            }
             else
-                db.SupplierTransactions.Add(new SupplierTransaction
-                {
-                    SupplierId = supplier.Id,
-                    CigaretteShiftCloseId = close.Id,
-                    Type = "allocation",
-                    Amount = requestedAmount,
-                    BusinessDate = close.BusinessDate,
-                    CreatedAt = close.ClosedAt
-                });
+                db.SupplierTransactions.Add(SupplierService.Transaction(supplier.Id, "allocation", requestedAllocation.Amount, requestedCash,
+                    requestedMercadoPago, close.ClosedAt, closeId: close.Id, businessDate: close.BusinessDate));
         }
     }
 
@@ -375,9 +383,9 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
                                  join supplier in db.Suppliers.AsNoTracking() on transaction.SupplierId equals supplier.Id
                                  where transaction.CigaretteShiftCloseId == close.Id && transaction.Type == "allocation"
                                  orderby supplier.Name
-                                 select new SupplierAllocationResponse(supplier.Id, supplier.Name, transaction.Amount, supplier.Balance))
+                                 select new SupplierAllocationResponse(supplier.Id, supplier.Name, transaction.Amount, transaction.CashAmount, transaction.MercadoPagoAmount, supplier.ReservedBalance))
             .ToListAsync(cancellationToken);
-        return new CigaretteShiftCloseResponse(close.Id, close.BusinessDate, close.Shift, new DateTimeOffset(closedAt), items.Sum(item => item.SoldQuantity), items.Sum(item => item.SalesAmount), items, summary, allocations);
+        return new CigaretteShiftCloseResponse(close.Id, close.BusinessDate, close.Shift, new DateTimeOffset(closedAt), items.Sum(item => item.SoldQuantity), items.Sum(item => item.SalesAmount), items, summary, allocations, close.EndingCashBalance, close.EndingMercadoPagoBalance, close.NextShiftChangeCash, close.ReceivedChangeCash, close.PosnetTotal);
     }
 
     private static DateTime AsUtc(DateTime value) => value.Kind == DateTimeKind.Utc

@@ -35,6 +35,11 @@ public class RestaurantContext(DbContextOptions<RestaurantContext> options) : Db
         modelBuilder.Entity<CigaretteProduct>().Property(product => product.Price).HasPrecision(12, 2);
         modelBuilder.Entity<CigarettePurchase>().Property(purchase => purchase.UnitCost).HasPrecision(12, 2);
         modelBuilder.Entity<CigaretteShiftClose>().HasIndex(close => new { close.BusinessDate, close.Shift }).IsUnique();
+        modelBuilder.Entity<CigaretteShiftClose>().Property(close => close.EndingCashBalance).HasPrecision(12, 2);
+        modelBuilder.Entity<CigaretteShiftClose>().Property(close => close.EndingMercadoPagoBalance).HasPrecision(12, 2);
+        modelBuilder.Entity<CigaretteShiftClose>().Property(close => close.NextShiftChangeCash).HasPrecision(12, 2);
+        modelBuilder.Entity<CigaretteShiftClose>().Property(close => close.ReceivedChangeCash).HasPrecision(12, 2);
+        modelBuilder.Entity<CigaretteShiftClose>().Property(close => close.PosnetTotal).HasPrecision(12, 2);
         modelBuilder.Entity<CigaretteShiftClose>()
             .HasMany(close => close.Items)
             .WithOne()
@@ -52,8 +57,13 @@ public class RestaurantContext(DbContextOptions<RestaurantContext> options) : Db
         modelBuilder.Entity<CafeteriaSale>().HasIndex(sale => new { sale.BusinessDate, sale.Shift });
         modelBuilder.Entity<CafeteriaSaleItem>().Property(item => item.UnitPrice).HasPrecision(12, 2);
         modelBuilder.Entity<Supplier>().HasIndex(supplier => supplier.Name).IsUnique();
-        modelBuilder.Entity<Supplier>().Property(supplier => supplier.Balance).HasPrecision(12, 2);
+        modelBuilder.Entity<Supplier>().Property(supplier => supplier.ReservedBalance).HasPrecision(12, 2);
+        modelBuilder.Entity<Supplier>().Property(supplier => supplier.ReservedCashBalance).HasPrecision(12, 2);
+        modelBuilder.Entity<Supplier>().Property(supplier => supplier.ReservedMercadoPagoBalance).HasPrecision(12, 2);
+        modelBuilder.Entity<Supplier>().Property(supplier => supplier.CurrentAccountBalance).HasPrecision(12, 2);
         modelBuilder.Entity<SupplierTransaction>().Property(transaction => transaction.Amount).HasPrecision(12, 2);
+        modelBuilder.Entity<SupplierTransaction>().Property(transaction => transaction.CashAmount).HasPrecision(12, 2);
+        modelBuilder.Entity<SupplierTransaction>().Property(transaction => transaction.MercadoPagoAmount).HasPrecision(12, 2);
         modelBuilder.Entity<SupplierTransaction>().HasIndex(transaction => new { transaction.SupplierId, transaction.CigaretteShiftCloseId }).IsUnique();
     }
 }
@@ -69,13 +79,13 @@ public class ClosedTableHistory { public int Id { get; set; } public string Tabl
 public class ClosedTableHistoryItem { public int Id { get; set; } public int ClosedTableHistoryId { get; set; } public string ProductName { get; set; } = ""; public int Quantity { get; set; } = 1; public DateTime CreatedAt { get; set; } }
 public class CigaretteProduct { public int Id { get; set; } public string Name { get; set; } = ""; public decimal Price { get; set; } public int Stock { get; set; } public bool IsActive { get; set; } = true; public DateTime CreatedAt { get; set; } }
 public class CigarettePurchase { public int Id { get; set; } public int CigaretteProductId { get; set; } public int Quantity { get; set; } public decimal UnitCost { get; set; } public DateOnly BusinessDate { get; set; } public string Shift { get; set; } = "morning"; public DateTime CreatedAt { get; set; } }
-public class CigaretteShiftClose { public int Id { get; set; } public DateOnly BusinessDate { get; set; } public string Shift { get; set; } = "morning"; public DateTime ClosedAt { get; set; } public List<CigaretteShiftCloseItem> Items { get; set; } = []; }
+public class CigaretteShiftClose { public int Id { get; set; } public DateOnly BusinessDate { get; set; } public string Shift { get; set; } = "morning"; public decimal EndingCashBalance { get; set; } public decimal EndingMercadoPagoBalance { get; set; } public decimal NextShiftChangeCash { get; set; } public decimal ReceivedChangeCash { get; set; } public decimal PosnetTotal { get; set; } public DateTime ClosedAt { get; set; } public List<CigaretteShiftCloseItem> Items { get; set; } = []; }
 public class CigaretteShiftCloseItem { public int Id { get; set; } public int CigaretteShiftCloseId { get; set; } public int CigaretteProductId { get; set; } public string ProductName { get; set; } = ""; public decimal UnitPrice { get; set; } public int InitialStock { get; set; } public int PurchasedQuantity { get; set; } public int FinalStock { get; set; } public int SoldQuantity { get; set; } public decimal SalesAmount { get; set; } }
 public class CafeteriaProduct { public int Id { get; set; } public string Name { get; set; } = ""; public decimal Price { get; set; } public bool IsActive { get; set; } = true; public DateTime CreatedAt { get; set; } }
 public class CafeteriaSale { public int Id { get; set; } public DateOnly BusinessDate { get; set; } public string Shift { get; set; } = "morning"; public DateTime CreatedAt { get; set; } public List<CafeteriaSaleItem> Items { get; set; } = []; }
 public class CafeteriaSaleItem { public int Id { get; set; } public int CafeteriaSaleId { get; set; } public int CafeteriaProductId { get; set; } public string ProductName { get; set; } = ""; public decimal UnitPrice { get; set; } }
-public class Supplier { public int Id { get; set; } public string Name { get; set; } = ""; public decimal Balance { get; set; } public bool IsActive { get; set; } = true; public DateTime CreatedAt { get; set; } }
-public class SupplierTransaction { public int Id { get; set; } public int SupplierId { get; set; } public int? CigaretteShiftCloseId { get; set; } public string Type { get; set; } = ""; public decimal Amount { get; set; } public DateOnly BusinessDate { get; set; } public string? Note { get; set; } public DateTime CreatedAt { get; set; } }
+public class Supplier { public int Id { get; set; } public string Name { get; set; } = ""; public decimal ReservedBalance { get; set; } public decimal ReservedCashBalance { get; set; } public decimal ReservedMercadoPagoBalance { get; set; } public decimal CurrentAccountBalance { get; set; } public bool IsSeparateCashBox { get; set; } public bool IsActive { get; set; } = true; public DateTime CreatedAt { get; set; } }
+public class SupplierTransaction { public int Id { get; set; } public int SupplierId { get; set; } public int? CigaretteShiftCloseId { get; set; } public string Type { get; set; } = ""; public decimal Amount { get; set; } public decimal CashAmount { get; set; } public decimal MercadoPagoAmount { get; set; } public DateOnly BusinessDate { get; set; } public string? Note { get; set; } public DateTime CreatedAt { get; set; } }
 
 public record LoginRequest(string Username, string Password);
 public record TableRequest(string? Name, int? Seats);
@@ -101,9 +111,9 @@ public sealed record UpdateCigarettePurchaseRequest(int Quantity);
 /// <summary>Stock físico contado al finalizar un turno.</summary>
 public sealed record CigaretteCloseItemRequest(int CigaretteProductId, int FinalStock);
 /// <summary>Datos para cerrar un turno de cigarrillos.</summary>
-public sealed record CreateCigaretteShiftCloseRequest(DateOnly BusinessDate, string Shift, IReadOnlyList<CigaretteCloseItemRequest> Items, IReadOnlyList<SupplierAllocationRequest>? SupplierAllocations = null);
+public sealed record CreateCigaretteShiftCloseRequest(DateOnly BusinessDate, string Shift, IReadOnlyList<CigaretteCloseItemRequest> Items, IReadOnlyList<SupplierAllocationRequest>? SupplierAllocations = null, decimal EndingCashBalance = 0, decimal EndingMercadoPagoBalance = 0, decimal NextShiftChangeCash = 0, decimal ReceivedChangeCash = 0, decimal PosnetTotal = 0);
 /// <summary>Stock físico corregido para los productos de un cierre existente.</summary>
-public sealed record UpdateCigaretteShiftCloseRequest(IReadOnlyList<CigaretteCloseItemRequest> Items, IReadOnlyList<SupplierAllocationRequest>? SupplierAllocations = null);
+public sealed record UpdateCigaretteShiftCloseRequest(IReadOnlyList<CigaretteCloseItemRequest> Items, IReadOnlyList<SupplierAllocationRequest>? SupplierAllocations = null, decimal? EndingCashBalance = null, decimal? EndingMercadoPagoBalance = null, decimal? NextShiftChangeCash = null, decimal? ReceivedChangeCash = null, decimal? PosnetTotal = null);
 /// <summary>Presentación de cigarrillos disponible para operar.</summary>
 public sealed record CigaretteProductResponse(int Id, string Name, decimal Price, int Stock);
 /// <summary>Compra de cigarrillos registrada.</summary>
@@ -111,7 +121,7 @@ public sealed record CigarettePurchaseResponse(int Id, int CigaretteProductId, s
 /// <summary>Detalle de ventas calculado durante un cierre.</summary>
 public sealed record CigaretteShiftCloseItemResponse(int CigaretteProductId, string ProductName, decimal UnitPrice, int InitialStock, int PurchasedQuantity, int FinalStock, int SoldQuantity, decimal SalesAmount);
 /// <summary>Cierre completo de un turno.</summary>
-public sealed record CigaretteShiftCloseResponse(int Id, DateOnly BusinessDate, string Shift, DateTimeOffset ClosedAt, int TotalSold, decimal TotalSales, IReadOnlyList<CigaretteShiftCloseItemResponse> Items, CafeteriaSalesSummaryResponse Cafeteria, IReadOnlyList<SupplierAllocationResponse> SupplierAllocations);
+public sealed record CigaretteShiftCloseResponse(int Id, DateOnly BusinessDate, string Shift, DateTimeOffset ClosedAt, int TotalSold, decimal TotalSales, IReadOnlyList<CigaretteShiftCloseItemResponse> Items, CafeteriaSalesSummaryResponse Cafeteria, IReadOnlyList<SupplierAllocationResponse> SupplierAllocations, decimal EndingCashBalance, decimal EndingMercadoPagoBalance, decimal NextShiftChangeCash, decimal ReceivedChangeCash, decimal PosnetTotal);
 /// <summary>Datos operativos e históricos de cigarrillos para una fecha.</summary>
 public sealed record CigaretteDashboardResponse(DateOnly BusinessDate, IReadOnlyList<CigaretteProductResponse> Products, IReadOnlyList<CigarettePurchaseResponse> Purchases, IReadOnlyList<CigaretteShiftCloseResponse> Closes);
 /// <summary>Artículo configurable para las ventas rápidas de cafetería.</summary>
@@ -124,19 +134,42 @@ public sealed record CafeteriaProductResponse(int Id, string Name, decimal Price
 public sealed record CafeteriaSalesSummaryResponse(int SaleCount, decimal TotalSales, IReadOnlyList<CafeteriaSalesSummaryItemResponse> Items);
 /// <summary>Artículo vendido por la caja de cafetería.</summary>
 public sealed record CafeteriaSalesSummaryItemResponse(string ProductName, int Quantity, decimal UnitPrice, decimal TotalSales);
+/// <summary>Ventas acumuladas de cafetería para un período.</summary>
+public sealed record CafeteriaPeriodSummaryResponse(int SaleCount, decimal TotalSales);
+/// <summary>Ventas de cafetería agrupadas por fecha de trabajo y turno.</summary>
+public sealed record CafeteriaShiftSalesHistoryResponse(DateOnly BusinessDate, string Shift, int SaleCount, decimal TotalSales);
 /// <summary>Información de la caja de cafetería para una fecha de trabajo.</summary>
-public sealed record CafeteriaDashboardResponse(DateOnly BusinessDate, string? ActiveShift, IReadOnlyList<CafeteriaProductResponse> Products, CafeteriaSalesSummaryResponse Summary);
+public sealed record CafeteriaDashboardResponse(DateOnly BusinessDate, string? ActiveShift, IReadOnlyList<CafeteriaProductResponse> Products, CafeteriaSalesSummaryResponse Summary, CafeteriaPeriodSummaryResponse DaySummary, CafeteriaPeriodSummaryResponse MonthSummary, IReadOnlyList<CafeteriaShiftSalesHistoryResponse> RecentShiftHistory);
 /// <summary>Datos para crear un proveedor.</summary>
 public sealed record CreateSupplierRequest(string Name);
 /// <summary>Datos para actualizar un proveedor.</summary>
-public sealed record UpdateSupplierRequest(string Name);
+public sealed record UpdateSupplierRequest(string Name, bool IsSeparateCashBox = false);
 /// <summary>Importe reservado para un proveedor al cerrar un turno.</summary>
-public sealed record SupplierAllocationRequest(int SupplierId, decimal Amount);
+public sealed record SupplierAllocationRequest(int SupplierId, decimal CashAmount, decimal MercadoPagoAmount)
+{
+    public decimal Amount => CashAmount + MercadoPagoAmount;
+}
 /// <summary>Pago registrado para descontar el saldo de un proveedor.</summary>
-public sealed record CreateSupplierPaymentRequest(decimal Amount, string? Note);
+public sealed record CreateSupplierPaymentRequest(decimal CashAmount, decimal MercadoPagoAmount, string? Note)
+{
+    public decimal Amount => CashAmount + MercadoPagoAmount;
+}
+/// <summary>Compra a cuenta que incrementa el saldo pendiente de un proveedor.</summary>
+public sealed record CreateSupplierPurchaseRequest(decimal Amount, string? Note, string PaymentMethod, decimal CashAmount = 0, decimal MercadoPagoAmount = 0);
+/// <summary>Transferencia de fondos reservados entre proveedores.</summary>
+public sealed record CreateSupplierReservedFundsTransferRequest(int SourceSupplierId, int TargetSupplierId, decimal CashAmount, decimal MercadoPagoAmount, string? Note)
+{
+    public decimal Amount => CashAmount + MercadoPagoAmount;
+}
+public sealed record CreateSupplierReservedFundsExchangeRequest(decimal Amount, string FromPaymentMethod, string? Note);
+/// <summary>Saldos iniciales o corregidos de un proveedor.</summary>
+public sealed record UpdateSupplierBalancesRequest(decimal ReservedCashBalance, decimal ReservedMercadoPagoBalance, decimal CurrentAccountBalance, string? Note)
+{
+    public decimal ReservedBalance => ReservedCashBalance + ReservedMercadoPagoBalance;
+}
 /// <summary>Movimiento de saldo de un proveedor.</summary>
-public sealed record SupplierTransactionResponse(int Id, string Type, decimal Amount, decimal BalanceAfter, DateOnly BusinessDate, string? Shift, string? Note, DateTimeOffset CreatedAt);
+public sealed record SupplierTransactionResponse(int Id, string Type, decimal Amount, decimal CashAmount, decimal MercadoPagoAmount, decimal BalanceAfter, DateOnly BusinessDate, string? Shift, string? Note, DateTimeOffset CreatedAt);
 /// <summary>Proveedor y sus movimientos de saldo.</summary>
-public sealed record SupplierResponse(int Id, string Name, decimal Balance, bool IsActive, IReadOnlyList<SupplierTransactionResponse> Transactions);
+public sealed record SupplierResponse(int Id, string Name, decimal ReservedBalance, decimal ReservedCashBalance, decimal ReservedMercadoPagoBalance, decimal CurrentAccountBalance, bool IsSeparateCashBox, bool IsActive, IReadOnlyList<SupplierTransactionResponse> Transactions);
 /// <summary>Asignación reservada para un proveedor en un cierre.</summary>
-public sealed record SupplierAllocationResponse(int SupplierId, string SupplierName, decimal Amount, decimal Balance);
+public sealed record SupplierAllocationResponse(int SupplierId, string SupplierName, decimal Amount, decimal CashAmount, decimal MercadoPagoAmount, decimal Balance);

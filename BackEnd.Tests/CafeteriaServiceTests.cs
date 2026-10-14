@@ -100,6 +100,34 @@ public sealed class CafeteriaServiceTests
         Assert.Equal(0, dashboardAfterClose.Summary.SaleCount);
     }
 
+    [Fact]
+    public async Task DashboardIncludesDailyAndMonthlySalesTotals()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var date = new DateOnly(2026, 10, 7);
+        await fixture.Service.CreateProductAsync(new CreateCafeteriaProductRequest("Café", 2500m), default);
+
+        await fixture.Service.RegisterSaleAsync(date.AddMonths(-1), default);
+        await fixture.Service.RegisterSaleAsync(date.AddDays(-1), default);
+        await fixture.Service.RegisterSaleAsync(date, default);
+        await fixture.Service.RegisterSaleAsync(date, default);
+
+        var dashboard = await fixture.Service.GetDashboardAsync(date, default);
+
+        Assert.Equal(2, dashboard.DaySummary.SaleCount);
+        Assert.Equal(5000m, dashboard.DaySummary.TotalSales);
+        Assert.Equal(3, dashboard.MonthSummary.SaleCount);
+        Assert.Equal(7500m, dashboard.MonthSummary.TotalSales);
+        Assert.Equal(2, dashboard.RecentShiftHistory.Count);
+        Assert.Contains(dashboard.RecentShiftHistory, item => item.BusinessDate == date && item.SaleCount == 2 && item.TotalSales == 5000m);
+        Assert.Contains(dashboard.RecentShiftHistory, item => item.BusinessDate == date.AddDays(-1) && item.SaleCount == 1 && item.TotalSales == 2500m);
+
+        var selectedDayHistory = await fixture.Service.GetShiftHistoryAsync(date, default);
+        var selectedDay = Assert.Single(selectedDayHistory);
+        Assert.Equal(2, selectedDay.SaleCount);
+        Assert.Equal(5000m, selectedDay.TotalSales);
+    }
+
     private sealed class TestFixture : IAsyncDisposable
     {
         private readonly SqliteConnection connection;
