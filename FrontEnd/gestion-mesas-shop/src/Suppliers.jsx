@@ -3,6 +3,13 @@ import './Suppliers.css'
 
 const money = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 })
 
+function normalizeSuppliers(value) {
+  return (Array.isArray(value) ? value : []).map((supplier) => ({
+    ...supplier,
+    transactions: Array.isArray(supplier.transactions) ? supplier.transactions : []
+  }))
+}
+
 export default function Suppliers({ api }) {
   const [suppliers, setSuppliers] = useState([])
   const [name, setName] = useState('')
@@ -23,7 +30,7 @@ export default function Suppliers({ api }) {
   })
 
   const load = useCallback(async () => {
-    try { setSuppliers(await api('/suppliers')); setMessage('') } catch (error) { setMessage(error.message) }
+    try { setSuppliers(normalizeSuppliers(await api('/suppliers'))); setMessage('') } catch (error) { setMessage(error.message) }
   }, [api])
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load() }, [load])

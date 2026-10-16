@@ -10,6 +10,23 @@ const closingTabs = [['close', '✓', 'Cerrar turno'], ['history', '◷', 'Calen
 const closeDraftKey = (date, shift) => `mesa-cigarette-close-draft:${date}:${shift}`
 const closeContextKey = 'mesa-cigarette-close-context'
 
+function normalizeCigaretteDashboard(value) {
+  const dashboard = value && typeof value === 'object' ? value : {}
+  return {
+    ...dashboard,
+    products: Array.isArray(dashboard.products) ? dashboard.products : [],
+    purchases: Array.isArray(dashboard.purchases) ? dashboard.purchases : [],
+    closes: Array.isArray(dashboard.closes) ? dashboard.closes.map((close) => ({
+      ...close,
+      items: Array.isArray(close.items) ? close.items : [],
+      supplierAllocations: Array.isArray(close.supplierAllocations) ? close.supplierAllocations : [],
+      cashDrops: Array.isArray(close.cashDrops) ? close.cashDrops : [],
+      cafeteria: close.cafeteria || { saleCount: 0, totalSales: 0, items: [] }
+    })) : [],
+    cashDrops: Array.isArray(dashboard.cashDrops) ? dashboard.cashDrops : []
+  }
+}
+
 function CafeteriaCloseSummary({ summary, error }) {
   return <section className="cafeteria-close-card" aria-label="Caja Cafetería">
     <div className="cafeteria-close-heading"><h2>Caja Cafetería</h2></div>
@@ -94,7 +111,7 @@ function monthRange(date) {
 }
 
 function buildMonthlyRanking(closes) {
-  return [...closes.flatMap((close) => close.items).reduce((sales, item) => {
+  return [...(Array.isArray(closes) ? closes : []).flatMap((close) => Array.isArray(close.items) ? close.items : []).reduce((sales, item) => {
     const current = sales.get(item.cigaretteProductId) || { id: item.cigaretteProductId, name: item.productName, quantity: 0 }
     sales.set(item.cigaretteProductId, { ...current, quantity: current.quantity + item.soldQuantity })
     return sales
@@ -314,7 +331,7 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
         api('/suppliers')
       ])
       if (cigarettesResult.status === 'rejected') throw cigarettesResult.reason
-      setDashboard(cigarettesResult.value)
+      setDashboard(normalizeCigaretteDashboard(cigarettesResult.value))
       if (cafeteriaResult.status === 'fulfilled') {
         setCafeteriaSummary(cafeteriaResult.value.summary)
         setCafeteriaError('')
@@ -322,7 +339,8 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
         setCafeteriaSummary(null)
         setCafeteriaError('No se pudo cargar la Caja Cafetería.')
       }
-      setSuppliers(suppliersResult.status === 'fulfilled' ? suppliersResult.value.filter((supplier) => supplier.isActive) : [])
+      const loadedSuppliers = suppliersResult.status === 'fulfilled' && Array.isArray(suppliersResult.value) ? suppliersResult.value : []
+      setSuppliers(loadedSuppliers.filter((supplier) => supplier.isActive))
       setMessage('')
     } catch { setMessage('No se pudo cargar la información de cigarrillos.') }
   }, [api, date])
@@ -332,7 +350,7 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
     try {
       const { from, to } = monthRange(date)
       const closes = await api(`/cigarettes/closes?from=${from}&to=${to}`)
-      setMonthlyRanking(buildMonthlyRanking(closes))
+      setMonthlyRanking(buildMonthlyRanking(Array.isArray(closes) ? closes : []))
     } catch {
       setRankingError('No se pudo cargar el ranking mensual.')
     } finally {
@@ -361,7 +379,7 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
       return () => { cancelled = true }
     }
     api(`/cigarettes?date=${previous.businessDate}`)
-      .then((previousDashboard) => setPreviousChange(previousDashboard.closes.find((close) => close.shift === previous.shift)))
+      .then((previousDashboard) => setPreviousChange(normalizeCigaretteDashboard(previousDashboard).closes.find((close) => close.shift === previous.shift)))
       .catch(() => {
         if (!cancelled) {
           setPreviousChangeCash(null)
