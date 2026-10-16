@@ -110,7 +110,8 @@ function cashDropReceiptMarkup(drop) {
   <style>
     @page { size: 80mm 250mm; margin: 0; }
     * { box-sizing: border-box; }
-    body { display: flex; width: 80mm; min-height: 250mm; flex-direction: column; margin: 0; padding: 5mm 7mm; color: #000; font-family: Arial, sans-serif; font-size: 9pt; }
+    html, body { width: 80mm; height: 250mm; max-height: 250mm; }
+    body { display: flex; min-height: 250mm; flex-direction: column; margin: 0; padding: 5mm 7mm; overflow: hidden; color: #000; font-family: Arial, sans-serif; font-size: 9pt; }
     header { padding-bottom: 3mm; border-bottom: 1px solid #000; text-align: center; }
     h1 { margin: 0; font-size: 14pt; }
     h2 { margin: 2mm 0 0; font-size: 10pt; }
