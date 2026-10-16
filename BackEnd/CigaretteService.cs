@@ -39,7 +39,12 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
             .Select(ToResponse).ToList();
         var purchases = await LoadPurchasesAsync(date, cancellationToken);
         var closes = await LoadClosesAsync(close => close.BusinessDate == date, cancellationToken);
-        return new CigaretteDashboardResponse(date, orderedProducts, purchases, closes);
+        var cashDrops = await db.CashDrops.AsNoTracking()
+            .Where(drop => drop.BusinessDate == date)
+            .OrderByDescending(drop => drop.CreatedAt)
+            .Select(drop => CashDropService.ToResponse(drop))
+            .ToListAsync(cancellationToken);
+        return new CigaretteDashboardResponse(date, orderedProducts, purchases, closes, cashDrops);
     }
 
     public Task<IReadOnlyList<CigaretteShiftCloseResponse>> GetClosesAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken)
@@ -173,6 +178,9 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
             throw new CigaretteValidationException("No se puede repetir un proveedor en el cierre.");
 
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var cashDrops = await db.CashDrops
+            .Where(drop => drop.BusinessDate == request.BusinessDate && drop.Shift == shift && drop.CigaretteShiftCloseId == null)
+            .ToListAsync(cancellationToken);
         var ids = request.Items.Select(item => item.CigaretteProductId).ToList();
         var products = await db.CigaretteProducts.Where(product => product.IsActive && ids.Contains(product.Id)).ToDictionaryAsync(product => product.Id, cancellationToken);
         if (products.Count != ids.Count) throw new CigaretteNotFoundException("Uno de los cigarrillos del cierre no existe.");
@@ -201,6 +209,8 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
 
         db.CigaretteShiftCloses.Add(close);
         await db.SaveChangesAsync(cancellationToken);
+        foreach (var cashDrop in cashDrops)
+            cashDrop.CigaretteShiftCloseId = close.Id;
         foreach (var allocation in allocations.Where(allocation => allocation.Amount > 0))
         {
             var supplier = suppliers[allocation.SupplierId];
@@ -385,7 +395,12 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
                                  orderby supplier.Name
                                  select new SupplierAllocationResponse(supplier.Id, supplier.Name, transaction.Amount, transaction.CashAmount, transaction.MercadoPagoAmount, supplier.ReservedBalance))
             .ToListAsync(cancellationToken);
-        return new CigaretteShiftCloseResponse(close.Id, close.BusinessDate, close.Shift, new DateTimeOffset(closedAt), items.Sum(item => item.SoldQuantity), items.Sum(item => item.SalesAmount), items, summary, allocations, close.EndingCashBalance, close.EndingMercadoPagoBalance, close.NextShiftChangeCash, close.ReceivedChangeCash, close.PosnetTotal);
+        var cashDrops = await db.CashDrops.AsNoTracking()
+            .Where(drop => drop.CigaretteShiftCloseId == close.Id)
+            .OrderBy(drop => drop.CreatedAt)
+            .Select(drop => CashDropService.ToResponse(drop))
+            .ToListAsync(cancellationToken);
+        return new CigaretteShiftCloseResponse(close.Id, close.BusinessDate, close.Shift, new DateTimeOffset(closedAt), items.Sum(item => item.SoldQuantity), items.Sum(item => item.SalesAmount), items, summary, allocations, close.EndingCashBalance, close.EndingMercadoPagoBalance, close.NextShiftChangeCash, close.ReceivedChangeCash, close.PosnetTotal, cashDrops, cashDrops.Sum(drop => drop.Amount));
     }
 
     private static DateTime AsUtc(DateTime value) => value.Kind == DateTimeKind.Utc

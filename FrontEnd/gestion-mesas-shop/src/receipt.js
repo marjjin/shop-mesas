@@ -97,6 +97,41 @@ function welcomeReceiptMarkup(table) {
 </html>`
 }
 
+function cashDropReceiptMarkup(drop) {
+  const currency = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 })
+  const shiftName = drop.shift === 'morning' ? 'MAÑANA' : 'TARDE'
+  const businessDate = new Date(`${drop.businessDate}T12:00:00`).toLocaleDateString('es-AR')
+
+  return `<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Tirada de efectivo ${businessDate}</title>
+  <style>
+    @page { size: 80mm 250mm; margin: 0; }
+    * { box-sizing: border-box; }
+    body { display: flex; width: 80mm; min-height: 250mm; flex-direction: column; margin: 0; padding: 5mm 7mm; color: #000; font-family: Arial, sans-serif; font-size: 9pt; }
+    header { padding-bottom: 3mm; border-bottom: 1px solid #000; text-align: center; }
+    h1 { margin: 0; font-size: 14pt; }
+    h2 { margin: 2mm 0 0; font-size: 10pt; }
+    .meta { display: flex; justify-content: space-between; gap: 3mm; padding: 3mm 0; border-bottom: 1px dashed #000; font-size: 8pt; }
+    .amount { margin-top: auto; padding: 3mm 0; border-bottom: 2px solid #000; text-align: center; font-size: 22pt; font-weight: bold; }
+    .amount small { display: block; margin-bottom: 1mm; font-size: 8pt; font-weight: normal; letter-spacing: .4px; }
+    .note { margin: 0; text-align: center; font-size: 8pt; }
+    footer { margin-top: 3mm; padding-top: 2mm; border-top: 1px dashed #000; text-align: center; font-size: 8pt; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <header><h1>SHOP FAMILY</h1><h2>TIRADA DE EFECTIVO</h2></header>
+  <div class="meta"><span>Fecha: ${businessDate}</span><span>Hora: ${localTime(drop.createdAt)}</span></div>
+  <p class="note">Turno: ${shiftName}<br>Conservar junto al efectivo.</p>
+  <footer>COMPROBANTE DE TIRADA</footer>
+  <div class="amount"><small>IMPORTE RETIRADO</small>${currency.format(drop.amount)}</div>
+  <script>window.addEventListener('load', () => setTimeout(() => { window.focus(); window.print(); }, 100)); window.addEventListener('afterprint', () => window.close());</script>
+</body>
+</html>`
+}
+
 function cigaretteShiftReceiptMarkup(close, suppliers) {
   const currency = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 })
   const shiftName = close.shift === 'morning' ? 'MAÑANA' : 'TARDE'
@@ -111,13 +146,17 @@ function cigaretteShiftReceiptMarkup(close, suppliers) {
   const cafeteriaSummary = cafeteria?.saleCount ? `<section class="cafeteria"><h3>CAJA CAFETERÍA</h3>${cafeteriaItems}<div class="cafeteria-total"><span>${cafeteria.saleCount} ${cafeteria.saleCount === 1 ? 'venta rápida' : 'ventas rápidas'}</span><strong>${currency.format(cafeteria.totalSales)}</strong></div></section>` : ''
   const supplierAllocations = close.supplierAllocations || []
   const supplierSummary = supplierAllocations.length ? `<section class="suppliers"><h3>PROVEEDORES</h3>${supplierAllocations.map((allocation) => `<div class="supplier-item"><span><b>${escapeHtml(allocation.supplierName)}</b><small>Reservado: ${currency.format(allocation.amount)} · Efectivo: ${currency.format(allocation.cashAmount || 0)} · Mercado Pago: ${currency.format(allocation.mercadoPagoAmount || 0)}</small></span><strong>Saldo: ${currency.format(allocation.balance)}</strong></div>`).join('')}</section>` : ''
-  const archaeologicalResult = (close.endingCashBalance || 0) + (close.endingMercadoPagoBalance || 0) + (close.posnetTotal || 0) + (close.nextShiftChangeCash || 0) - (close.receivedChangeCash || 0)
+  const cashDropsTotal = close.cashDropsTotal ?? (close.cashDrops || []).reduce((total, drop) => total + drop.amount, 0)
+  const cashDrops = close.cashDrops || []
+  const cashInBox = (close.endingCashBalance || 0) + cashDropsTotal
+  const cashDropsDetail = cashDrops.length ? `<section class="cash-drops"><h3>TIRADAS DE EFECTIVO</h3>${cashDrops.map((drop) => `<div class="cash-drop-item"><span>${localTime(drop.createdAt)}</span><strong>${currency.format(drop.amount)}</strong></div>`).join('')}<div class="cash-drop-total"><span>Total tiradas</span><strong>${currency.format(cashDropsTotal)}</strong></div></section>` : ''
+  const archaeologicalResult = (close.endingCashBalance || 0) + cashDropsTotal + (close.endingMercadoPagoBalance || 0) + (close.posnetTotal || 0) + (close.nextShiftChangeCash || 0) - (close.receivedChangeCash || 0)
   const separateSupplierIds = new Set(suppliers.filter((supplier) => supplier.isSeparateCashBox).map((supplier) => supplier.id))
   const normalSupplierReservations = supplierAllocations.filter((allocation) => !separateSupplierIds.has(allocation.supplierId)).reduce((total, allocation) => total + allocation.amount, 0)
   const separateCashBoxReservations = supplierAllocations.filter((allocation) => separateSupplierIds.has(allocation.supplierId)).reduce((total, allocation) => total + allocation.amount, 0)
   const cashResult = archaeologicalResult - close.totalSales - (cafeteria?.totalSales || 0) - normalSupplierReservations
   const shiftSalesTotal = archaeologicalResult + separateCashBoxReservations
-  const cashSummary = `<section class="cash-summary"><h3>ARQUEO Y RESULTADOS</h3><div class="cash-row"><span>Efectivo final</span><b>${currency.format(close.endingCashBalance || 0)}</b></div><div class="cash-row"><span>Mercado Pago final</span><b>${currency.format(close.endingMercadoPagoBalance || 0)}</b></div><div class="cash-row"><span>Total Posnet</span><b>${currency.format(close.posnetTotal || 0)}</b></div><div class="cash-row"><span>Cambio próximo turno</span><b>+ ${currency.format(close.nextShiftChangeCash || 0)}</b></div><div class="cash-row"><span>Cambio recibido</span><b>− ${currency.format(close.receivedChangeCash || 0)}</b></div><div class="cash-total"><span>Arqueo de caja</span><strong>${currency.format(archaeologicalResult)}</strong></div><div class="cash-row"><span>− Cigarrillos</span><b>${currency.format(close.totalSales)}</b></div><div class="cash-row"><span>− Caja Cafetería</span><b>${currency.format(cafeteria?.totalSales || 0)}</b></div><div class="cash-row"><span>− Proveedores sin caja aparte</span><b>${currency.format(normalSupplierReservations)}</b></div><div class="cash-total"><span>Caja</span><strong>${currency.format(cashResult)}</strong></div><div class="shift-sales-calculation"><div class="cash-row"><span>Arqueo de caja</span><b>${currency.format(archaeologicalResult)}</b></div><div class="cash-row"><span>+ Proveedores con caja aparte</span><b>${currency.format(separateCashBoxReservations)}</b></div></div><div class="cash-total shift-sales-total"><span>Ventas totales del turno</span><strong>${currency.format(shiftSalesTotal)}</strong></div></section>`
+  const cashSummary = `<section class="cash-summary"><h3>ARQUEO Y RESULTADOS</h3><div class="cash-row"><span>Efectivo en caja</span><b>${currency.format(cashInBox)}</b></div><div class="cash-row"><span>Mercado Pago final</span><b>${currency.format(close.endingMercadoPagoBalance || 0)}</b></div><div class="cash-row"><span>Total Posnet</span><b>${currency.format(close.posnetTotal || 0)}</b></div><div class="cash-row"><span>Cambio próximo turno</span><b>+ ${currency.format(close.nextShiftChangeCash || 0)}</b></div><div class="cash-row"><span>Cambio recibido</span><b>− ${currency.format(close.receivedChangeCash || 0)}</b></div><div class="cash-total"><span>Arqueo de caja</span><strong>${currency.format(archaeologicalResult)}</strong></div><div class="cash-row"><span>− Cigarrillos</span><b>${currency.format(close.totalSales)}</b></div><div class="cash-row"><span>− Caja Cafetería</span><b>${currency.format(cafeteria?.totalSales || 0)}</b></div><div class="cash-row"><span>− Proveedores sin caja aparte</span><b>${currency.format(normalSupplierReservations)}</b></div><div class="cash-total"><span>Caja</span><strong>${currency.format(cashResult)}</strong></div><div class="shift-sales-calculation"><div class="cash-row"><span>Arqueo de caja</span><b>${currency.format(archaeologicalResult)}</b></div><div class="cash-row"><span>+ Proveedores con caja aparte</span><b>${currency.format(separateCashBoxReservations)}</b></div></div><div class="cash-total shift-sales-total"><span>Ventas totales del turno</span><strong>${currency.format(shiftSalesTotal)}</strong></div></section>`
 
   return `<!doctype html>
 <html lang="es">
@@ -150,6 +189,10 @@ function cigaretteShiftReceiptMarkup(close, suppliers) {
     .supplier-item span { display: flex; flex-direction: column; gap: 1mm; }
     .supplier-item small { color: #333; font-size: 7.5pt; }
     .supplier-item strong { white-space: nowrap; }
+    .cash-drops { margin-top: 5mm; padding-top: 3mm; border-top: 1px dashed #000; }
+    .cash-drops h3 { margin-top: 0; }
+    .cash-drop-item, .cash-drop-total { display: flex; justify-content: space-between; gap: 3mm; padding: 1.5mm 0; }
+    .cash-drop-total { margin-top: 2mm; border-top: 1px solid #000; font-weight: bold; }
     .cash-summary { margin-top: 5mm; padding-top: 3mm; border-top: 1px dashed #000; }
     .cash-summary h3 { margin-top: 0; }
     .cash-row, .cash-total { display: flex; justify-content: space-between; gap: 3mm; padding: 1.2mm 0; font-size: 8.5pt; }
@@ -168,6 +211,7 @@ function cigaretteShiftReceiptMarkup(close, suppliers) {
   <div class="units">Unidades vendidas: ${close.totalSold}</div>
   ${cafeteriaSummary}
   ${supplierSummary}
+  ${cashDropsDetail}
   ${cashSummary}
   <footer>COMPROBANTE DE CIERRE</footer>
   <script>window.addEventListener('load', () => setTimeout(() => { window.focus(); window.print(); }, 100)); window.addEventListener('afterprint', () => window.close());</script>
@@ -200,6 +244,15 @@ export function printWelcomeReceipt(table, printWindow) {
   return true
 }
 
+export function printCashDropReceipt(drop) {
+  const printWindow = openReceiptPrintWindow()
+  if (!printWindow) return false
+  printWindow.document.open()
+  printWindow.document.write(cashDropReceiptMarkup(drop))
+  printWindow.document.close()
+  return true
+}
+
 export function printCigaretteShiftReceipt(close, suppliers = []) {
   const printWindow = openReceiptPrintWindow()
   if (!printWindow) return false
@@ -214,7 +267,8 @@ function cigaretteDailyReceiptMarkup(closes, suppliers, businessDate) {
   const formattedDate = new Date(`${businessDate}T12:00:00`).toLocaleDateString('es-AR')
   const separateSupplierIds = new Set(suppliers.filter((supplier) => supplier.isSeparateCashBox).map((supplier) => supplier.id))
   const summaries = closes.map((close) => {
-    const archaeologicalResult = (close.endingCashBalance || 0) + (close.endingMercadoPagoBalance || 0) + (close.posnetTotal || 0) + (close.nextShiftChangeCash || 0) - (close.receivedChangeCash || 0)
+    const cashDropsTotal = close.cashDropsTotal ?? (close.cashDrops || []).reduce((total, drop) => total + drop.amount, 0)
+    const archaeologicalResult = (close.endingCashBalance || 0) + cashDropsTotal + (close.endingMercadoPagoBalance || 0) + (close.posnetTotal || 0) + (close.nextShiftChangeCash || 0) - (close.receivedChangeCash || 0)
     const normalSupplierReservations = (close.supplierAllocations || []).filter((allocation) => !separateSupplierIds.has(allocation.supplierId))
     const separateCashBoxes = (close.supplierAllocations || []).filter((allocation) => separateSupplierIds.has(allocation.supplierId))
     const normalReservationsTotal = normalSupplierReservations.reduce((total, allocation) => total + allocation.amount, 0)
@@ -223,6 +277,8 @@ function cigaretteDailyReceiptMarkup(closes, suppliers, businessDate) {
       close,
       shiftName: close.shift === 'morning' ? 'MAÑANA' : 'TARDE',
       archaeologicalResult,
+      cashDropsTotal,
+      cashInBox: (close.endingCashBalance || 0) + cashDropsTotal,
       normalReservationsTotal,
       separateCashBoxes,
       separateCashBoxTotal,
@@ -235,10 +291,14 @@ function cigaretteDailyReceiptMarkup(closes, suppliers, businessDate) {
   const totalSales = summaries.reduce((total, summary) => total + summary.shiftSales, 0)
   const turns = summaries.map((summary) => {
     const { close } = summary
+    const cashDrops = close.cashDrops || []
+    const cashDropsDetail = cashDrops.length
+      ? cashDrops.map((drop) => `<div><span>${localTime(drop.createdAt)}</span><b>${currency.format(drop.amount)}</b></div>`).join('')
+      : '<p>Sin tiradas registradas.</p>'
     const separateCashBoxes = summary.separateCashBoxes.length
       ? summary.separateCashBoxes.map((allocation) => `<div><span>${escapeHtml(allocation.supplierName)}<small>Efectivo ${currency.format(allocation.cashAmount)} · Mercado Pago ${currency.format(allocation.mercadoPagoAmount)}</small></span><b>${currency.format(allocation.amount)}</b></div>`).join('')
       : '<p>Sin reservas en cajas aparte.</p>'
-    return `<section class="turn"><h3>Turno ${summary.shiftName}</h3><section class="turn-block"><h4>ARQUEO DE CAJA</h4><div><span>Efectivo final</span><b>${currency.format(close.endingCashBalance || 0)}</b></div><div><span>Mercado Pago final</span><b>${currency.format(close.endingMercadoPagoBalance || 0)}</b></div><div><span>Total Posnet</span><b>${currency.format(close.posnetTotal || 0)}</b></div><div><span>+ Cambio próximo</span><b>${currency.format(close.nextShiftChangeCash || 0)}</b></div><div><span>− Cambio recibido</span><b>${currency.format(close.receivedChangeCash || 0)}</b></div><div class="block-total"><span>Resultado del arqueo</span><b>${currency.format(summary.archaeologicalResult)}</b></div></section><section class="turn-block"><h4>CAJAS APARTE</h4>${separateCashBoxes}<div class="block-total"><span>Total cajas aparte</span><b>${currency.format(summary.separateCashBoxTotal)}</b></div></section><section class="turn-block"><h4>VENTAS DEL TURNO</h4><div><span>Ventas Cigarrillos · ${close.totalSold} ${close.totalSold === 1 ? 'unidad' : 'unidades'}</span><b>${currency.format(close.totalSales)}</b></div><div><span>Caja Cafetería</span><b>${currency.format(close.cafeteria?.totalSales || 0)}</b></div></section><section class="turn-result"><h4>RESULTADO FINAL</h4><div><span>Arqueo de caja</span><b>${currency.format(summary.archaeologicalResult)}</b></div><div><span>− Proveedores sin caja aparte</span><b>${currency.format(summary.normalReservationsTotal)}</b></div><div><span>− Ventas Cigarrillos</span><b>${currency.format(close.totalSales)}</b></div><div><span>− Caja Cafetería</span><b>${currency.format(close.cafeteria?.totalSales || 0)}</b></div><div class="result-total"><span>CAJA</span><b>${currency.format(summary.cashTotal)}</b></div><div><span>Arqueo de caja + cajas aparte</span><b>${currency.format(summary.archaeologicalResult)} + ${currency.format(summary.separateCashBoxTotal)}</b></div><div class="result-total"><span>VENTAS DEL TURNO</span><b>${currency.format(summary.shiftSales)}</b></div></section></section>`
+    return `<section class="turn"><h3>Turno ${summary.shiftName}</h3><section class="turn-block"><h4>ARQUEO DE CAJA</h4><div><span>Efectivo final</span><b>${currency.format(summary.cashInBox)}</b></div><div><span>Mercado Pago final</span><b>${currency.format(close.endingMercadoPagoBalance || 0)}</b></div><div><span>Total Posnet</span><b>${currency.format(close.posnetTotal || 0)}</b></div><div><span>+ Cambio próximo</span><b>${currency.format(close.nextShiftChangeCash || 0)}</b></div><div><span>− Cambio recibido</span><b>${currency.format(close.receivedChangeCash || 0)}</b></div><div class="block-total"><span>Resultado del arqueo</span><b>${currency.format(summary.archaeologicalResult)}</b></div></section><section class="turn-block cash-drops-detail"><h4>TIRADAS DE EFECTIVO</h4>${cashDropsDetail}<div class="block-total"><span>Total tiradas</span><b>${currency.format(summary.cashDropsTotal)}</b></div></section><section class="turn-block"><h4>CAJAS APARTE</h4>${separateCashBoxes}<div class="block-total"><span>Total cajas aparte</span><b>${currency.format(summary.separateCashBoxTotal)}</b></div></section><section class="turn-block"><h4>VENTAS DEL TURNO</h4><div><span>Ventas Cigarrillos · ${close.totalSold} ${close.totalSold === 1 ? 'unidad' : 'unidades'}</span><b>${currency.format(close.totalSales)}</b></div><div><span>Caja Cafetería</span><b>${currency.format(close.cafeteria?.totalSales || 0)}</b></div></section><section class="turn-result"><h4>RESULTADO FINAL</h4><div><span>Arqueo de caja</span><b>${currency.format(summary.archaeologicalResult)}</b></div><div><span>− Proveedores sin caja aparte</span><b>${currency.format(summary.normalReservationsTotal)}</b></div><div><span>− Ventas Cigarrillos</span><b>${currency.format(close.totalSales)}</b></div><div><span>− Caja Cafetería</span><b>${currency.format(close.cafeteria?.totalSales || 0)}</b></div><div class="result-total"><span>CAJA</span><b>${currency.format(summary.cashTotal)}</b></div><div><span>Arqueo de caja + cajas aparte</span><b>${currency.format(summary.archaeologicalResult)} + ${currency.format(summary.separateCashBoxTotal)}</b></div><div class="result-total"><span>VENTAS DEL TURNO</span><b>${currency.format(summary.shiftSales)}</b></div></section></section>`
   }).join('')
 
   return `<!doctype html>
@@ -262,6 +322,7 @@ function cigaretteDailyReceiptMarkup(closes, suppliers, businessDate) {
     .turn span { display: flex; flex-direction: column; gap: 1mm; }
     .turn small { color: #333; font-size: 7.5pt; }
     .turn p { margin: 1mm 0; color: #333; font-size: 8pt; }
+    .cash-drops-detail div { font-size: 8.5pt; }
     .block-total { margin-top: 1.5mm; padding-top: 1.5mm!important; border-top: 1px solid #000; font-weight: bold; }
     .turn-result { border-top: 2px solid #000; }
     .result-total { margin-top: 1.5mm; padding-top: 1.5mm!important; border-top: 1px solid #000; font-size: 10pt; font-weight: bold; }

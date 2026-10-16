@@ -54,6 +54,41 @@ public sealed class CigaretteServiceTests
     }
 
     [Fact]
+    public async Task CashDropsAreAssignedToTheCloseAndIncludedInTheArqueo()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var date = new DateOnly(2026, 9, 21);
+        var cashDrops = new CashDropService(fixture.Db);
+
+        await cashDrops.CreateAsync(new CreateCashDropRequest(3500m, date, "morning"), default);
+        var close = await fixture.Service.CloseShiftAsync(
+            new CreateCigaretteShiftCloseRequest(date, "morning", [new CigaretteCloseItemRequest(fixture.ProductId, 8)], EndingCashBalance: 12000m), default);
+
+        Assert.Equal(3500m, close.CashDropsTotal);
+        Assert.Equal(3500m, Assert.Single(close.CashDrops).Amount);
+        Assert.Equal(close.Id, (await fixture.Db.CashDrops.SingleAsync()).CigaretteShiftCloseId);
+    }
+
+    [Fact]
+    public async Task CashDropsCanBeUpdatedAndDeletedAfterTheClose()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var date = new DateOnly(2026, 9, 21);
+        var cashDrops = new CashDropService(fixture.Db);
+        var created = await cashDrops.CreateAsync(new CreateCashDropRequest(3500m, date, "morning"), default);
+
+        var updated = await cashDrops.UpdateAsync(created.Id, new UpdateCashDropRequest(4000m), default);
+        Assert.Equal(4000m, updated!.Amount);
+
+        await fixture.Service.CloseShiftAsync(
+            new CreateCigaretteShiftCloseRequest(date, "morning", [new CigaretteCloseItemRequest(fixture.ProductId, 8)]), default);
+        var afterClose = await cashDrops.UpdateAsync(created.Id, new UpdateCashDropRequest(4500m), default);
+        Assert.Equal(4500m, afterClose!.Amount);
+        Assert.True(await cashDrops.DeleteAsync(created.Id, default));
+        Assert.Empty(await fixture.Db.CashDrops.ToListAsync());
+    }
+
+    [Fact]
     public async Task PaymentDecrementsSupplierBalanceAndRejectsExcess()
     {
         await using var fixture = await TestFixture.CreateAsync();

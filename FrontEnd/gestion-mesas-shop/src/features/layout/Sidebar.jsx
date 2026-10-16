@@ -13,6 +13,7 @@ export default function Sidebar({ user, section, pendingOrdersCount, onSectionCh
         <button className={section === 'cafeteria' ? 'active' : ''} onClick={() => onSectionChange('cafeteria')}>☕ <span>Caja Cafetería</span></button>
         <button className={section === 'cigarettes' ? 'active' : ''} onClick={() => onSectionChange('cigarettes')}>▥ <span>Cigarrillos</span></button>
         <button className={section === 'suppliers' ? 'active' : ''} onClick={() => onSectionChange('suppliers')}>▣ <span>Proveedores</span></button>
+        <button className={section === 'cash-drops' ? 'active' : ''} onClick={() => onSectionChange('cash-drops')}>↘ <span>Tiradas</span></button>
       </div>
       <div className="sidebar-nav-group">
         <p>Cierres y control</p>

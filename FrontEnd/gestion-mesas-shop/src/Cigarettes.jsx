@@ -17,17 +17,23 @@ function CafeteriaCloseSummary({ summary, error }) {
   </section>
 }
 
-function EndingBalances({ balances, onChange, onReceivedChange }) {
+function EndingBalances({ balances, cashDrops = [], onChange, onReceivedChange }) {
   const receivedChange = Number(balances.receivedChange || 0)
   const nextShiftChange = Number(balances.change || 0)
-  const totalCash = Number(balances.cash || 0) + Number(balances.mercadoPago || 0) + Number(balances.posnet || 0) + nextShiftChange - receivedChange
+  const cashDropsTotal = cashDrops.reduce((total, drop) => total + drop.amount, 0)
+  const cashInBox = Number(balances.cash || 0) + cashDropsTotal
+  const totalCash = cashInBox + Number(balances.mercadoPago || 0) + Number(balances.posnet || 0) + nextShiftChange - receivedChange
+  const changeCash = (event) => {
+    const value = event.target.value
+    onChange({ ...balances, cash: value === '' ? '' : String(Math.max(0, Number(value) - cashDropsTotal)) })
+  }
   return <section className="ending-balances">
     <header className="ending-balances-header"><div><small>ARQUEO DE CAJA</small><h3>Dinero al finalizar el turno</h3><p>Registrá cada medio de cobro antes de confirmar el cierre.</p></div></header>
     <div className="ending-arqueo-layout"><div className="ending-arqueo-inputs"><div className="ending-payment-inputs">
-      <label><span>Efectivo</span><input type="number" min="0" step="0.01" inputMode="decimal" value={balances.cash} onChange={(event) => onChange({ ...balances, cash: event.target.value })} placeholder="$ 0" /></label>
+       <label><span>Efectivo en caja</span><input type="number" min="0" step="0.01" inputMode="decimal" value={balances.cash === '' ? (cashDropsTotal || '') : cashInBox} onChange={changeCash} placeholder="$ 0" /></label>
       <label><span>Mercado Pago</span><input type="number" min="0" step="0.01" inputMode="decimal" value={balances.mercadoPago} onChange={(event) => onChange({ ...balances, mercadoPago: event.target.value })} placeholder="$ 0" /></label>
       <label><span>Total Posnet</span><input type="number" min="0" step="0.01" inputMode="decimal" value={balances.posnet} onChange={(event) => onChange({ ...balances, posnet: event.target.value })} placeholder="$ 0" /></label>
-    </div><div className="shift-change-inputs"><div><small>CAMBIO ENTRE TURNOS</small><p>Importes en efectivo que entran y quedan preparados en caja.</p></div><div className="shift-change-fields"><label><span>Recibido del turno anterior</span><input type="number" min="0" step="0.01" inputMode="decimal" value={balances.receivedChange} onChange={(event) => { onReceivedChange?.(); onChange({ ...balances, receivedChange: event.target.value }) }} placeholder="$ 0" /></label><label><span>Para el próximo turno</span><input type="number" min="0" step="0.01" inputMode="decimal" value={balances.change} onChange={(event) => onChange({ ...balances, change: event.target.value })} placeholder="$ 0" /></label></div></div></div><aside className="ending-total-preview"><span>RESULTADO DEL ARQUEO</span><div className="ending-total-breakdown"><small>+ Efectivo <b>{money.format(Number(balances.cash || 0))}</b></small><small>+ Mercado Pago <b>{money.format(Number(balances.mercadoPago || 0))}</b></small><small>+ Posnet <b>{money.format(Number(balances.posnet || 0))}</b></small>{nextShiftChange > 0 && <small>+ Cambio próximo <b>{money.format(nextShiftChange)}</b></small>}{receivedChange > 0 && <small>− Cambio recibido <b>{money.format(receivedChange)}</b></small>}</div><strong>{money.format(totalCash)}</strong></aside></div>
+    </div><div className="shift-change-inputs"><div><small>CAMBIO ENTRE TURNOS</small><p>Importes en efectivo que entran y quedan preparados en caja.</p></div><div className="shift-change-fields"><label><span>Recibido del turno anterior</span><input type="number" min="0" step="0.01" inputMode="decimal" value={balances.receivedChange} onChange={(event) => { onReceivedChange?.(); onChange({ ...balances, receivedChange: event.target.value }) }} placeholder="$ 0" /></label><label><span>Para el próximo turno</span><input type="number" min="0" step="0.01" inputMode="decimal" value={balances.change} onChange={(event) => onChange({ ...balances, change: event.target.value })} placeholder="$ 0" /></label></div></div></div><aside className="ending-total-preview"><span>RESULTADO DEL ARQUEO</span><div className="ending-total-breakdown"><small>+ Efectivo en caja <b>{money.format(cashInBox)}</b></small><small>+ Mercado Pago <b>{money.format(Number(balances.mercadoPago || 0))}</b></small><small>+ Posnet <b>{money.format(Number(balances.posnet || 0))}</b></small>{nextShiftChange > 0 && <small>+ Cambio próximo <b>{money.format(nextShiftChange)}</b></small>}{receivedChange > 0 && <small>− Cambio recibido <b>{money.format(receivedChange)}</b></small>}</div><strong>{money.format(totalCash)}</strong></aside></div>
   </section>
 }
 
@@ -96,7 +102,8 @@ function buildMonthlyRanking(closes) {
 }
 
 function getCloseFinancialSummary(close, suppliers) {
-  const archaeologicalResult = (close.endingCashBalance || 0) + (close.endingMercadoPagoBalance || 0) + (close.posnetTotal || 0) + (close.nextShiftChangeCash || 0) - (close.receivedChangeCash || 0)
+  const cashDropsTotal = close.cashDropsTotal ?? (close.cashDrops || []).reduce((total, drop) => total + drop.amount, 0)
+  const archaeologicalResult = (close.endingCashBalance || 0) + cashDropsTotal + (close.endingMercadoPagoBalance || 0) + (close.posnetTotal || 0) + (close.nextShiftChangeCash || 0) - (close.receivedChangeCash || 0)
   const separateSupplierIds = new Set(suppliers.filter((supplier) => supplier.isSeparateCashBox).map((supplier) => supplier.id))
   const normalSupplierReservations = (close.supplierAllocations || []).filter((allocation) => !separateSupplierIds.has(allocation.supplierId))
     .reduce((total, allocation) => total + allocation.amount, 0)
@@ -104,12 +111,18 @@ function getCloseFinancialSummary(close, suppliers) {
     .reduce((total, allocation) => total + allocation.amount, 0)
   return {
     archaeologicalResult,
+    cashDropsTotal,
     cashTotal: archaeologicalResult - normalSupplierReservations - close.totalSales - (close.cafeteria?.totalSales || 0),
     shiftSales: archaeologicalResult + separateCashBoxReservations
   }
 }
 
-function ShiftCloseForm({ products, purchases, suppliers, allocations, onAllocationsChange, cafeteriaSummary, cafeteriaError, shift, date, previousChangeCash, onClose }) {
+function CashDropsSummary({ cashDrops = [] }) {
+  const total = cashDrops.reduce((sum, drop) => sum + drop.amount, 0)
+  return <section className="cash-drops-close-card"><header><div><small>TIRADAS DE EFECTIVO</small><h3>Retirado físicamente durante el turno</h3></div><strong>{money.format(total)}</strong></header>{cashDrops.length ? <div className="cash-drops-close-list">{cashDrops.map((drop) => <div key={drop.id}><span>{new Date(drop.createdAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</span><b>{money.format(drop.amount)}</b></div>)}</div> : <p>No hay tiradas registradas para este turno.</p>}<small className="cash-drops-close-help">Detalle de las tiradas registradas.</small></section>
+}
+
+function ShiftCloseForm({ products, purchases, suppliers, allocations, onAllocationsChange, cafeteriaSummary, cafeteriaError, cashDrops, shift, date, previousChangeCash, onClose }) {
   const purchasedByProduct = useMemo(() => purchases
     .filter((purchase) => purchase.shift === shift)
     .reduce((totals, purchase) => ({ ...totals, [purchase.cigaretteProductId]: (totals[purchase.cigaretteProductId] || 0) + purchase.quantity }), {}), [purchases, shift])
@@ -131,7 +144,8 @@ function ShiftCloseForm({ products, purchases, suppliers, allocations, onAllocat
     return { ...product, purchased, initial, invalidInitial, final, sold, amount: sold * product.price }
   })
   const totalSales = rows.reduce((total, row) => total + row.amount, 0)
-  const archaeologicalResult = Number(endingBalances.cash || 0) + Number(endingBalances.mercadoPago || 0) + Number(endingBalances.posnet || 0) + Number(endingBalances.change || 0) - Number(endingBalances.receivedChange || 0)
+  const cashDropsTotal = cashDrops.reduce((total, drop) => total + drop.amount, 0)
+  const archaeologicalResult = Number(endingBalances.cash || 0) + cashDropsTotal + Number(endingBalances.mercadoPago || 0) + Number(endingBalances.posnet || 0) + Number(endingBalances.change || 0) - Number(endingBalances.receivedChange || 0)
   const normalSupplierReservations = suppliers.filter((supplier) => !supplier.isSeparateCashBox)
     .reduce((total, supplier) => total + Number(allocations[supplier.id]?.cashAmount || 0) + Number(allocations[supplier.id]?.mercadoPagoAmount || 0), 0)
   const cashTotal = archaeologicalResult - normalSupplierReservations - (cafeteriaSummary?.totalSales || 0) - totalSales
@@ -170,7 +184,8 @@ function ShiftCloseForm({ products, purchases, suppliers, allocations, onAllocat
 
   return <form className="shift-close" onSubmit={submit}>
     <div className="close-draft-notice"><span>●</span><p>{hasDraft ? 'Borrador guardado automáticamente en este dispositivo.' : 'Los cambios se guardarán automáticamente mientras cargás el cierre.'}</p>{hasDraft && <button type="button" onClick={discardDraft}>Descartar borrador</button>}</div>
-    <EndingBalances balances={endingBalances} onChange={changeEndingBalances} onReceivedChange={() => setReceivedChangeEdited(true)} />
+    <EndingBalances balances={endingBalances} cashDrops={cashDrops} onChange={changeEndingBalances} onReceivedChange={() => setReceivedChangeEdited(true)} />
+    <CashDropsSummary cashDrops={cashDrops} />
     <SupplierAllocations suppliers={suppliers} allocations={allocations} onAllocationsChange={changeAllocations} />
     <CafeteriaCloseSummary summary={cafeteriaSummary} error={cafeteriaError} />
     {rows.some((row) => row.invalidInitial) && <p className="close-validation-error">Hay un stock actual menor a las compras del turno. Corregí el stock del producto antes de cerrar.</p>}
@@ -188,7 +203,7 @@ function ShiftCloseForm({ products, purchases, suppliers, allocations, onAllocat
   </form>
 }
 
-function EditShiftCloseForm({ close, suppliers, cafeteria, onSave, onCancel, busy }) {
+function EditShiftCloseForm({ close, suppliers, cafeteria, cashDrops, onSave, onCancel, busy }) {
   const [finalStocks, setFinalStocks] = useState(() => Object.fromEntries(close.items.map((item) => [item.cigaretteProductId, item.finalStock])))
   const [allocations, setAllocations] = useState(() => Object.fromEntries(close.supplierAllocations.map((allocation) => [allocation.supplierId, { cashAmount: allocation.cashAmount, mercadoPagoAmount: allocation.mercadoPagoAmount }])))
   const [endingBalances, setEndingBalances] = useState(() => ({ cash: close.endingCashBalance, mercadoPago: close.endingMercadoPagoBalance, posnet: close.posnetTotal, receivedChange: close.receivedChangeCash, change: close.nextShiftChangeCash }))
@@ -199,7 +214,8 @@ function EditShiftCloseForm({ close, suppliers, cafeteria, onSave, onCancel, bus
     return { ...item, final, available, sold, amount: sold * item.unitPrice }
   })
   const totalSales = rows.reduce((total, row) => total + row.amount, 0)
-  const archaeologicalResult = Number(endingBalances.cash || 0) + Number(endingBalances.mercadoPago || 0) + Number(endingBalances.posnet || 0) + Number(endingBalances.change || 0) - Number(endingBalances.receivedChange || 0)
+  const cashDropsTotal = cashDrops.reduce((total, drop) => total + drop.amount, 0)
+  const archaeologicalResult = Number(endingBalances.cash || 0) + cashDropsTotal + Number(endingBalances.mercadoPago || 0) + Number(endingBalances.posnet || 0) + Number(endingBalances.change || 0) - Number(endingBalances.receivedChange || 0)
   const normalSupplierReservations = suppliers.filter((supplier) => !supplier.isSeparateCashBox)
     .reduce((total, supplier) => total + Number(allocations[supplier.id]?.cashAmount || 0) + Number(allocations[supplier.id]?.mercadoPagoAmount || 0), 0)
   const cashTotal = archaeologicalResult - normalSupplierReservations - (cafeteria?.totalSales || 0) - totalSales
@@ -222,7 +238,8 @@ function EditShiftCloseForm({ close, suppliers, cafeteria, onSave, onCancel, bus
   }
 
   return <form className="shift-close" onSubmit={submit}>
-    <EndingBalances balances={endingBalances} onChange={setEndingBalances} />
+    <EndingBalances balances={endingBalances} cashDrops={cashDrops} onChange={setEndingBalances} />
+    <CashDropsSummary cashDrops={cashDrops} />
     <SupplierAllocations suppliers={suppliers} allocations={allocations} onAllocationsChange={setAllocations} />
     <CafeteriaCloseSummary summary={cafeteria} />
     <div className="close-grid-header"><span>Producto</span><span>Inicial</span><span>Compras</span><span>Final</span><span>Vendidos</span><span>Importe</span></div>
@@ -266,7 +283,7 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
   })
   const [date, setDate] = useState(() => getCloseContext()?.date || localDateValue())
   const [shift, setShift] = useState(() => getCloseContext()?.shift || 'morning')
-  const [dashboard, setDashboard] = useState({ products: [], purchases: [], closes: [] })
+  const [dashboard, setDashboard] = useState({ products: [], purchases: [], closes: [], cashDrops: [] })
   const [suppliers, setSuppliers] = useState([])
   const [supplierAllocations, setSupplierAllocations] = useState(() => getCloseDraft(date, shift)?.supplierAllocations || {})
   const [cafeteriaSummary, setCafeteriaSummary] = useState(null)
@@ -449,6 +466,7 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
   }
 
   const selectedClose = dashboard.closes.find((close) => close.shift === shift)
+  const cashDrops = dashboard.cashDrops.filter((drop) => drop.shift === shift && !drop.isClosed)
   const purchases = dashboard.purchases.filter((item) => item.shift === shift)
   const purchasedUnits = purchases.reduce((total, item) => total + item.quantity, 0)
   const purchaseResults = purchaseSearch.trim() && !purchase.cigaretteProductId
@@ -491,7 +509,7 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
       <section className="cigarette-card"><div className="section-heading"><div><small>MOVIMIENTOS DEL DÍA</small><h2>Compras del turno</h2></div><b>{purchasedUnits} unidades</b></div><div className="purchase-list">{purchases.map((item) => editingPurchase?.id === item.id ? <form className="purchase-edit" key={item.id} onSubmit={savePurchase}><span><b>{item.productName}</b><small>Cantidad comprada{selectedClose ? ' · actualiza el cierre' : ''}</small></span><input required type="number" min="1" step="1" value={editingPurchase.quantity} onChange={(event) => setEditingPurchase({ ...editingPurchase, quantity: event.target.value })} /><button disabled={busy}>Guardar</button><button type="button" onClick={() => setEditingPurchase(null)}>Cancelar</button></form> : <article key={item.id}><span><b>{item.productName}</b><small>{selectedClose ? 'Compra incluida en el cierre' : 'Stock incorporado'}</small></span><strong>+{item.quantity} unidades</strong><footer><button type="button" disabled={busy} title="Editar cantidad" onClick={() => setEditingPurchase({ ...item })}>✎</button><button type="button" className="remove-purchase" disabled={busy} title="Quitar compra" onClick={() => deletePurchase(item)}>×</button></footer></article>)}{!purchases.length && <div className="cigarette-empty">No hay compras para este turno.</div>}</div></section>
     </div>}
 
-    {tab === 'close' && <><section className="cigarette-card close-section"><div className="section-heading"><div><small>ARQUEO DE INVENTARIO</small><h2>{editingClose ? 'Corregir cierre' : 'Cierre de turno'}</h2></div><div className="shift-switch">{Object.entries(shifts).map(([value, label]) => <button key={value} className={shift === value ? 'active' : ''} onClick={() => { setShift(value); setSupplierAllocations({}); setEditingClose(null) }}>{label}</button>)}</div></div><p className="close-help">{editingClose ? 'Corregí el stock físico final. Las ventas y el stock actual se ajustarán automáticamente.' : 'Ingresá el stock físico final. Las ventas se calculan automáticamente con el stock inicial y las compras del turno.'}</p>{editingClose && selectedClose?.id === editingClose.id ? <EditShiftCloseForm key={editingClose.id} close={editingClose} suppliers={suppliers} cafeteria={editingClose.cafeteria} onSave={saveCloseCorrection} onCancel={() => setEditingClose(null)} busy={busy} /> : selectedClose ? <div className="already-closed"><span>✓</span><div><b>Turno {shifts[shift].toLowerCase()} cerrado</b><p>Se vendieron {selectedClose.totalSold} unidades por {money.format(selectedClose.totalSales)}.</p><button type="button" className="edit-close-button" onClick={() => setEditingClose(selectedClose)}>✎ Corregir cierre</button></div></div> : <ShiftCloseForm key={`${date}-${shift}-${dashboard.products.map((item) => item.stock).join('-')}`} products={dashboard.products} purchases={dashboard.purchases} suppliers={suppliers} allocations={supplierAllocations} onAllocationsChange={setSupplierAllocations} cafeteriaSummary={cafeteriaSummary} cafeteriaError={cafeteriaError} shift={shift} date={date} previousChangeCash={previousChangeCash} onClose={closeShift} />}</section></>}
+    {tab === 'close' && <><section className="cigarette-card close-section"><div className="section-heading"><div><small>ARQUEO DE INVENTARIO</small><h2>{editingClose ? 'Corregir cierre' : 'Cierre de turno'}</h2></div><div className="shift-switch">{Object.entries(shifts).map(([value, label]) => <button key={value} className={shift === value ? 'active' : ''} onClick={() => { setShift(value); setSupplierAllocations({}); setEditingClose(null) }}>{label}</button>)}</div></div><p className="close-help">{editingClose ? 'Corregí el stock físico final. Las ventas y el stock actual se ajustarán automáticamente.' : 'Ingresá el stock físico final. Las ventas se calculan automáticamente con el stock inicial y las compras del turno.'}</p>{editingClose && selectedClose?.id === editingClose.id ? <EditShiftCloseForm key={editingClose.id} close={editingClose} suppliers={suppliers} cafeteria={editingClose.cafeteria} cashDrops={editingClose.cashDrops || []} onSave={saveCloseCorrection} onCancel={() => setEditingClose(null)} busy={busy} /> : selectedClose ? <div className="already-closed"><span>✓</span><div><b>Turno {shifts[shift].toLowerCase()} cerrado</b><p>Se vendieron {selectedClose.totalSold} unidades por {money.format(selectedClose.totalSales)}.</p><button type="button" className="edit-close-button" onClick={() => setEditingClose(selectedClose)}>✎ Corregir cierre</button></div></div> : <ShiftCloseForm key={`${date}-${shift}-${dashboard.products.map((item) => item.stock).join('-')}`} products={dashboard.products} purchases={dashboard.purchases} cashDrops={cashDrops} suppliers={suppliers} allocations={supplierAllocations} onAllocationsChange={setSupplierAllocations} cafeteriaSummary={cafeteriaSummary} cafeteriaError={cafeteriaError} shift={shift} date={date} previousChangeCash={previousChangeCash} onClose={closeShift} />}</section></>}
 
     {tab === 'history' && <section className="cigarette-card history-section"><div className="calendar-hero"><div><small>CALENDARIO</small><h2>Cierres del {new Date(`${date}T12:00:00`).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}</h2><p>{dashboard.closes.length} {dashboard.closes.length === 1 ? 'turno cerrado' : 'turnos cerrados'}. Tocá un turno para ver Caja, Arqueo de caja y el detalle de la venta.</p></div><div className="daily-total"><small>VENTAS DEL DÍA</small><b>{money.format(dailyShiftSalesTotal)}</b><span>Suma de las ventas por turno</span><button type="button" onClick={() => printCigaretteDailyReceipt(dashboard.closes, suppliers, date)} disabled={!dashboard.closes.length}>▤ Imprimir resumen</button></div></div><div className="closes-list">{dashboard.closes.map((close) => <CloseCard key={close.id} close={close} suppliers={suppliers} onEdit={startEditingClose} />)}{!dashboard.closes.length && <div className="cigarette-empty large">No hay cierres registrados en esta fecha.</div>}</div></section>}
   </div>
