@@ -18,9 +18,9 @@ import './Navigation.css'
 import './FloorPlan.css'
 import './CoffeeSales.css'
 
-const API = import.meta.env.VITE_API_URL || (import.meta.env.PROD
+const API = (import.meta.env.VITE_API_URL || (import.meta.env.PROD
   ? 'https://shop-mesas.onrender.com/api'
-  : 'http://localhost:5000/api')
+  : 'http://localhost:5000/api')).replace(/\/+$/, '')
 const sections = new Set(['salon', 'pending', 'catalog', 'cafeteria', 'cigarettes', 'suppliers', 'shift-close', 'history'])
 
 function App() {
@@ -44,7 +44,13 @@ function App() {
   const assignmentLock = useRef(false)
 
   const api = useCallback(async (path, options = {}) => {
-    const response = await fetch(`${API}${path}`, { headers: { 'Content-Type': 'application/json' }, ...options })
+    const headers = new Headers(options.headers)
+    // Content-Type: application/json is not a CORS-safelisted header. Only
+    // send it for requests that actually contain a JSON body, so GET requests
+    // do not trigger an unnecessary preflight on the deployed API.
+    if (options.body != null && !headers.has('Content-Type'))
+      headers.set('Content-Type', 'application/json')
+    const response = await fetch(`${API}${path}`, { ...options, headers })
     if (!response.ok) {
       const problem = await response.json().catch(() => null)
       throw new Error(response.status === 401 ? 'Usuario o contraseña incorrectos.' : problem?.detail || 'No se pudo completar la operación.')

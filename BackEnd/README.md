@@ -12,4 +12,4 @@ Si preferís PostgreSQL, definí la variable `ConnectionStrings__Restaurant` con
 
 El archivo `render.yaml` crea un servicio Docker y una base PostgreSQL administrada. La variable `ConnectionStrings__Restaurant` se obtiene automáticamente de la base. Render expondrá el puerto asignado a través de `ASPNETCORE_URLS`.
 
-Para el frontend desplegado, definí la variable `VITE_API_URL` con la URL pública de Render seguida de `/api` y generá nuevamente el build del frontend.
+Para el frontend desplegado, definí en Vercel la variable `VITE_API_URL` con la URL pública de Render seguida de `/api` (por ejemplo, `https://tu-servicio.onrender.com/api`) y generá nuevamente el build del frontend. Si no se define, el cliente usa el dominio histórico `https://shop-mesas.onrender.com/api`.
