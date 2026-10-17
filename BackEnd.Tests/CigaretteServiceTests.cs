@@ -474,6 +474,40 @@ public sealed class CigaretteServiceTests
     }
 
     [Fact]
+    public async Task MovesCloseAndRelatedRecordsToAnotherBusinessDate()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var sourceDate = new DateOnly(2026, 9, 21);
+        var targetDate = new DateOnly(2026, 9, 22);
+        var supplierService = new SupplierService(fixture.Db);
+        var cashDropService = new CashDropService(fixture.Db);
+        var supplier = await supplierService.CreateAsync(new CreateSupplierRequest("Proveedor Fecha"), default);
+        await cashDropService.CreateAsync(new CreateCashDropRequest(3500m, sourceDate, "morning"), default);
+        await fixture.Service.CreatePurchaseAsync(new CreateCigarettePurchaseRequest(fixture.ProductId, 2, sourceDate, "morning"), default);
+        fixture.Db.CafeteriaSales.Add(new CafeteriaSale { BusinessDate = sourceDate, Shift = "morning", CreatedAt = DateTime.UtcNow });
+        await fixture.Db.SaveChangesAsync();
+
+        var close = await fixture.Service.CloseShiftAsync(
+            new CreateCigaretteShiftCloseRequest(sourceDate, "morning", [new CigaretteCloseItemRequest(fixture.ProductId, 8)],
+                [new SupplierAllocationRequest(supplier.Id, 1000m, 0m)]), default);
+
+        var moved = await fixture.Service.UpdateCloseAsync(
+            close.Id, new UpdateCigaretteShiftCloseRequest([new CigaretteCloseItemRequest(fixture.ProductId, 8)], BusinessDate: targetDate, Shift: "afternoon"), default);
+
+        Assert.Equal(targetDate, moved!.BusinessDate);
+        Assert.Equal("afternoon", moved.Shift);
+        Assert.Equal(targetDate, (await fixture.Db.CigarettePurchases.SingleAsync()).BusinessDate);
+        Assert.Equal("afternoon", (await fixture.Db.CigarettePurchases.SingleAsync()).Shift);
+        Assert.Equal(targetDate, (await fixture.Db.CashDrops.SingleAsync()).BusinessDate);
+        Assert.Equal("afternoon", (await fixture.Db.CashDrops.SingleAsync()).Shift);
+        Assert.Equal(targetDate, (await fixture.Db.SupplierTransactions.SingleAsync()).BusinessDate);
+        Assert.Equal(targetDate, (await fixture.Db.CafeteriaSales.SingleAsync()).BusinessDate);
+        Assert.Equal("afternoon", (await fixture.Db.CafeteriaSales.SingleAsync()).Shift);
+        Assert.Empty((await fixture.Service.GetDashboardAsync(sourceDate, default)).Closes);
+        Assert.Equal(close.Id, Assert.Single((await fixture.Service.GetDashboardAsync(targetDate, default)).Closes).Id);
+    }
+
+    [Fact]
     public async Task RejectsCloseCorrectionWithDifferentProducts()
     {
         await using var fixture = await TestFixture.CreateAsync();

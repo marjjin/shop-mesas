@@ -221,6 +221,8 @@ function ShiftCloseForm({ products, purchases, suppliers, allocations, onAllocat
 }
 
 function EditShiftCloseForm({ close, suppliers, cafeteria, cashDrops, onSave, onCancel, busy }) {
+  const [businessDate, setBusinessDate] = useState(close.businessDate)
+  const [businessShift, setBusinessShift] = useState(close.shift)
   const [finalStocks, setFinalStocks] = useState(() => Object.fromEntries(close.items.map((item) => [item.cigaretteProductId, item.finalStock])))
   const [allocations, setAllocations] = useState(() => Object.fromEntries(close.supplierAllocations.map((allocation) => [allocation.supplierId, { cashAmount: allocation.cashAmount, mercadoPagoAmount: allocation.mercadoPagoAmount }])))
   const [endingBalances, setEndingBalances] = useState(() => ({ cash: close.endingCashBalance, mercadoPago: close.endingMercadoPagoBalance, posnet: close.posnetTotal, receivedChange: close.receivedChangeCash, change: close.nextShiftChangeCash }))
@@ -244,6 +246,8 @@ function EditShiftCloseForm({ close, suppliers, cafeteria, cashDrops, onSave, on
   const submit = (event) => {
     event.preventDefault()
     onSave({
+      businessDate,
+      shift: businessShift,
       items: rows.map((row) => ({ cigaretteProductId: row.cigaretteProductId, finalStock: row.final })),
       supplierAllocations: suppliers.map((supplier) => ({ supplierId: supplier.id, cashAmount: Number(allocations[supplier.id]?.cashAmount || 0), mercadoPagoAmount: Number(allocations[supplier.id]?.mercadoPagoAmount || 0) })).filter((allocation) => allocation.cashAmount + allocation.mercadoPagoAmount > 0),
       endingCashBalance: Number(endingBalances.cash || 0),
@@ -255,6 +259,7 @@ function EditShiftCloseForm({ close, suppliers, cafeteria, cashDrops, onSave, on
   }
 
   return <form className="shift-close" onSubmit={submit}>
+    <div className="close-date-edit"><label><span>Fecha del cierre</span><input required type="date" value={businessDate} onChange={(event) => setBusinessDate(event.target.value)} /></label><label><span>Turno</span><select value={businessShift} onChange={(event) => setBusinessShift(event.target.value)}><option value="morning">Mañana</option><option value="afternoon">Tarde</option></select></label><small>También se moverán las compras, tiradas y reservas asociadas a este turno.</small></div>
     <EndingBalances balances={endingBalances} cashDrops={cashDrops} onChange={setEndingBalances} />
     <CashDropsSummary cashDrops={cashDrops} />
     <SupplierAllocations suppliers={suppliers} allocations={allocations} onAllocationsChange={setAllocations} />
@@ -474,6 +479,8 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
     const saved = await execute(() => api(`/cigarettes/closes/${editingClose.id}`, { method: 'PUT', body: JSON.stringify(request) }), 'Cierre corregido y stock actualizado.')
     if (saved) {
       setEditingClose(null)
+      setDate(request.businessDate || date)
+      setShift(request.shift || editingClose.shift)
       setTab('history')
     }
   }

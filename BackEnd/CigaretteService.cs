@@ -235,6 +235,10 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
             throw new CigaretteValidationException("La corrección contiene un cigarrillo que no pertenece al cierre.");
 
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var targetBusinessDate = request.BusinessDate ?? close.BusinessDate;
+        var targetShift = request.Shift is null ? close.Shift : NormalizeShift(request.Shift);
+        if (targetBusinessDate != close.BusinessDate || targetShift != close.Shift)
+            await MoveCloseSlotAsync(close, targetBusinessDate, targetShift, cancellationToken);
         var productIds = close.Items.Select(item => item.CigaretteProductId).ToList();
         var products = await db.CigaretteProducts.Where(item => productIds.Contains(item.Id)).ToDictionaryAsync(item => item.Id, cancellationToken);
         if (products.Count != productIds.Count) throw new CigaretteNotFoundException("Uno de los cigarrillos del cierre no existe.");
@@ -270,6 +274,57 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return await ToResponseAsync(close, cancellationToken);
+    }
+
+    private async Task MoveCloseSlotAsync(CigaretteShiftClose close, DateOnly targetBusinessDate, string targetShift, CancellationToken cancellationToken)
+    {
+        if (await db.CigaretteShiftCloses.AnyAsync(item => item.Id != close.Id && item.BusinessDate == targetBusinessDate && item.Shift == targetShift, cancellationToken))
+            throw new CigaretteValidationException("Ya existe un cierre para ese día y turno.");
+
+        if (await db.CigarettePurchases.AnyAsync(item => item.BusinessDate == targetBusinessDate && item.Shift == targetShift, cancellationToken))
+            throw new CigaretteValidationException("La fecha destino ya tiene compras cargadas para ese turno.");
+
+        if (await db.CashDrops.AnyAsync(item => item.BusinessDate == targetBusinessDate && item.Shift == targetShift, cancellationToken))
+            throw new CigaretteValidationException("La fecha destino ya tiene tiradas de efectivo para ese turno.");
+
+        if (await db.CafeteriaSales.AnyAsync(item => item.BusinessDate == targetBusinessDate && item.Shift == targetShift, cancellationToken))
+            throw new CigaretteValidationException("La fecha destino ya tiene ventas de cafetería para ese turno.");
+
+        var purchases = await db.CigarettePurchases
+            .Where(item => item.BusinessDate == close.BusinessDate && item.Shift == close.Shift)
+            .ToListAsync(cancellationToken);
+        foreach (var purchase in purchases)
+        {
+            purchase.BusinessDate = targetBusinessDate;
+            purchase.Shift = targetShift;
+        }
+
+        var cashDrops = await db.CashDrops
+            .Where(item => item.CigaretteShiftCloseId == close.Id)
+            .ToListAsync(cancellationToken);
+        foreach (var cashDrop in cashDrops)
+        {
+            cashDrop.BusinessDate = targetBusinessDate;
+            cashDrop.Shift = targetShift;
+        }
+
+        var supplierTransactions = await db.SupplierTransactions
+            .Where(item => item.CigaretteShiftCloseId == close.Id)
+            .ToListAsync(cancellationToken);
+        foreach (var supplierTransaction in supplierTransactions)
+            supplierTransaction.BusinessDate = targetBusinessDate;
+
+        var cafeteriaSales = await db.CafeteriaSales
+            .Where(item => item.BusinessDate == close.BusinessDate && item.Shift == close.Shift)
+            .ToListAsync(cancellationToken);
+        foreach (var sale in cafeteriaSales)
+        {
+            sale.BusinessDate = targetBusinessDate;
+            sale.Shift = targetShift;
+        }
+
+        close.BusinessDate = targetBusinessDate;
+        close.Shift = targetShift;
     }
 
     private async Task UpdateSupplierAllocationsAsync(CigaretteShiftClose close, IReadOnlyList<SupplierAllocationRequest> requestedAllocations, CancellationToken cancellationToken)
