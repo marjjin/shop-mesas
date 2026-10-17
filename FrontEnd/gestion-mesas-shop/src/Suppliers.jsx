@@ -2,6 +2,21 @@ import { useCallback, useEffect, useState } from 'react'
 import './Suppliers.css'
 
 const money = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 })
+const editableTransactionTypes = new Set(['purchase', 'reserved_purchase', 'payment', 'reserved_adjustment', 'current_account_adjustment', 'reserved_exchange'])
+
+function transactionLabel(type) {
+  return type === 'allocation' ? 'Reserva de cierre' : type === 'purchase' ? 'Compra a cuenta corriente' : type === 'reserved_purchase' ? 'Compra con fondos reservados' : type === 'reserved_transfer_in' ? 'Fondos recibidos de otro proveedor' : type === 'reserved_transfer_out' ? 'Fondos transferidos a otro proveedor' : type === 'reserved_exchange' ? 'Movimiento entre efectivo y Mercado Pago' : type === 'reserved_adjustment' ? 'Ajuste de fondos reservados' : type === 'current_account_adjustment' ? 'Ajuste de cuenta corriente' : 'Pago de cuenta corriente'
+}
+
+function transactionFormValues(transaction) {
+  const splitType = transaction.type === 'reserved_purchase' || transaction.type === 'payment'
+  return {
+    amount: String(transaction.amount),
+    cashAmount: splitType ? String(Math.abs(transaction.cashAmount)) : String(transaction.cashAmount),
+    mercadoPagoAmount: splitType ? String(Math.abs(transaction.mercadoPagoAmount)) : String(transaction.mercadoPagoAmount),
+    note: transaction.note || ''
+  }
+}
 
 function normalizeSuppliers(value) {
   return (Array.isArray(value) ? value : []).map((supplier) => ({
@@ -30,6 +45,9 @@ export default function Suppliers({ api }) {
   const [creatingSupplier, setCreatingSupplier] = useState(false)
   const [historyFilter, setHistoryFilter] = useState('all')
   const [message, setMessage] = useState('')
+  const [editingTransaction, setEditingTransaction] = useState(null)
+  const [transactionForm, setTransactionForm] = useState({ amount: '', cashAmount: '', mercadoPagoAmount: '', note: '' })
+  const [transactionBusy, setTransactionBusy] = useState(false)
   const [selectedSupplierId, setSelectedSupplierId] = useState(() => {
     const storedSupplierId = Number(sessionStorage.getItem('mesa-supplier-id'))
     return Number.isInteger(storedSupplierId) && storedSupplierId > 0 ? storedSupplierId : null
@@ -87,6 +105,33 @@ export default function Suppliers({ api }) {
       setPurchase({ amount: '', note: '', paymentMethod: 'reserved', cashAmount: '', mercadoPagoAmount: '' })
       await load()
     } catch (error) { setMessage(error.message) }
+  }
+  const beginTransactionEdit = (transaction) => {
+    setEditingTransaction(transaction)
+    setTransactionForm(transactionFormValues(transaction))
+  }
+  const saveTransaction = async (event, supplier) => {
+    event.preventDefault()
+    const amount = Number(transactionForm.amount)
+    const cashAmount = Number(transactionForm.cashAmount || 0)
+    const mercadoPagoAmount = Number(transactionForm.mercadoPagoAmount || 0)
+    setTransactionBusy(true)
+    try {
+      await api(`/suppliers/${supplier.id}/transactions/${editingTransaction.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ amount, cashAmount, mercadoPagoAmount, note: transactionForm.note })
+      })
+      setEditingTransaction(null)
+      await load()
+    } catch (error) { setMessage(error.message) } finally { setTransactionBusy(false) }
+  }
+  const deleteTransaction = async (transaction, supplier) => {
+    if (!window.confirm(`¿Eliminar ${transactionLabel(transaction.type).toLowerCase()}? Esta acción ajustará los saldos del proveedor.`)) return
+    setTransactionBusy(true)
+    try {
+      await api(`/suppliers/${supplier.id}/transactions/${transaction.id}`, { method: 'DELETE' })
+      await load()
+    } catch (error) { setMessage(error.message) } finally { setTransactionBusy(false) }
   }
   const transferReservedFunds = async (event, supplier) => {
     event.preventDefault()
@@ -168,6 +213,7 @@ export default function Suppliers({ api }) {
       <button type="button" className="supplier-back" onClick={() => setSelectedSupplierId(null)}>← Volver a proveedores</button>
       <header className="supplier-detail-header"><div><p className="eyebrow">CUENTA CORRIENTE</p><h1>{selectedSupplier.name}</h1><p>Administrá reservas, compras, pagos y movimientos del proveedor.</p>{selectedSupplier.isSeparateCashBox && <span className="supplier-separate-cash-box">Caja aparte</span>}</div><div className="supplier-detail-actions"><button type="button" className={`supplier-cash-box-toggle ${selectedSupplier.isSeparateCashBox ? 'active' : ''}`} onClick={() => setSeparateCashBox(selectedSupplier, !selectedSupplier.isSeparateCashBox)}>{selectedSupplier.isSeparateCashBox ? 'Caja aparte activada' : 'Marcar como caja aparte'}</button><button type="button" className="supplier-edit-balances" onClick={() => { setBalances({ reservedCashBalance: String(selectedSupplier.reservedCashBalance), reservedMercadoPagoBalance: String(selectedSupplier.reservedMercadoPagoBalance), currentAccountBalance: String(selectedSupplier.currentAccountBalance), note: '' }); setEditingBalances(true) }}>Editar saldos</button><button type="button" className="supplier-remove" onClick={() => deactivate(selectedSupplier)} title="Desactivar proveedor">Desactivar proveedor</button></div></header>
       {message && <p className="supplier-message">{message}</p>}
+      {editingTransaction && <div className="supplier-modal-backdrop" role="presentation"><section className="supplier-balance-modal" role="dialog" aria-modal="true" aria-labelledby="supplier-transaction-modal-title"><div className="supplier-modal-header"><div><small>EDITAR MOVIMIENTO</small><h2 id="supplier-transaction-modal-title">{transactionLabel(editingTransaction.type)}</h2><p>El cambio actualizará automáticamente los saldos del proveedor.</p></div><button type="button" onClick={() => setEditingTransaction(null)} aria-label="Cerrar edición de movimiento">×</button></div><form className="supplier-payment" onSubmit={(event) => saveTransaction(event, selectedSupplier)}><label>Importe<input required type="number" step="0.01" value={transactionForm.amount} onChange={(event) => setTransactionForm({ ...transactionForm, amount: event.target.value })} /></label>{(editingTransaction.type === 'reserved_purchase' || editingTransaction.type === 'payment' || editingTransaction.type === 'reserved_adjustment') && <div className="supplier-payment-split"><label>{editingTransaction.type === 'reserved_adjustment' ? 'Cambio en efectivo' : 'Efectivo'}<input type="number" step="0.01" value={transactionForm.cashAmount} onChange={(event) => setTransactionForm({ ...transactionForm, cashAmount: event.target.value })} /></label><label>{editingTransaction.type === 'reserved_adjustment' ? 'Cambio en Mercado Pago' : 'Mercado Pago'}<input type="number" step="0.01" value={transactionForm.mercadoPagoAmount} onChange={(event) => setTransactionForm({ ...transactionForm, mercadoPagoAmount: event.target.value })} /></label></div>}<label>Detalle opcional<input maxLength="250" value={transactionForm.note} onChange={(event) => setTransactionForm({ ...transactionForm, note: event.target.value })} placeholder="Detalle del movimiento" /></label><div className="supplier-modal-buttons"><button type="button" className="supplier-modal-cancel" onClick={() => setEditingTransaction(null)}>Cancelar</button><button disabled={transactionBusy}>Guardar cambios</button></div></form></section></div>}
       {editingBalances && <div className="supplier-modal-backdrop" role="presentation"><section className="supplier-balance-modal" role="dialog" aria-modal="true" aria-labelledby="supplier-balance-modal-title"><div className="supplier-modal-header"><div><small>CONFIGURACIÓN DE SALDOS</small><h2 id="supplier-balance-modal-title">Editar saldos de {selectedSupplier.name}</h2><p>Los cambios quedarán registrados en el historial del proveedor.</p></div><button type="button" onClick={() => setEditingBalances(false)} aria-label="Cerrar edición de saldos">×</button></div><form className="supplier-payment" onSubmit={(event) => editBalances(event, selectedSupplier)}><label>Reservado en efectivo<input required type="number" min="0" step="0.01" value={balances.reservedCashBalance} onChange={(event) => setBalances({ ...balances, reservedCashBalance: event.target.value })} placeholder="Importe" /></label><label>Reservado en Mercado Pago<input required type="number" min="0" step="0.01" value={balances.reservedMercadoPagoBalance} onChange={(event) => setBalances({ ...balances, reservedMercadoPagoBalance: event.target.value })} placeholder="Importe" /></label><label>Cuenta corriente<input required type="number" min="0" step="0.01" value={balances.currentAccountBalance} onChange={(event) => setBalances({ ...balances, currentAccountBalance: event.target.value })} placeholder="Importe" /></label><label>Motivo opcional<input maxLength="250" value={balances.note} onChange={(event) => setBalances({ ...balances, note: event.target.value })} placeholder="Ej.: saldo inicial del proveedor" /></label><div className="supplier-modal-buttons"><button type="button" className="supplier-modal-cancel" onClick={() => setEditingBalances(false)}>Cancelar</button><button>Guardar saldos</button></div></form></section></div>}
       <section className="supplier-summary">
         <div className="supplier-reserved-total"><span>Fondos reservados totales</span><strong>{money.format(reservedTotal)}</strong></div>
@@ -212,7 +258,7 @@ export default function Suppliers({ api }) {
           </form>}</section>}
         </section>
         <section className="supplier-movements"><div className="supplier-history-header"><div><small>HISTORIAL</small><h2>Movimientos del proveedor</h2></div><label>Filtrar<select value={historyFilter} onChange={(event) => setHistoryFilter(event.target.value)}><option value="all">Todos</option><option value="reservations">Reservas</option><option value="purchases">Compras</option><option value="payments">Pagos</option><option value="transfers">Transferencias</option><option value="adjustments">Ajustes</option></select></label></div>
-          {visibleTransactions.length ? <div className="supplier-history">{visibleTransactions.map((transaction) => <div key={transaction.id} className={`supplier-history-item ${transaction.type}`}><span><b>{transaction.type === 'allocation' ? 'Reserva de cierre' : transaction.type === 'purchase' ? 'Compra a cuenta corriente' : transaction.type === 'reserved_purchase' ? 'Compra con fondos reservados' : transaction.type === 'reserved_transfer_in' ? 'Fondos recibidos de otro proveedor' : transaction.type === 'reserved_transfer_out' ? 'Fondos transferidos a otro proveedor' : transaction.type === 'reserved_exchange' ? 'Movimiento entre efectivo y Mercado Pago' : transaction.type === 'reserved_adjustment' ? 'Ajuste de fondos reservados' : transaction.type === 'current_account_adjustment' ? 'Ajuste de cuenta corriente' : 'Pago de cuenta corriente'}</b><small>{new Date(`${transaction.businessDate}T12:00:00`).toLocaleDateString('es-AR')}{transaction.shift ? ` · Turno ${transaction.shift === 'morning' ? 'mañana' : 'tarde'}` : ''}{transaction.note ? ` · ${transaction.note}` : ''}</small></span><strong className={`${transaction.type} ${transaction.amount < 0 ? 'debit' : 'credit'}`}>{transaction.type === 'reserved_exchange' ? '↔' : transaction.type === 'purchase' || transaction.type === 'allocation' || transaction.type === 'reserved_transfer_in' || (transaction.type === 'reserved_adjustment' && transaction.amount > 0) || (transaction.type === 'current_account_adjustment' && transaction.amount > 0) ? '+' : '−'}{money.format(Math.abs(transaction.amount))}</strong></div>)}</div> : <p className="supplier-empty">{selectedSupplier.transactions.length ? 'No hay movimientos para este filtro.' : 'Este proveedor todavía no tiene movimientos.'}</p>}
+          {visibleTransactions.length ? <div className="supplier-history">{visibleTransactions.map((transaction) => <div key={transaction.id} className={`supplier-history-item ${transaction.type}`}><div className="supplier-history-main"><span><b>{transactionLabel(transaction.type)}</b><small>{new Date(`${transaction.businessDate}T12:00:00`).toLocaleDateString('es-AR')}{transaction.shift ? ` · Turno ${transaction.shift === 'morning' ? 'mañana' : 'tarde'}` : ''}{transaction.note ? ` · ${transaction.note}` : ''}</small></span><strong className={`${transaction.type} ${transaction.amount < 0 ? 'debit' : 'credit'}`}>{transaction.type === 'reserved_exchange' ? '↔' : transaction.type === 'purchase' || transaction.type === 'allocation' || transaction.type === 'reserved_transfer_in' || (transaction.type === 'reserved_adjustment' && transaction.amount > 0) || (transaction.type === 'current_account_adjustment' && transaction.amount > 0) ? '+' : '−'}{money.format(Math.abs(transaction.amount))}</strong></div>{editableTransactionTypes.has(transaction.type) ? <details className="supplier-history-actions"><summary aria-label={`Acciones para ${transactionLabel(transaction.type)}`} title="Acciones del movimiento">⋮</summary><div><button type="button" onClick={() => beginTransactionEdit(transaction)}>Editar</button><button type="button" className="danger" disabled={transactionBusy} onClick={() => deleteTransaction(transaction, selectedSupplier)}>Eliminar</button></div></details> : <span className="supplier-history-action-placeholder" aria-hidden="true" />}</div>)}</div> : <p className="supplier-empty">{selectedSupplier.transactions.length ? 'No hay movimientos para este filtro.' : 'Este proveedor todavía no tiene movimientos.'}</p>}
         </section>
       </section>
     </div>

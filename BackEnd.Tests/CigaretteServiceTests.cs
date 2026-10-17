@@ -151,6 +151,38 @@ public sealed class CigaretteServiceTests
     }
 
     [Fact]
+    public async Task ManualSupplierTransactionCanBeUpdatedAndDeleted()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var service = new SupplierService(fixture.Db);
+        var supplier = await service.CreateAsync(new CreateSupplierRequest("Proveedor Movimiento"), default);
+        var savedSupplier = fixture.Db.Suppliers.Single(item => item.Id == supplier.Id);
+        savedSupplier.ReservedBalance = 4000m;
+        savedSupplier.ReservedCashBalance = 3000m;
+        savedSupplier.ReservedMercadoPagoBalance = 1000m;
+        await fixture.Db.SaveChangesAsync();
+
+        var created = await service.RecordPurchaseAsync(
+            supplier.Id, new CreateSupplierPurchaseRequest(1000m, "Compra original", "reserved", 1000m, 0m), default);
+        var transaction = Assert.Single(created.Transactions);
+
+        var updated = await service.UpdateTransactionAsync(
+            supplier.Id, transaction.Id, new UpdateSupplierTransactionRequest(1500m, 500m, 1000m, "Compra corregida"), default);
+
+        Assert.NotNull(updated);
+        Assert.Equal(2500m, updated!.ReservedBalance);
+        Assert.Equal(2500m, updated.ReservedCashBalance);
+        Assert.Equal(0m, updated.ReservedMercadoPagoBalance);
+        Assert.Equal("Compra corregida", Assert.Single(updated.Transactions).Note);
+
+        var deleted = await service.DeleteTransactionAsync(supplier.Id, transaction.Id, default);
+
+        Assert.NotNull(deleted);
+        Assert.Equal(4000m, deleted!.ReservedBalance);
+        Assert.Empty(deleted.Transactions);
+    }
+
+    [Fact]
     public async Task ReservedFundsTransferMovesBalanceAndRecordsBothMovements()
     {
         await using var fixture = await TestFixture.CreateAsync();

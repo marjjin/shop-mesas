@@ -14,6 +14,8 @@ public static class SupplierEndpoints
         group.MapPost("/{id:int}/exchanges", ExchangeReservedFundsAsync);
         group.MapPost("/{id:int}/purchases", PurchaseAsync);
         group.MapPost("/{id:int}/payments", PaymentAsync);
+        group.MapPatch("/{id:int}/transactions/{transactionId:int}", UpdateTransactionAsync);
+        group.MapDelete("/{id:int}/transactions/{transactionId:int}", DeleteTransactionAsync);
         return group;
     }
 
@@ -44,6 +46,16 @@ public static class SupplierEndpoints
     {
         try { return Results.Ok(await service.RecordPurchaseAsync(id, request, ct)); }
         catch (KeyNotFoundException) { return Results.NotFound(); }
+        catch (SupplierValidationException exception) { return Invalid(exception.Message); }
+    }
+    private static async Task<IResult> UpdateTransactionAsync(int id, int transactionId, UpdateSupplierTransactionRequest request, ISupplierService service, CancellationToken ct)
+    {
+        try { var supplier = await service.UpdateTransactionAsync(id, transactionId, request, ct); return supplier is null ? Results.NotFound() : Results.Ok(supplier); }
+        catch (SupplierValidationException exception) { return Invalid(exception.Message); }
+    }
+    private static async Task<IResult> DeleteTransactionAsync(int id, int transactionId, ISupplierService service, CancellationToken ct)
+    {
+        try { var supplier = await service.DeleteTransactionAsync(id, transactionId, ct); return supplier is null ? Results.NotFound() : Results.Ok(supplier); }
         catch (SupplierValidationException exception) { return Invalid(exception.Message); }
     }
     private static async Task<IResult> TransferReservedFundsAsync(CreateSupplierReservedFundsTransferRequest request, ISupplierService service, CancellationToken ct)

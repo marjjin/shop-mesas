@@ -167,6 +167,8 @@ public sealed record CreateSupplierPaymentRequest(decimal CashAmount, decimal Me
 {
     public decimal Amount => CashAmount + MercadoPagoAmount;
 }
+/// <summary>Datos editables de un movimiento manual de proveedor.</summary>
+public sealed record UpdateSupplierTransactionRequest(decimal Amount, decimal CashAmount = 0, decimal MercadoPagoAmount = 0, string? Note = null);
 /// <summary>Compra a cuenta que incrementa el saldo pendiente de un proveedor.</summary>
 public sealed record CreateSupplierPurchaseRequest(decimal Amount, string? Note, string PaymentMethod, decimal CashAmount = 0, decimal MercadoPagoAmount = 0);
 /// <summary>Transferencia de fondos reservados entre proveedores.</summary>
