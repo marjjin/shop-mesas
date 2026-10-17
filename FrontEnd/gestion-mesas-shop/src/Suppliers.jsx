@@ -10,6 +10,12 @@ function normalizeSuppliers(value) {
   }))
 }
 
+function sumPaymentAmounts(cashAmount, mercadoPagoAmount) {
+  if (!cashAmount && !mercadoPagoAmount) return ''
+  const total = Number(cashAmount || 0) + Number(mercadoPagoAmount || 0)
+  return Number.isFinite(total) ? String(Math.round(total * 100) / 100) : ''
+}
+
 export default function Suppliers({ api }) {
   const [suppliers, setSuppliers] = useState([])
   const [name, setName] = useState('')
@@ -40,6 +46,7 @@ export default function Suppliers({ api }) {
   }, [selectedSupplierId])
   useEffect(() => {
     if (selectedSupplierId && suppliers.length && !suppliers.some((supplier) => supplier.id === selectedSupplierId && supplier.isActive))
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedSupplierId(null)
   }, [selectedSupplierId, suppliers])
 
@@ -73,7 +80,8 @@ export default function Suppliers({ api }) {
     try {
       const cashAmount = Number(purchase.cashAmount || 0)
       const mercadoPagoAmount = Number(purchase.mercadoPagoAmount || 0)
-      if (purchase.paymentMethod === 'reserved' && amount !== cashAmount + mercadoPagoAmount) return setMessage('El efectivo y Mercado Pago deben sumar el importe de la compra.')
+      const splitAmount = Number(sumPaymentAmounts(purchase.cashAmount, purchase.mercadoPagoAmount) || 0)
+      if (purchase.paymentMethod === 'reserved' && amount !== splitAmount) return setMessage('El efectivo y Mercado Pago deben sumar el importe de la compra.')
       if (cashAmount > supplier.reservedCashBalance || mercadoPagoAmount > supplier.reservedMercadoPagoBalance) return setMessage(`La compra no puede superar los fondos reservados seleccionados de ${supplier.name}.`)
       await api(`/suppliers/${supplier.id}/purchases`, { method: 'POST', body: JSON.stringify({ amount, note: purchase.note, paymentMethod: purchase.paymentMethod, cashAmount, mercadoPagoAmount }) })
       setPurchase({ amount: '', note: '', paymentMethod: 'reserved', cashAmount: '', mercadoPagoAmount: '' })
@@ -148,8 +156,6 @@ export default function Suppliers({ api }) {
       .reduce((total, transaction) => total + transaction.amount, 0)
     const reservedTotal = selectedSupplier.reservedCashBalance + selectedSupplier.reservedMercadoPagoBalance
     const purchaseAmount = Number(purchase.amount || 0)
-    const purchaseSplitAmount = Number(purchase.cashAmount || 0) + Number(purchase.mercadoPagoAmount || 0)
-    const purchaseSplitDifference = purchaseAmount - purchaseSplitAmount
     const transferTargets = suppliers.filter((supplier) => supplier.isActive && supplier.id !== selectedSupplier.id)
     const visibleTransactions = selectedSupplier.transactions.filter((transaction) => historyFilter === 'all'
       || (historyFilter === 'reservations' && transaction.type === 'allocation')
@@ -180,9 +186,9 @@ export default function Suppliers({ api }) {
           </div>
           {operation === 'purchase' && <form className="supplier-payment supplier-payment-detail" onSubmit={(event) => registerPurchase(event, selectedSupplier)}>
             <div><small>REGISTRAR COMPRA</small><h2>Compra de mercadería</h2><p>Elegí si la compra usa los fondos reservados o queda en cuenta corriente. No modifica el stock.</p></div>
-            <label>Forma de pago<select value={purchase.paymentMethod} onChange={(event) => setPurchase({ ...purchase, paymentMethod: event.target.value, cashAmount: '', mercadoPagoAmount: '' })}><option value="reserved">Con fondos reservados</option><option value="account">A cuenta corriente</option></select></label>
-            <label>Importe<input type="number" min="0.01" step="0.01" value={purchase.amount} onChange={(event) => setPurchase({ ...purchase, amount: event.target.value })} placeholder="Importe" /></label>
-            {purchase.paymentMethod === 'reserved' && <section className="supplier-split-section"><div className="supplier-split-heading"><div><small>DISTRIBUCIÓN DEL PAGO</small><b>¿Con qué fondos pagás?</b></div><span>Disponible: {money.format(reservedTotal)}</span></div><div className="supplier-payment-split"><label><span>Efectivo</span><small>Disponible: {money.format(selectedSupplier.reservedCashBalance)}</small><input type="number" min="0" max={selectedSupplier.reservedCashBalance} step="0.01" value={purchase.cashAmount} onChange={(event) => setPurchase({ ...purchase, cashAmount: event.target.value })} placeholder="$ 0" /></label><label><span>Mercado Pago</span><small>Disponible: {money.format(selectedSupplier.reservedMercadoPagoBalance)}</small><input type="number" min="0" max={selectedSupplier.reservedMercadoPagoBalance} step="0.01" value={purchase.mercadoPagoAmount} onChange={(event) => setPurchase({ ...purchase, mercadoPagoAmount: event.target.value })} placeholder="$ 0" /></label></div>{purchaseAmount > 0 && <p className={`supplier-split-status ${purchaseSplitDifference < 0 ? 'excess' : purchaseSplitDifference === 0 ? 'complete' : ''}`}>{purchaseSplitDifference > 0 ? `Faltan distribuir ${money.format(purchaseSplitDifference)}.` : purchaseSplitDifference < 0 ? `El reparto supera el importe por ${money.format(Math.abs(purchaseSplitDifference))}.` : 'Importe distribuido correctamente.'}</p>}</section>}
+            <label>Forma de pago<select value={purchase.paymentMethod} onChange={(event) => setPurchase({ ...purchase, paymentMethod: event.target.value, cashAmount: '', mercadoPagoAmount: '', ...(event.target.value === 'reserved' ? { amount: '' } : {}) })}><option value="reserved">Con fondos reservados</option><option value="account">A cuenta corriente</option></select></label>
+            <label>Importe<input type="number" min="0.01" step="0.01" value={purchase.amount} onChange={(event) => setPurchase({ ...purchase, amount: event.target.value })} placeholder="Importe" readOnly={purchase.paymentMethod === 'reserved'} />{purchase.paymentMethod === 'reserved' && <small className="supplier-input-hint">Se calcula automáticamente con la distribución del pago.</small>}</label>
+            {purchase.paymentMethod === 'reserved' && <section className="supplier-split-section"><div className="supplier-split-heading"><div><small>DISTRIBUCIÓN DEL PAGO</small><b>¿Con qué fondos pagás?</b></div><span>Disponible: {money.format(reservedTotal)}</span></div><div className="supplier-payment-split"><label><span>Efectivo</span><small>Disponible: {money.format(selectedSupplier.reservedCashBalance)}</small><input type="number" min="0" max={selectedSupplier.reservedCashBalance} step="0.01" value={purchase.cashAmount} onChange={(event) => setPurchase({ ...purchase, cashAmount: event.target.value, amount: sumPaymentAmounts(event.target.value, purchase.mercadoPagoAmount) })} placeholder="$ 0" /></label><label><span>Mercado Pago</span><small>Disponible: {money.format(selectedSupplier.reservedMercadoPagoBalance)}</small><input type="number" min="0" max={selectedSupplier.reservedMercadoPagoBalance} step="0.01" value={purchase.mercadoPagoAmount} onChange={(event) => setPurchase({ ...purchase, mercadoPagoAmount: event.target.value, amount: sumPaymentAmounts(purchase.cashAmount, event.target.value) })} placeholder="$ 0" /></label></div>{purchaseAmount > 0 && <p className="supplier-split-status complete">Importe distribuido correctamente.</p>}</section>}
             <label>Detalle opcional<input maxLength="250" value={purchase.note} onChange={(event) => setPurchase({ ...purchase, note: event.target.value })} placeholder="Ej.: compra de mercadería" /></label>
             <button>Registrar compra</button>
           </form>}
