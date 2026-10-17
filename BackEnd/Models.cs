@@ -117,7 +117,8 @@ public sealed record CreateCigarettePurchaseRequest(int CigaretteProductId, int 
 /// <summary>Datos editables de una compra de cigarrillos.</summary>
 public sealed record UpdateCigarettePurchaseRequest(int Quantity);
 /// <summary>Stock físico contado al finalizar un turno.</summary>
-public sealed record CigaretteCloseItemRequest(int CigaretteProductId, int FinalStock);
+    public sealed record CigaretteCloseItemRequest(int CigaretteProductId, int FinalStock);
+    public sealed record ConsolidateCigaretteCloseRequest(int? TargetCloseId, DateOnly? TargetDate = null, string? TargetShift = null);
 /// <summary>Datos para cerrar un turno de cigarrillos.</summary>
 public sealed record CreateCigaretteShiftCloseRequest(DateOnly BusinessDate, string Shift, IReadOnlyList<CigaretteCloseItemRequest> Items, IReadOnlyList<SupplierAllocationRequest>? SupplierAllocations = null, decimal EndingCashBalance = 0, decimal EndingMercadoPagoBalance = 0, decimal NextShiftChangeCash = 0, decimal ReceivedChangeCash = 0, decimal PosnetTotal = 0);
 /// <summary>Stock físico corregido para los productos de un cierre existente.</summary>

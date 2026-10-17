@@ -20,7 +20,8 @@ public sealed class CafeteriaService(RestaurantContext db) : ICafeteriaService
         var products = await GetProductsAsync(cancellationToken);
         var lastClose = await GetLastCloseAsync(cancellationToken);
         var activeShift = lastClose?.Shift == "morning" ? "afternoon" : "morning";
-        var summary = await GetSummaryAfterAsync(lastClose?.ClosedAt, cancellationToken);
+        var summary = await GetSummaryAsync(sale => !db.CigaretteShiftCloses.Any(close =>
+            close.BusinessDate == sale.BusinessDate && close.Shift == sale.Shift), cancellationToken);
         var daySummary = await GetPeriodSummaryAsync(date, date.AddDays(1), cancellationToken);
         var monthStart = new DateOnly(date.Year, date.Month, 1);
         var monthSummary = await GetPeriodSummaryAsync(monthStart, monthStart.AddMonths(1), cancellationToken);
@@ -93,9 +94,6 @@ public sealed class CafeteriaService(RestaurantContext db) : ICafeteriaService
 
     public Task<IReadOnlyList<CafeteriaShiftSalesHistoryResponse>> GetShiftHistoryAsync(DateOnly date, CancellationToken cancellationToken) =>
         GetShiftHistoryForPeriodAsync(date, date.AddDays(1), cancellationToken);
-
-    private async Task<CafeteriaSalesSummaryResponse> GetSummaryAfterAsync(DateTime? closedAt, CancellationToken cancellationToken) =>
-        await GetSummaryAsync(sale => !closedAt.HasValue || sale.CreatedAt > closedAt.Value, cancellationToken);
 
     private async Task<CafeteriaSalesSummaryResponse> GetSummaryAsync(
         System.Linq.Expressions.Expression<Func<CafeteriaSale, bool>> predicate,

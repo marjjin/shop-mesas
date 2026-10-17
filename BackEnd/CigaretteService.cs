@@ -14,6 +14,7 @@ public interface ICigaretteService
     Task<bool> DeletePurchaseAsync(int id, CancellationToken cancellationToken);
     Task<CigaretteShiftCloseResponse> CloseShiftAsync(CreateCigaretteShiftCloseRequest request, CancellationToken cancellationToken);
     Task<CigaretteShiftCloseResponse?> UpdateCloseAsync(int id, UpdateCigaretteShiftCloseRequest request, CancellationToken cancellationToken);
+    Task<CigaretteShiftCloseResponse?> ConsolidateCloseAsync(int id, int? targetId, CancellationToken cancellationToken, DateOnly? targetDate = null, string? targetShift = null);
 }
 
 public sealed class CigaretteValidationException(string message) : InvalidOperationException(message);
@@ -274,6 +275,97 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return await ToResponseAsync(close, cancellationToken);
+    }
+
+    public async Task<CigaretteShiftCloseResponse?> ConsolidateCloseAsync(int id, int? targetId, CancellationToken cancellationToken, DateOnly? targetDate = null, string? targetShift = null)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var source = await db.CigaretteShiftCloses.Include(close => close.Items).SingleOrDefaultAsync(close => close.Id == id, cancellationToken);
+        if (source is null) return null;
+        if (targetId is null)
+        {
+            var destinationDate = targetDate ?? source.BusinessDate.AddDays(-1);
+            var destinationShift = NormalizeShift(targetShift ?? "afternoon");
+            if (destinationDate == source.BusinessDate && destinationShift == source.Shift)
+                throw new CigaretteValidationException("Elegí un destino distinto del turno de origen.");
+            if (await db.CigaretteShiftCloses.AnyAsync(close => close.BusinessDate == destinationDate && close.Shift == destinationShift, cancellationToken))
+                throw new CigaretteValidationException("El destino ahora tiene un cierre. Recargá la pantalla antes de reparar.");
+            var sourcePurchases = await db.CigarettePurchases.Where(p => p.BusinessDate == source.BusinessDate && p.Shift == source.Shift).ToListAsync(cancellationToken);
+            var sourceDrops = await db.CashDrops.Where(d => d.CigaretteShiftCloseId == id).ToListAsync(cancellationToken);
+            var sourceReservations = await db.SupplierTransactions.Where(t => t.CigaretteShiftCloseId == id).ToListAsync(cancellationToken);
+            var purchases = await db.CigarettePurchases.Where(p => p.BusinessDate == destinationDate && p.Shift == destinationShift).ToListAsync(cancellationToken);
+            var items = source.Items.ToDictionary(item => item.CigaretteProductId);
+            if (purchases.Any(p => p.CreatedAt > source.ClosedAt || !items.ContainsKey(p.CigaretteProductId)))
+                throw new CigaretteValidationException("Hay compras posteriores al cierre o productos fuera de su inventario. Revisá esas compras antes de reparar.");
+            var quantities = purchases.GroupBy(p => p.CigaretteProductId).ToDictionary(g => g.Key, g => g.Sum(p => p.Quantity));
+            var sourceQuantities = sourcePurchases.GroupBy(p => p.CigaretteProductId).ToDictionary(g => g.Key, g => g.Sum(p => p.Quantity));
+            if (sourcePurchases.Any(p => !items.ContainsKey(p.CigaretteProductId))
+                || source.Items.Any(item => item.PurchasedQuantity != sourceQuantities.GetValueOrDefault(item.CigaretteProductId)
+                    || item.InitialStock < quantities.GetValueOrDefault(item.CigaretteProductId)))
+                throw new CigaretteValidationException("Las compras no permiten reconstruir el stock inicial de forma segura.");
+            var drops = await db.CashDrops.Where(d => d.BusinessDate == destinationDate && d.Shift == destinationShift).ToListAsync(cancellationToken);
+            if (drops.Any(d => d.CigaretteShiftCloseId.HasValue))
+                throw new CigaretteValidationException("Una tirada del destino está vinculada a otro cierre.");
+            foreach (var item in source.Items)
+            {
+                // These purchases already contributed to stock before the original close.
+                var destinationPurchased = quantities.GetValueOrDefault(item.CigaretteProductId);
+                item.PurchasedQuantity += destinationPurchased;
+                item.InitialStock -= destinationPurchased;
+            }
+            foreach (var drop in drops) drop.CigaretteShiftCloseId = source.Id;
+            foreach (var purchase in sourcePurchases)
+            {
+                purchase.BusinessDate = destinationDate;
+                purchase.Shift = destinationShift;
+            }
+            foreach (var drop in sourceDrops)
+            {
+                drop.BusinessDate = destinationDate;
+                drop.Shift = destinationShift;
+            }
+            foreach (var reservation in sourceReservations) reservation.BusinessDate = destinationDate;
+            source.BusinessDate = destinationDate;
+            source.Shift = destinationShift;
+            await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return await ToResponseAsync(source, cancellationToken);
+        }
+        var target = await db.CigaretteShiftCloses.Include(close => close.Items).SingleOrDefaultAsync(close => close.Id == targetId, cancellationToken)
+            ?? throw new CigaretteValidationException("El cierre destino no existe.");
+        if (source.Id == target.Id || (targetDate.HasValue && target.BusinessDate != targetDate.Value)
+            || (targetShift is not null && target.Shift != NormalizeShift(targetShift)))
+            throw new CigaretteValidationException("El cierre destino no coincide con el turno elegido o es el mismo cierre.");
+        if (source.EndingCashBalance != 0 || source.EndingMercadoPagoBalance != 0 || source.PosnetTotal != 0 || source.NextShiftChangeCash != 0 || source.ReceivedChangeCash != 0
+            || await db.CashDrops.AnyAsync(drop => drop.CigaretteShiftCloseId == id || (drop.BusinessDate == source.BusinessDate && drop.Shift == source.Shift), cancellationToken)
+            || await db.SupplierTransactions.AnyAsync(item => item.CigaretteShiftCloseId == id, cancellationToken)
+            || await db.CigarettePurchases.AnyAsync(item => item.BusinessDate == source.BusinessDate && item.Shift == source.Shift, cancellationToken))
+            throw new CigaretteValidationException("El cierre de origen tiene caja, tiradas, reservas o compras. Requiere una revisión manual para conservar esos movimientos.");
+        var originalItems = source.Items.ToDictionary(item => item.CigaretteProductId);
+        if (target.Items.Count == 0 || target.Items.Count != originalItems.Count || target.Items.Any(item =>
+            !originalItems.TryGetValue(item.CigaretteProductId, out var original)
+            || item.SoldQuantity != 0 || item.SalesAmount != 0
+            || item.InitialStock != original.FinalStock
+            || item.FinalStock != item.InitialStock + item.PurchasedQuantity
+            || original.PurchasedQuantity != 0
+            || original.SoldQuantity != original.InitialStock - original.FinalStock
+            || original.SoldQuantity < 0))
+            throw new CigaretteValidationException("Los inventarios no coinciden con un cierre duplicado sin ventas. No se modificó ningún cierre.");
+
+        foreach (var item in target.Items)
+        {
+            var original = originalItems[item.CigaretteProductId];
+            item.InitialStock = original.InitialStock;
+            item.UnitPrice = original.UnitPrice;
+            item.SoldQuantity = original.SoldQuantity;
+            item.SalesAmount = original.SalesAmount;
+        }
+        // Keep destination purchases, cash, allocations and both dates' cafeteria sales.
+        // Inventory sales were already deducted by the original close.
+        db.CigaretteShiftCloses.Remove(source);
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return await ToResponseAsync(target, cancellationToken);
     }
 
     private async Task MoveCloseSlotAsync(CigaretteShiftClose close, DateOnly targetBusinessDate, string targetShift, CancellationToken cancellationToken)

@@ -221,8 +221,6 @@ function ShiftCloseForm({ products, purchases, suppliers, allocations, onAllocat
 }
 
 function EditShiftCloseForm({ close, suppliers, cafeteria, cashDrops, onSave, onCancel, busy }) {
-  const [businessDate, setBusinessDate] = useState(close.businessDate)
-  const [businessShift, setBusinessShift] = useState(close.shift)
   const [finalStocks, setFinalStocks] = useState(() => Object.fromEntries(close.items.map((item) => [item.cigaretteProductId, item.finalStock])))
   const [allocations, setAllocations] = useState(() => Object.fromEntries(close.supplierAllocations.map((allocation) => [allocation.supplierId, { cashAmount: allocation.cashAmount, mercadoPagoAmount: allocation.mercadoPagoAmount }])))
   const [endingBalances, setEndingBalances] = useState(() => ({ cash: close.endingCashBalance, mercadoPago: close.endingMercadoPagoBalance, posnet: close.posnetTotal, receivedChange: close.receivedChangeCash, change: close.nextShiftChangeCash }))
@@ -246,8 +244,6 @@ function EditShiftCloseForm({ close, suppliers, cafeteria, cashDrops, onSave, on
   const submit = (event) => {
     event.preventDefault()
     onSave({
-      businessDate,
-      shift: businessShift,
       items: rows.map((row) => ({ cigaretteProductId: row.cigaretteProductId, finalStock: row.final })),
       supplierAllocations: suppliers.map((supplier) => ({ supplierId: supplier.id, cashAmount: Number(allocations[supplier.id]?.cashAmount || 0), mercadoPagoAmount: Number(allocations[supplier.id]?.mercadoPagoAmount || 0) })).filter((allocation) => allocation.cashAmount + allocation.mercadoPagoAmount > 0),
       endingCashBalance: Number(endingBalances.cash || 0),
@@ -259,7 +255,6 @@ function EditShiftCloseForm({ close, suppliers, cafeteria, cashDrops, onSave, on
   }
 
   return <form className="shift-close" onSubmit={submit}>
-    <div className="close-date-edit"><label><span>Fecha del cierre</span><input required type="date" value={businessDate} onChange={(event) => setBusinessDate(event.target.value)} /></label><label><span>Turno</span><select value={businessShift} onChange={(event) => setBusinessShift(event.target.value)}><option value="morning">Mañana</option><option value="afternoon">Tarde</option></select></label><small>También se moverán las compras, tiradas y reservas asociadas a este turno.</small></div>
     <EndingBalances balances={endingBalances} cashDrops={cashDrops} onChange={setEndingBalances} />
     <CashDropsSummary cashDrops={cashDrops} />
     <SupplierAllocations suppliers={suppliers} allocations={allocations} onAllocationsChange={setAllocations} />
@@ -318,6 +313,8 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
   const [editing, setEditing] = useState(null)
   const [editingPurchase, setEditingPurchase] = useState(null)
   const [editingClose, setEditingClose] = useState(null)
+  const [repairDate, setRepairDate] = useState('')
+  const [repairShift, setRepairShift] = useState('afternoon')
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [visibleProductCount, setVisibleProductCount] = useState(10)
@@ -494,6 +491,31 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
     setEditingClose(close)
     setTab('close')
   }
+  const consolidateClose = async () => {
+    if (busy || !editingClose) return
+    const source = editingClose
+    const targetDate = repairDate || previousDateValue(source.businessDate)
+    try {
+      const targetDashboard = await api(`/cigarettes?date=${targetDate}`)
+      const target = targetDashboard.closes.find((close) => close.shift === repairShift)
+      if (!window.confirm(`¿Recuperar las ${source.totalSold} unidades vendidas por ${money.format(source.totalSales)} en el turno ${shifts[repairShift]} del ${targetDate}? La cafetería quedará en sus fechas actuales y el stock actual no cambiará. El turno ${shifts[source.shift]} del ${source.businessDate} quedará abierto. ${target ? 'Se consolidarán los dos cierres conservando la caja del destino.' : 'Se trasladará el cierre original conservando su caja e incorporando las tiradas del destino.'}`)) return
+      let repaired
+      const saved = await execute(async () => {
+        repaired = await api(`/cigarettes/closes/${source.id}/consolidate`, { method: 'POST', body: JSON.stringify({ targetCloseId: target?.id ?? null, targetDate, targetShift: repairShift }) })
+      }, 'Cierre reparado. El turno de origen quedó abierto; cafetería y stock conservados.')
+      if (saved) {
+        clearCloseDraft(source.businessDate, source.shift)
+        clearCloseDraft(targetDate, repairShift)
+        setEditingClose(null)
+        setDate(targetDate)
+        setShift(repairShift)
+        setTab('history')
+        onShiftClosed?.(repaired)
+      }
+    } catch (error) {
+      setMessage(error.message || 'No se pudo comprobar el cierre de destino.')
+    }
+  }
 
   const selectedClose = dashboard.closes.find((close) => close.shift === shift)
   const cashDrops = dashboard.cashDrops.filter((drop) => drop.shift === shift && !drop.isClosed)
@@ -524,6 +546,8 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
     {message && <p className={message.includes('correctamente') || message.includes('actualizado') ? 'cigarette-message success' : 'cigarette-message'}>{message}</p>}
     {inventoryDetails && <div className="inventory-details-backdrop" role="presentation"><section className="inventory-details" role="dialog" aria-modal="true" aria-labelledby="inventory-details-title"><header><div><small>{inventoryDetails === 'ranking' ? 'VENTAS DEL MES' : 'ALERTA DE INVENTARIO'}</small><h2 id="inventory-details-title">{inventoryDetails === 'ranking' ? `Ranking de ${new Date(`${date}T12:00:00`).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}` : inventoryDetails === 'low' ? 'Variedades con bajo stock' : 'Variedades sin stock'}</h2></div><button type="button" aria-label="Cerrar detalle" onClick={() => setInventoryDetails(null)}>×</button></header>{inventoryDetails === 'ranking' ? <div className="ranking-list">{loadingRanking ? <p>Cargando ranking…</p> : rankingError ? <p className="ranking-error">{rankingError}</p> : monthlyRanking.length ? monthlyRanking.map((item, index) => <div key={item.id}><strong>#{index + 1}</strong><span>{item.name}</span><b>{item.quantity} {item.quantity === 1 ? 'unidad' : 'unidades'}</b></div>) : <p>Este mes todavía no registra ventas de cigarrillos.</p>}</div> : <div className="stock-details-list">{(inventoryDetails === 'low' ? lowStockProducts : outOfStockProducts).length ? (inventoryDetails === 'low' ? lowStockProducts : outOfStockProducts).map((item) => <div key={item.id}><span><b>{item.name}</b><small>{money.format(item.price)} por unidad</small></span><strong>{item.stock} {item.stock === 1 ? 'unidad' : 'unidades'}</strong></div>) : <p>{inventoryDetails === 'low' ? 'No hay variedades con bajo stock.' : 'No hay variedades agotadas.'}</p>}</div>}</section></div>}
     {closeWarning && <div className="shift-warning-backdrop" role="presentation"><section className="shift-warning" role="dialog" aria-modal="true" aria-labelledby="shift-warning-title"><span className="shift-warning-icon">!</span><div><small>REVISÁ LA SECUENCIA DE CIERRES</small><h2 id="shift-warning-title">Hay un turno pendiente</h2><p>Antes de cerrar <b>{shifts[closeWarning.request.shift].toLowerCase()} del {new Date(`${closeWarning.request.businessDate}T12:00:00`).toLocaleDateString('es-AR')}</b>, falta cerrar <b>{shifts[closeWarning.previous.shift].toLowerCase()} del {new Date(`${closeWarning.previous.businessDate}T12:00:00`).toLocaleDateString('es-AR')}</b>.</p><p className="shift-warning-note">Podés cerrar ese turno ahora usando los stocks que ya cargaste; no tendrás que ingresarlos otra vez.</p></div><footer><button type="button" className="secondary" onClick={continueClosingShift}>Cerrar en el turno elegido</button><button type="button" className="primary" onClick={closeInPendingShift}>Cerrar en el turno correcto</button></footer></section></div>}
+
+    {tab === 'close' && editingClose && <section className="cigarette-card"><h2>Reparar o reasignar cierre</h2><p>Elegí dónde corresponde este cierre. La cafetería permanece en su fecha y turno, el stock actual no cambia y el turno de origen queda abierto. Si el destino ya está cerrado, solo se permite unirlo cuando no tiene ventas y sus inventarios coinciden.</p><div className="close-date-edit"><label>Fecha de destino<input type="date" required value={repairDate || previousDateValue(editingClose.businessDate)} onChange={(event) => setRepairDate(event.target.value)} /></label><label>Turno de destino<select value={repairShift} onChange={(event) => setRepairShift(event.target.value)}><option value="morning">Mañana</option><option value="afternoon">Tarde</option></select></label></div><button className="primary" type="button" disabled={busy} onClick={consolidateClose}>Reparar en el turno elegido</button></section>}
 
     {tab === 'stock' && <div className="cigarette-columns">
       <section className="cigarette-card"><div className="section-heading"><div><small>INVENTARIO ACTUAL</small><h2>Productos cargados</h2></div><span>{dashboard.products.length} variedades</span></div>
