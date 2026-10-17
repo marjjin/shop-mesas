@@ -14,6 +14,7 @@ public interface ICigaretteService
     Task<bool> DeletePurchaseAsync(int id, CancellationToken cancellationToken);
     Task<CigaretteShiftCloseResponse> CloseShiftAsync(CreateCigaretteShiftCloseRequest request, CancellationToken cancellationToken);
     Task<CigaretteShiftCloseResponse?> UpdateCloseAsync(int id, UpdateCigaretteShiftCloseRequest request, CancellationToken cancellationToken);
+    Task<bool> DeleteCloseAsync(int id, CancellationToken cancellationToken);
     Task<CigaretteShiftCloseResponse?> ConsolidateCloseAsync(int id, int? targetId, CancellationToken cancellationToken, DateOnly? targetDate = null, string? targetShift = null);
 }
 
@@ -236,6 +237,8 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
             throw new CigaretteValidationException("La corrección contiene un cigarrillo que no pertenece al cierre.");
 
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        if (request.CafeteriaSaleCount is < 0)
+            throw new CigaretteValidationException("La cantidad de ventas de cafetería no puede ser negativa.");
         var targetBusinessDate = request.BusinessDate ?? close.BusinessDate;
         var targetShift = request.Shift is null ? close.Shift : NormalizeShift(request.Shift);
         if (targetBusinessDate != close.BusinessDate || targetShift != close.Shift)
@@ -271,10 +274,68 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
         if (request.NextShiftChangeCash.HasValue) close.NextShiftChangeCash = request.NextShiftChangeCash.Value;
         if (request.ReceivedChangeCash.HasValue) close.ReceivedChangeCash = request.ReceivedChangeCash.Value;
         if (request.PosnetTotal.HasValue) close.PosnetTotal = request.PosnetTotal.Value;
+        if (request.CafeteriaSaleCount.HasValue)
+            await SetCafeteriaSaleCountAsync(close, request.CafeteriaSaleCount.Value, cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return await ToResponseAsync(close, cancellationToken);
+    }
+
+    private async Task SetCafeteriaSaleCountAsync(CigaretteShiftClose close, int desiredCount, CancellationToken cancellationToken)
+    {
+        var sales = await db.CafeteriaSales.Include(sale => sale.Items)
+            .Where(sale => sale.BusinessDate == close.BusinessDate && sale.Shift == close.Shift)
+            .OrderBy(sale => sale.CreatedAt).ThenBy(sale => sale.Id).ToListAsync(cancellationToken);
+        if (desiredCount == sales.Count) return;
+        if (desiredCount < sales.Count)
+        {
+            db.CafeteriaSales.RemoveRange(sales.Skip(desiredCount));
+            return;
+        }
+        var template = sales.LastOrDefault();
+        if (template is null)
+            throw new CigaretteValidationException("No hay una venta de cafetería para copiar. Registrá una venta desde Caja Cafetería primero.");
+        for (var index = sales.Count; index < desiredCount; index++)
+        {
+            var sale = new CafeteriaSale { BusinessDate = close.BusinessDate, Shift = close.Shift, CreatedAt = DateTime.UtcNow };
+            sale.Items.AddRange(template.Items.Select(item => new CafeteriaSaleItem
+            {
+                CafeteriaProductId = item.CafeteriaProductId,
+                ProductName = item.ProductName,
+                UnitPrice = item.UnitPrice
+            }));
+            db.CafeteriaSales.Add(sale);
+        }
+    }
+
+    public async Task<bool> DeleteCloseAsync(int id, CancellationToken cancellationToken)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var close = await db.CigaretteShiftCloses.Include(item => item.Items).SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (close is null) return false;
+        if (await db.CigaretteShiftCloses.AnyAsync(item => item.ClosedAt > close.ClosedAt, cancellationToken))
+            throw new CigaretteValidationException("No se puede borrar este cierre porque hay turnos cerrados después. Corregí primero la secuencia desde el cierre más reciente.");
+        var productIds = close.Items.Select(item => item.CigaretteProductId).ToList();
+        var products = await db.CigaretteProducts.Where(item => productIds.Contains(item.Id)).ToDictionaryAsync(item => item.Id, cancellationToken);
+        foreach (var item in close.Items)
+        {
+            if (!products.TryGetValue(item.CigaretteProductId, out var product)) continue;
+            product.Stock += item.InitialStock + item.PurchasedQuantity - item.FinalStock;
+        }
+        var allocations = await db.SupplierTransactions.Where(item => item.CigaretteShiftCloseId == id && item.Type == "allocation").ToListAsync(cancellationToken);
+        var supplierIds = allocations.Select(item => item.SupplierId).Distinct().ToList();
+        var suppliers = await db.Suppliers.Where(item => supplierIds.Contains(item.Id)).ToDictionaryAsync(item => item.Id, cancellationToken);
+        foreach (var allocation in allocations)
+            if (suppliers.TryGetValue(allocation.SupplierId, out var supplier))
+                SupplierService.ApplyReserved(supplier, -allocation.CashAmount, -allocation.MercadoPagoAmount);
+        db.SupplierTransactions.RemoveRange(allocations);
+        var drops = await db.CashDrops.Where(item => item.CigaretteShiftCloseId == id).ToListAsync(cancellationToken);
+        foreach (var drop in drops) drop.CigaretteShiftCloseId = null;
+        db.CigaretteShiftCloses.Remove(close);
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return true;
     }
 
     public async Task<CigaretteShiftCloseResponse?> ConsolidateCloseAsync(int id, int? targetId, CancellationToken cancellationToken, DateOnly? targetDate = null, string? targetShift = null)

@@ -26,6 +26,8 @@ public static class CigaretteEndpoints
             .WithSummary("Cierra un turno y calcula sus ventas");
         group.MapPut("/closes/{id:int}", UpdateCloseAsync)
             .WithSummary("Corrige un cierre y ajusta sus ventas y el stock actual");
+        group.MapDelete("/closes/{id:int}", DeleteCloseAsync)
+            .WithSummary("Elimina el cierre más reciente y revierte sus efectos en stock y reservas");
         group.MapPost("/closes/{id:int}/consolidate", ConsolidateCloseAsync)
             .WithSummary("Recupera el inventario de una mañana cerrada por error en la tarde anterior");
 
@@ -115,6 +117,12 @@ public static class CigaretteEndpoints
             return close is null ? Results.NotFound() : Results.Ok(close);
         }
         catch (CigaretteNotFoundException) { return Results.NotFound(); }
+        catch (CigaretteValidationException exception) { return ValidationProblem(exception.Message); }
+    }
+
+    private static async Task<IResult> DeleteCloseAsync(int id, ICigaretteService service, CancellationToken cancellationToken)
+    {
+        try { return await service.DeleteCloseAsync(id, cancellationToken) ? Results.NoContent() : Results.NotFound(); }
         catch (CigaretteValidationException exception) { return ValidationProblem(exception.Message); }
     }
 

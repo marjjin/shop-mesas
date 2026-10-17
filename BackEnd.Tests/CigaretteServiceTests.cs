@@ -765,6 +765,58 @@ public sealed class CigaretteServiceTests
         Assert.Equal(11, (await fixture.Db.CigaretteProducts.FindAsync(fixture.ProductId))!.Stock);
     }
 
+    [Fact]
+    public async Task DeletingLatestCloseReopensShiftRestoresStockAndReleasesSupplierFunds()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var date = new DateOnly(2026, 10, 17);
+        var supplier = await new SupplierService(fixture.Db).CreateAsync(new CreateSupplierRequest("Proveedor"), default);
+        var close = await fixture.Service.CloseShiftAsync(new CreateCigaretteShiftCloseRequest(date, "morning", [new CigaretteCloseItemRequest(fixture.ProductId, 8)], [new SupplierAllocationRequest(supplier.Id, 500m, 200m)]), default);
+        await new CashDropService(fixture.Db).CreateAsync(new CreateCashDropRequest(1000m, date, "afternoon"), default);
+
+        Assert.True(await fixture.Service.DeleteCloseAsync(close.Id, default));
+        fixture.Db.ChangeTracker.Clear();
+        Assert.Empty((await fixture.Service.GetDashboardAsync(date, default)).Closes);
+        Assert.Equal(10, (await fixture.Db.CigaretteProducts.FindAsync(fixture.ProductId))!.Stock);
+        Assert.Equal(0m, (await fixture.Db.Suppliers.FindAsync(supplier.Id))!.ReservedBalance);
+        Assert.Equal("morning", (await new CashDropService(fixture.Db).GetOpenAsync(date, default)).Shift);
+        Assert.False((await new CashDropService(fixture.Db).CreateAsync(new CreateCashDropRequest(200m, date, "morning"), default)).IsClosed);
+    }
+
+    [Fact]
+    public async Task DeletingCloseWithLaterCloseIsRejectedWithoutChangingStock()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var date = new DateOnly(2026, 10, 17);
+        var first = await fixture.Service.CloseShiftAsync(new CreateCigaretteShiftCloseRequest(date, "morning", [new CigaretteCloseItemRequest(fixture.ProductId, 9)]), default);
+        await fixture.Service.CloseShiftAsync(new CreateCigaretteShiftCloseRequest(date, "afternoon", [new CigaretteCloseItemRequest(fixture.ProductId, 8)]), default);
+
+        await Assert.ThrowsAsync<CigaretteValidationException>(() => fixture.Service.DeleteCloseAsync(first.Id, default));
+        Assert.Equal(8, (await fixture.Db.CigaretteProducts.FindAsync(fixture.ProductId))!.Stock);
+    }
+
+    [Fact]
+    public async Task CloseCorrectionCanChangeCafeSalesCountAndKeepsRecordedPrices()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var date = new DateOnly(2026, 10, 17);
+        var sale = new CafeteriaSale { BusinessDate = date, Shift = "morning", CreatedAt = DateTime.UtcNow };
+        sale.Items.Add(new CafeteriaSaleItem { ProductName = "Café", UnitPrice = 2000m });
+        fixture.Db.CafeteriaSales.Add(sale);
+        await fixture.Db.SaveChangesAsync();
+        var close = await fixture.Service.CloseShiftAsync(new CreateCigaretteShiftCloseRequest(date, "morning", [new CigaretteCloseItemRequest(fixture.ProductId, 9)]), default);
+
+        var corrected = await fixture.Service.UpdateCloseAsync(close.Id,
+            new UpdateCigaretteShiftCloseRequest([new CigaretteCloseItemRequest(fixture.ProductId, 9)], CafeteriaSaleCount: 3), default);
+
+        Assert.Equal(3, corrected!.Cafeteria.SaleCount);
+        Assert.Equal(6000m, corrected.Cafeteria.TotalSales);
+        Assert.Equal(3, await fixture.Db.CafeteriaSales.CountAsync());
+        await fixture.Service.UpdateCloseAsync(close.Id,
+            new UpdateCigaretteShiftCloseRequest([new CigaretteCloseItemRequest(fixture.ProductId, 9)], CafeteriaSaleCount: 1), default);
+        Assert.Equal(1, await fixture.Db.CafeteriaSales.CountAsync());
+    }
+
     private sealed class FailingCafeteriaService : ICafeteriaService
     {
         public Task<CafeteriaDashboardResponse> GetDashboardAsync(DateOnly date, CancellationToken cancellationToken) => throw new NotSupportedException();

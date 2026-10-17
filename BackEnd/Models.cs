@@ -122,7 +122,7 @@ public sealed record UpdateCigarettePurchaseRequest(int Quantity);
 /// <summary>Datos para cerrar un turno de cigarrillos.</summary>
 public sealed record CreateCigaretteShiftCloseRequest(DateOnly BusinessDate, string Shift, IReadOnlyList<CigaretteCloseItemRequest> Items, IReadOnlyList<SupplierAllocationRequest>? SupplierAllocations = null, decimal EndingCashBalance = 0, decimal EndingMercadoPagoBalance = 0, decimal NextShiftChangeCash = 0, decimal ReceivedChangeCash = 0, decimal PosnetTotal = 0);
 /// <summary>Stock físico corregido para los productos de un cierre existente.</summary>
-public sealed record UpdateCigaretteShiftCloseRequest(IReadOnlyList<CigaretteCloseItemRequest> Items, IReadOnlyList<SupplierAllocationRequest>? SupplierAllocations = null, decimal? EndingCashBalance = null, decimal? EndingMercadoPagoBalance = null, decimal? NextShiftChangeCash = null, decimal? ReceivedChangeCash = null, decimal? PosnetTotal = null, DateOnly? BusinessDate = null, string? Shift = null);
+public sealed record UpdateCigaretteShiftCloseRequest(IReadOnlyList<CigaretteCloseItemRequest> Items, IReadOnlyList<SupplierAllocationRequest>? SupplierAllocations = null, decimal? EndingCashBalance = null, decimal? EndingMercadoPagoBalance = null, decimal? NextShiftChangeCash = null, decimal? ReceivedChangeCash = null, decimal? PosnetTotal = null, DateOnly? BusinessDate = null, string? Shift = null, int? CafeteriaSaleCount = null);
 /// <summary>Retiro físico de efectivo registrado durante un turno abierto.</summary>
 public sealed record CreateCashDropRequest(decimal Amount, DateOnly BusinessDate, string Shift);
 public sealed record UpdateCashDropRequest(decimal Amount);
