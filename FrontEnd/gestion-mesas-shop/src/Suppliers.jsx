@@ -48,6 +48,7 @@ export default function Suppliers({ api }) {
   const [editingTransaction, setEditingTransaction] = useState(null)
   const [transactionForm, setTransactionForm] = useState({ amount: '', cashAmount: '', mercadoPagoAmount: '', note: '' })
   const [transactionBusy, setTransactionBusy] = useState(false)
+  const [supplierSearch, setSupplierSearch] = useState('')
   const [selectedSupplierId, setSelectedSupplierId] = useState(() => {
     const storedSupplierId = Number(sessionStorage.getItem('mesa-supplier-id'))
     return Number.isInteger(storedSupplierId) && storedSupplierId > 0 ? storedSupplierId : null
@@ -191,6 +192,10 @@ export default function Suppliers({ api }) {
   const activeSuppliers = suppliers.filter((supplier) => supplier.isActive)
   const totalReservedCash = activeSuppliers.reduce((total, supplier) => total + supplier.reservedCashBalance, 0)
   const totalReservedMercadoPago = activeSuppliers.reduce((total, supplier) => total + supplier.reservedMercadoPagoBalance, 0)
+  const normalizedSupplierSearch = supplierSearch.trim().toLocaleLowerCase('es-AR').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  const visibleSuppliers = normalizedSupplierSearch
+    ? activeSuppliers.filter((supplier) => supplier.name.toLocaleLowerCase('es-AR').normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(normalizedSupplierSearch))
+    : activeSuppliers
 
   if (selectedSupplier) {
     const paidTotal = selectedSupplier.transactions
@@ -269,8 +274,9 @@ export default function Suppliers({ api }) {
     {message && <p className="supplier-message">{message}</p>}
     {creatingSupplier && <div className="supplier-modal-backdrop" role="presentation"><section className="supplier-balance-modal supplier-create-modal" role="dialog" aria-modal="true" aria-labelledby="supplier-create-modal-title"><div className="supplier-modal-header"><div><small>NUEVO PROVEEDOR</small><h2 id="supplier-create-modal-title">Agregar proveedor</h2><p>Creá el proveedor y luego cargá sus saldos desde el detalle.</p></div><button type="button" onClick={() => setCreatingSupplier(false)} aria-label="Cerrar alta de proveedor">×</button></div><form className="supplier-payment" onSubmit={create}><label>Nombre del proveedor<input required maxLength="100" autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="Ej.: Distribuidora Norte" /></label><div className="supplier-modal-buttons"><button type="button" className="supplier-modal-cancel" onClick={() => setCreatingSupplier(false)}>Cancelar</button><button>Crear proveedor</button></div></form></section></div>}
     <section className="supplier-overview"><div className="supplier-overview-total"><span>Fondos reservados de todos los proveedores</span><strong>{money.format(totalReservedCash + totalReservedMercadoPago)}</strong><small>{activeSuppliers.length} {activeSuppliers.length === 1 ? 'proveedor activo' : 'proveedores activos'}</small></div><div><span>Efectivo total</span><strong>{money.format(totalReservedCash)}</strong></div><div><span>Mercado Pago total</span><strong>{money.format(totalReservedMercadoPago)}</strong></div></section>
+    <section className="supplier-search-panel" aria-label="Buscar proveedores"><div className="supplier-search-heading"><label htmlFor="supplier-search">Buscar proveedor</label></div><div className="supplier-search-field"><span className="supplier-search-icon" aria-hidden="true" /><input id="supplier-search" type="search" value={supplierSearch} onChange={(event) => setSupplierSearch(event.target.value)} placeholder="Buscar por nombre..." autoComplete="off" />{supplierSearch && <button type="button" onClick={() => setSupplierSearch('')} aria-label="Limpiar búsqueda">×</button>}</div><small>{normalizedSupplierSearch ? `${visibleSuppliers.length} de ${activeSuppliers.length} ${activeSuppliers.length === 1 ? 'proveedor encontrado' : 'proveedores encontrados'}` : `${activeSuppliers.length} ${activeSuppliers.length === 1 ? 'proveedor activo' : 'proveedores activos'}`}</small></section>
     <section className="supplier-grid">
-      {activeSuppliers.map((supplier) => <article className={`supplier-card ${supplier.isSeparateCashBox ? 'separate-cash-box' : ''}`} key={supplier.id}>
+      {visibleSuppliers.map((supplier) => <article className={`supplier-card ${supplier.isSeparateCashBox ? 'separate-cash-box' : ''}`} key={supplier.id}>
         <header><div><small>PROVEEDOR</small><h2>{supplier.name}</h2>{supplier.isSeparateCashBox && <span className="supplier-card-cash-box-badge">Caja aparte</span>}</div></header>
         <div className="supplier-balance supplier-total-balance"><span>Fondos reservados totales</span><strong>{money.format(supplier.reservedCashBalance + supplier.reservedMercadoPagoBalance)}</strong></div>
         <div className="supplier-reserve-breakdown"><div><span>Efectivo</span><strong>{money.format(supplier.reservedCashBalance)}</strong></div><div><span>Mercado Pago</span><strong>{money.format(supplier.reservedMercadoPagoBalance)}</strong></div></div>
@@ -279,6 +285,7 @@ export default function Suppliers({ api }) {
         <button type="button" className="supplier-detail-link" onClick={() => setSelectedSupplierId(supplier.id)}>Ver detalles <span>→</span></button>
       </article>)}
       {!activeSuppliers.length && <p className="supplier-empty">Todavía no hay proveedores activos. Creá uno para reservar fondos durante el cierre de turno.</p>}
+      {activeSuppliers.length > 0 && !visibleSuppliers.length && <p className="supplier-empty">No encontramos proveedores con “{supplierSearch}”. Probá con otro nombre.</p>}
     </section>
   </div>
 }
