@@ -245,9 +245,9 @@ export function printWelcomeReceipt(table, printWindow) {
   return true
 }
 
-export function printCashDropReceipt(drop) {
-  const printWindow = openReceiptPrintWindow()
-  if (!printWindow) return false
+export function printCashDropReceipt(drop, existingWindow = null) {
+  const printWindow = existingWindow || openReceiptPrintWindow()
+  if (!printWindow || printWindow.closed) return false
   printWindow.document.open()
   printWindow.document.write(cashDropReceiptMarkup(drop))
   printWindow.document.close()

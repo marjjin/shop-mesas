@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import './CashDrops.css'
-import { printCashDropReceipt } from './receipt.js'
+import { openReceiptPrintWindow, printCashDropReceipt } from './receipt.js'
 
 const shifts = { morning: 'Mañana', afternoon: 'Tarde' }
 const quickAmounts = [10000, 20000, 50000, 100000]
@@ -58,13 +58,16 @@ export default function CashDrops({ api }) {
     if (!openShift) return setMessage('No hay un turno abierto para registrar tiradas.')
     if (!parsedAmount || parsedAmount <= 0) return setMessage('Ingresá un importe válido.')
     setBusy(true)
+    const printWindow = openReceiptPrintWindow()
     try {
-      await api('/cash-drops', { method: 'POST', body: JSON.stringify({ amount: parsedAmount, businessDate: openShift.date, shift: openShift.shift }) })
+      const createdDrop = await api('/cash-drops', { method: 'POST', body: JSON.stringify({ amount: parsedAmount, businessDate: openShift.date, shift: openShift.shift }) })
       setAmount('')
+      const printed = printCashDropReceipt(createdDrop, printWindow)
       await load()
-      setMessage('Tirada registrada correctamente. Podés imprimir su ticket desde el historial.')
+      setMessage(printed ? 'Tirada registrada. Se abrió el ticket para imprimir.' : 'Tirada registrada correctamente. Habilitá las ventanas emergentes para imprimir el ticket automáticamente.')
       amountInputRef.current?.focus()
     } catch (error) {
+      if (printWindow && !printWindow.closed) printWindow.close()
       setMessage(error.message)
     } finally {
       setBusy(false)
