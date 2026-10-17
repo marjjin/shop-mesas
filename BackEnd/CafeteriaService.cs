@@ -88,22 +88,8 @@ public sealed class CafeteriaService(RestaurantContext db) : ICafeteriaService
         return true;
     }
 
-    public async Task<CafeteriaSalesSummaryResponse> GetSummaryAsync(DateOnly businessDate, string shift, CancellationToken cancellationToken)
-    {
-        var close = await db.CigaretteShiftCloses.AsNoTracking()
-            .SingleOrDefaultAsync(item => item.BusinessDate == businessDate && item.Shift == shift, cancellationToken);
-        if (close is null)
-            return await GetSummaryAsync(sale => sale.BusinessDate == businessDate && sale.Shift == shift, cancellationToken);
-
-        var previousCloseAt = await db.CigaretteShiftCloses.AsNoTracking()
-            .Where(item => item.ClosedAt < close.ClosedAt)
-            .OrderByDescending(item => item.ClosedAt)
-            .Select(item => (DateTime?)item.ClosedAt)
-            .FirstOrDefaultAsync(cancellationToken);
-        return await GetSummaryAsync(sale =>
-            (!previousCloseAt.HasValue || sale.CreatedAt > previousCloseAt.Value) &&
-            sale.CreatedAt <= close.ClosedAt, cancellationToken);
-    }
+    public Task<CafeteriaSalesSummaryResponse> GetSummaryAsync(DateOnly businessDate, string shift, CancellationToken cancellationToken) =>
+        GetSummaryAsync(sale => sale.BusinessDate == businessDate && sale.Shift == shift, cancellationToken);
 
     public Task<IReadOnlyList<CafeteriaShiftSalesHistoryResponse>> GetShiftHistoryAsync(DateOnly date, CancellationToken cancellationToken) =>
         GetShiftHistoryForPeriodAsync(date, date.AddDays(1), cancellationToken);

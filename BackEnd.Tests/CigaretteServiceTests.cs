@@ -484,7 +484,9 @@ public sealed class CigaretteServiceTests
         var supplier = await supplierService.CreateAsync(new CreateSupplierRequest("Proveedor Fecha"), default);
         await cashDropService.CreateAsync(new CreateCashDropRequest(3500m, sourceDate, "morning"), default);
         await fixture.Service.CreatePurchaseAsync(new CreateCigarettePurchaseRequest(fixture.ProductId, 2, sourceDate, "morning"), default);
-        fixture.Db.CafeteriaSales.Add(new CafeteriaSale { BusinessDate = sourceDate, Shift = "morning", CreatedAt = DateTime.UtcNow });
+        var cafeteriaSale = new CafeteriaSale { BusinessDate = sourceDate, Shift = "morning", CreatedAt = DateTime.UtcNow };
+        cafeteriaSale.Items.Add(new CafeteriaSaleItem { ProductName = "Café", UnitPrice = 3000m });
+        fixture.Db.CafeteriaSales.Add(cafeteriaSale);
         await fixture.Db.SaveChangesAsync();
 
         var close = await fixture.Service.CloseShiftAsync(
@@ -496,6 +498,8 @@ public sealed class CigaretteServiceTests
 
         Assert.Equal(targetDate, moved!.BusinessDate);
         Assert.Equal("afternoon", moved.Shift);
+        Assert.Equal(1, moved.Cafeteria.SaleCount);
+        Assert.Equal(3000m, moved.Cafeteria.TotalSales);
         Assert.Equal(targetDate, (await fixture.Db.CigarettePurchases.SingleAsync()).BusinessDate);
         Assert.Equal("afternoon", (await fixture.Db.CigarettePurchases.SingleAsync()).Shift);
         Assert.Equal(targetDate, (await fixture.Db.CashDrops.SingleAsync()).BusinessDate);
@@ -503,7 +507,11 @@ public sealed class CigaretteServiceTests
         Assert.Equal(targetDate, (await fixture.Db.SupplierTransactions.SingleAsync()).BusinessDate);
         Assert.Equal(targetDate, (await fixture.Db.CafeteriaSales.SingleAsync()).BusinessDate);
         Assert.Equal("afternoon", (await fixture.Db.CafeteriaSales.SingleAsync()).Shift);
-        Assert.Empty((await fixture.Service.GetDashboardAsync(sourceDate, default)).Closes);
+        var sourceDashboard = await fixture.Service.GetDashboardAsync(sourceDate, default);
+        Assert.Empty(sourceDashboard.Closes);
+        Assert.Empty(sourceDashboard.Purchases);
+        Assert.Empty(sourceDashboard.CashDrops);
+        Assert.Empty(await fixture.Db.CafeteriaSales.Where(sale => sale.BusinessDate == sourceDate && sale.Shift == "morning").ToListAsync());
         Assert.Equal(close.Id, Assert.Single((await fixture.Service.GetDashboardAsync(targetDate, default)).Closes).Id);
     }
 

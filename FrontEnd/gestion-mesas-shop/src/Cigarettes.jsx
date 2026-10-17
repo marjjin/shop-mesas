@@ -326,9 +326,11 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
   const [monthlyRanking, setMonthlyRanking] = useState([])
   const [loadingRanking, setLoadingRanking] = useState(false)
   const [rankingError, setRankingError] = useState('')
+  const dashboardLoadId = useRef(0)
   const dailyShiftSalesTotal = dashboard.closes.reduce((total, close) => total + getCloseFinancialSummary(close, suppliers).shiftSales, 0)
 
   const load = useCallback(async () => {
+    const currentLoadId = ++dashboardLoadId.current
     try {
       const [cigarettesResult, cafeteriaResult, suppliersResult] = await Promise.allSettled([
         api(`/cigarettes?date=${date}`),
@@ -336,6 +338,7 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
         api('/suppliers')
       ])
       if (cigarettesResult.status === 'rejected') throw cigarettesResult.reason
+      if (currentLoadId !== dashboardLoadId.current) return
       setDashboard(normalizeCigaretteDashboard(cigarettesResult.value))
       if (cafeteriaResult.status === 'fulfilled') {
         setCafeteriaSummary(cafeteriaResult.value.summary)
@@ -394,12 +397,12 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
     return () => { cancelled = true }
   }, [api, dashboard.closes, date, shift])
 
-  const execute = async (operation, successMessage) => {
+  const execute = async (operation, successMessage, reload = true) => {
     setBusy(true)
     setMessage('')
     try {
       await operation()
-      await load()
+      if (reload) await load()
       setMessage(successMessage)
       return true
     } catch (error) {
@@ -476,11 +479,13 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
     if (window.confirm(`Se cerrará como turno ${shifts[previous.shift].toLowerCase()} del ${new Date(`${previous.businessDate}T12:00:00`).toLocaleDateString('es-AR')}, usando los stocks que ya cargaste. ¿Continuar?`)) await saveShiftClose(correctedRequest, request)
   }
   const saveCloseCorrection = async (request) => {
-    const saved = await execute(() => api(`/cigarettes/closes/${editingClose.id}`, { method: 'PUT', body: JSON.stringify(request) }), 'Cierre corregido y stock actualizado.')
+    const targetDate = request.businessDate || date
+    const targetShift = request.shift || editingClose.shift
+    const saved = await execute(() => api(`/cigarettes/closes/${editingClose.id}`, { method: 'PUT', body: JSON.stringify(request) }), 'Cierre corregido y stock actualizado.', targetDate === date)
     if (saved) {
       setEditingClose(null)
-      setDate(request.businessDate || date)
-      setShift(request.shift || editingClose.shift)
+      setDate(targetDate)
+      setShift(targetShift)
       setTab('history')
     }
   }
