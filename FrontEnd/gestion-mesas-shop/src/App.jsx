@@ -7,6 +7,7 @@ import PendingOrders from './PendingOrders.jsx'
 import Suppliers from './Suppliers.jsx'
 import CashDrops from './CashDrops.jsx'
 import Settings from './Settings.jsx'
+import useTheme from './shared/hooks/useTheme.js'
 import { requireWelcomeMessageSettings } from './shared/utils/welcomeMessage.js'
 import { resolveApiUrl } from './shared/utils/apiUrl.js'
 import LoginForm from './features/auth/LoginForm.jsx'
@@ -21,11 +22,13 @@ import './Panel.css'
 import './Navigation.css'
 import './FloorPlan.css'
 import './CoffeeSales.css'
+import './Theme.css'
 
 const API = resolveApiUrl({ configuredUrl: import.meta.env.VITE_API_URL, production: import.meta.env.PROD })
 const sections = new Set(['salon', 'pending', 'catalog', 'cafeteria', 'cigarettes', 'suppliers', 'cash-drops', 'shift-close', 'history', 'settings'])
 
 function App() {
+  const { preference, resolvedTheme, changeTheme } = useTheme()
   const [user, setUser] = useState(() => JSON.parse(sessionStorage.getItem('mesa-user') || 'null'))
   const [login, setLogin] = useState({ username: 'admin', password: 'admin' })
   const [data, setData] = useState({ tables: [], products: [], categories: [], orders: [], pendingOrders: [], pendingOrderItems: [] })
@@ -258,10 +261,10 @@ function App() {
     }
   }
 
-  if (!user) return <LoginForm login={login} error={message} onLoginChange={setLogin} onSubmit={loginSubmit} />
+  if (!user) return <LoginForm login={login} error={message} onLoginChange={setLogin} onSubmit={loginSubmit} resolvedTheme={resolvedTheme} onThemeChange={changeTheme} />
 
   return <main className="layout">
-    <Sidebar user={user} section={section} pendingOrdersCount={data.pendingOrders?.length} onSectionChange={changeSection} onSignOut={signOut} />
+    <Sidebar user={user} section={section} pendingOrdersCount={data.pendingOrders?.length} onSectionChange={changeSection} onSignOut={signOut} resolvedTheme={resolvedTheme} onThemeChange={changeTheme} />
     <section className="page">
       {section === 'salon' ? <>
         <header><div><p className="eyebrow">OPERACIÓN EN VIVO</p><h1>Salón principal</h1><p>{editingMode ? 'Seleccioná una mesa para cambiar su nombre, moverla, redimensionarla o eliminarla.' : 'Un clic abre el menú. Usá Editar para modificar las mesas.'}</p></div><div className="salon-actions"><button type="button" className="coffee-sales-button" disabled={sellingCoffee} onClick={registerCoffeeSale} aria-label={`Registrar venta de cafetería. Total de hoy: ${coffeeSummary.saleCount}`}><span>☕ {sellingCoffee ? 'REGISTRANDO…' : 'VENTA CAFÉ'}</span><b>{coffeeSummary.saleCount}</b></button><button type="button" className={editingMode ? 'edit-mode-button active' : 'primary'} onClick={() => { setEditingMode((value) => !value); setSelectedId(null); setEditingId(null) }}>{editingMode ? '✓ Listo' : '✎ Editar'}</button></div></header>
@@ -271,7 +274,7 @@ function App() {
         {editingMode && <TableEditor key={editingId ?? 'none'} table={data.tables.find((table) => table.id === editingId)} saveTable={saveTable} deleteTable={deleteTable} addTable={addTable} finishEditing={() => { setEditingMode(false); setEditingId(null) }} />}
         <FloorPlan tables={data.tables} coworkingTableIds={coworkingTableIds} editingMode={editingMode} editingId={editingId} assignmentOrder={assigningPendingOrder} assigningTable={assigningTable} onSelect={(id) => { setSelectedId(id); setEditingId(null) }} onEdit={(id) => { setSelectedId(null); setEditingId(id) }} onAssign={assignPendingOrderToTable} saveTable={saveTable} />
       </> : section === 'pending' ? <PendingOrders data={data} api={api} load={load} onChooseTable={chooseTableForPendingOrder} /> : section === 'catalog' ? <Catalog data={data} api={api} load={load} /> : section === 'cafeteria' ? <Cafeteria api={api} onSummaryChange={setCoffeeSummary} /> : section === 'cigarettes' ? <Cigarettes api={api} /> : section === 'suppliers' ? <Suppliers api={api} /> : section === 'cash-drops' ? <CashDrops api={api} /> : section === 'shift-close' ? <Cigarettes api={api} mode="shift-close" onShiftClosed={(close) => { setCoffeeSummary({ saleCount: 0, totalSales: 0 }); loadCoffeeSummary(close.businessDate).catch(() => {}) }} /> : section === 'history' ? <History histories={histories} /> : null}
-      {section === 'settings' && <Settings api={api} welcomeSettings={welcomeSettings} loadError={welcomeSettingsError} onWelcomeSettingsChange={(settings) => { setWelcomeSettings(settings); setWelcomeSettingsError('') }} />}
+      {section === 'settings' && <Settings api={api} welcomeSettings={welcomeSettings} loadError={welcomeSettingsError} onWelcomeSettingsChange={(settings) => { setWelcomeSettings(settings); setWelcomeSettingsError('') }} themePreference={preference} resolvedTheme={resolvedTheme} onThemeChange={changeTheme} />}
     </section>
     {selected && <TableMenu key={selected.id} table={selected} data={data} orders={orders} now={now} api={api} load={load} closePanel={() => setSelectedId(null)} closeTable={closeTable} updateOpenedAt={updateOpenedAt} />}
   </main>

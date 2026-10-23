@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import AppearanceSettings from './features/appearance/AppearanceSettings.jsx'
 import { requireWelcomeMessageSettings, welcomeMessageContent, welcomeMessageDefaults, welcomeTextFields } from './shared/utils/welcomeMessage.js'
 import './Settings.css'
 
@@ -17,7 +18,7 @@ function Icon({ name }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]} /></svg>
 }
 
-export default function Settings({ api, welcomeSettings, loadError, onWelcomeSettingsChange }) {
+export default function Settings({ api, welcomeSettings, loadError, onWelcomeSettingsChange, themePreference, resolvedTheme, onThemeChange }) {
   const [draft, setDraft] = useState(null)
   const [notice, setNotice] = useState(null)
   const [action, setAction] = useState(null)
@@ -114,7 +115,8 @@ export default function Settings({ api, welcomeSettings, loadError, onWelcomeSet
   const reviewErrors = () => selectField(fieldError ? 'amount' : welcomeTextFields.find(({ key }) => textErrors[key]).key)
 
   return <div className="settings-page">
-    <header className="settings-header"><div><p className="eyebrow">SISTEMA</p><h1>Configuraciones</h1><p>Personalizá la información que reciben tus clientes.</p></div></header>
+    <header className="settings-header"><div><p className="eyebrow">SISTEMA</p><h1>Configuraciones</h1><p>Personalizá tu espacio de trabajo y los tickets para tus clientes.</p></div></header>
+    <AppearanceSettings preference={themePreference} resolvedTheme={resolvedTheme} onThemeChange={onThemeChange} />
     <section className="settings-card" aria-labelledby="welcome-settings-title" aria-busy={loading || action !== null}>
       <div className="settings-card-heading">
         <span className="settings-icon"><Icon name="receipt" /></span>

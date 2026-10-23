@@ -37,15 +37,15 @@
   flex: none;
   border: 0;
   border-radius: 8px;
-  background: #fbe8e3;
-  color: #b9472c;
+  background: var(--theme-danger-surface, #fbe8e3);
+  color: var(--theme-danger-text, #b9472c);
   font-size: 20px;
   line-height: 1;
   cursor: pointer;
 }
 
 .delete-item:hover {
-  background: #f5d2ca;
+  background: var(--theme-danger-surface, #f5d2ca);
 }
 
 .empty-catalog {
@@ -72,15 +72,15 @@
   padding: 11px 18px;
   border: 1px solid var(--line);
   border-radius: 9px;
-  background: #fff;
-  color: var(--orange);
+  background: var(--theme-surface, #fff);
+  color: var(--theme-accent-text, var(--orange));
   font-weight: 800;
   cursor: pointer;
 }
 
 .load-more-button:hover {
   border-color: var(--orange);
-  background: #fff8f4;
+  background: var(--theme-surface, #fff8f4);
 }
 
 .profile .logout-button {

@@ -38,6 +38,12 @@ Un 404 en esa ruta significa que la API publicada todavía no contiene el endpoi
 
 Los ajustes se guardan en la base de datos del backend. Tanto la apertura directa como la asignación de pedidos consultan la configuración guardada antes de imprimir. Las respuestas de configuración llevan `Cache-Control: no-store`.
 
+## Apariencia
+
+En **Configuraciones → Apariencia** se puede elegir Claro, Oscuro o Sistema. La opción Sistema sigue los cambios de apariencia del dispositivo. El botón del menú y el de inicio de sesión permiten alternar rápidamente entre claro y oscuro.
+
+La preferencia se guarda en `localStorage` con la clave `mesa-theme`, por navegador y dominio. No requiere cambios en la API. `public/theme-init.js` aplica el tema antes de mostrar la aplicación y Vite lo incluye en el build de producción. La vista previa del ticket conserva los colores del papel.
+
 ## Comprobaciones
 
 ```sh

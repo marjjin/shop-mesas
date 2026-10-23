@@ -1,0 +1,51 @@
+.appearance-card {
+  margin-bottom: 26px;
+  padding: 25px 28px 20px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--cream);
+}
+.appearance-heading { display: flex; align-items: center; gap: 13px; margin-bottom: 23px; }
+.appearance-icon { display: grid; width: 43px; height: 43px; flex: none; place-items: center; border: 1px solid var(--line); border-radius: 12px; background: var(--theme-surface-muted, #f3f2ec); color: var(--theme-accent-text, #b65335); }
+.appearance-icon svg { width: 22px; height: 22px; }
+.appearance-heading h2 { margin: 0; font: 700 18px 'DM Sans', sans-serif; }
+.appearance-heading p { margin: 5px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.appearance-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 0; padding: 0; border: 0; }
+.appearance-option { position: relative; display: grid; gap: 10px; min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--theme-surface, #fff); cursor: pointer; }
+.appearance-option:hover { border-color: var(--theme-accent-line, #dfa58d); }
+.appearance-option.is-selected { border-color: var(--theme-accent-text, #c35c3a); box-shadow: 0 0 0 1px var(--theme-accent-text, #c35c3a); }
+.appearance-option:has(input:focus-visible) { outline: 3px solid var(--theme-accent-text, #c35c3a); outline-offset: 4px; }
+.appearance-sr-only, .appearance-option input { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.appearance-sample { display: flex; height: 83px; overflow: hidden; border: 1px solid #d9dcd2; border-radius: 7px; background: #f4f4ee; }
+.appearance-sample-nav { width: 23%; border-right: 1px solid #ffffff0f; background: #292e28; }
+.appearance-sample-body { display: grid; flex: 1; grid-template-columns: 1fr 1fr; gap: 6px; padding: 12px; }
+.appearance-sample-body > span { border: 1px solid #ddded6; border-radius: 4px; background: #fffdfa; }
+.appearance-sample-body > span:first-child { grid-column: 1 / -1; width: 55%; height: 5px; border: 0; background: #b4b7a9; }
+.appearance-sample-dark { border-color: #3e4a3e; background: #171f1a; }
+.appearance-sample-dark .appearance-sample-nav { background: #121713; }
+.appearance-sample-dark .appearance-sample-body > span { border-color: #3b493e; background: #28332b; }
+.appearance-sample-dark .appearance-sample-body > span:first-child { background: #a4b39e; }
+.appearance-sample-system { position: relative; }
+.appearance-sample-system::after { position: absolute; inset: 0; background: linear-gradient(90deg, transparent 50%, #1b251d 50%); mix-blend-mode: multiply; content: ''; }
+.appearance-option-label { display: flex; align-items: center; gap: 7px; color: var(--ink); }
+.appearance-option-label svg { width: 16px; height: 16px; color: var(--muted); }
+.appearance-option-label strong { font-size: 12px; font-weight: 600; }
+.appearance-radio { width: 14px; height: 14px; margin-left: auto; border: 1px solid var(--theme-line, #c6cbbd); border-radius: 50%; }
+.is-selected .appearance-radio { border: 4px solid var(--theme-accent-text, #c35c3a); background: var(--cream); }
+.appearance-description { color: var(--muted); font-size: 10px; line-height: 1.5; }
+.appearance-note { display: flex; align-items: baseline; gap: 6px; margin: 17px 0 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+.appearance-note > span { color: var(--theme-success-text, #38775d); }
+@media (max-width: 520px) {
+  .appearance-card { padding: 20px 18px 17px; }
+  .appearance-heading { margin-bottom: 18px; }
+  .appearance-heading h2 { font-size: 16px; }
+  .appearance-options { gap: 9px; }
+  .appearance-option { gap: 9px; padding: 8px; }
+  .appearance-sample { height: 60px; }
+  .appearance-sample-body { gap: 4px; padding: 8px; }
+  .appearance-option-label { flex-wrap: wrap; gap: 4px; }
+  .appearance-option-label svg { width: 13px; height: 13px; }
+  .appearance-option-label strong { font-size: 11px; }
+  .appearance-radio { width: 12px; height: 12px; }
+  .appearance-description { font-size: 9px; }
+}

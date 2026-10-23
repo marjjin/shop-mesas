@@ -9,10 +9,10 @@
   align-items: center;
   gap: 9px;
   padding: 8px 9px 8px 12px;
-  border: 1px solid #d7a468;
+  border: 1px solid var(--theme-warning-line, #d7a468);
   border-radius: 9px;
-  background: #fff8ed;
-  color: #754018;
+  background: var(--theme-warning-surface, #fff8ed);
+  color: var(--theme-accent-text, #754018);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: .25px;
@@ -20,8 +20,8 @@
 }
 
 .coffee-sales-button:hover {
-  border-color: #bd7537;
-  background: #fff0d9;
+  border-color: var(--theme-warning-line, #bd7537);
+  background: var(--theme-warning-surface, #fff0d9);
 }
 
 .coffee-sales-button:focus-visible {

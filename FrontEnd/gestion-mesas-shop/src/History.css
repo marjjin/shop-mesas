@@ -11,7 +11,7 @@
   padding: 22px 24px;
   border: 1px solid var(--line);
   border-radius: 14px;
-  background: #fff;
+  background: var(--theme-surface, #fff);
   box-shadow: 0 5px 18px rgba(37, 38, 42, .04);
 }
 
@@ -23,7 +23,7 @@
 }
 
 .history-card-header span {
-  color: var(--orange);
+  color: var(--theme-accent-text, var(--orange));
   font-size: 10px;
   font-weight: 800;
   letter-spacing: .8px;
@@ -52,7 +52,7 @@
 
 .history-card summary {
   padding-top: 13px;
-  color: var(--orange);
+  color: var(--theme-accent-text, var(--orange));
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -68,7 +68,7 @@
   justify-content: space-between;
   gap: 20px;
   padding: 9px 0;
-  border-bottom: 1px solid #efeee8;
+  border-bottom: 1px solid var(--theme-line, #efeee8);
   font-size: 12px;
 }
 
@@ -92,7 +92,7 @@
   gap: 8px;
   border: 1px dashed var(--line);
   border-radius: 14px;
-  background: #fff;
+  background: var(--theme-surface, #fff);
   color: var(--muted);
   text-align: center;
 }

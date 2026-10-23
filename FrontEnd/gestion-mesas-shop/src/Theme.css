@@ -1,0 +1,81 @@
+/* Shared appearance tokens. Existing light colors remain as local fallbacks. */
+:root { color-scheme: light; }
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --ink: #edf0e9;
+  --muted: #a5afa2;
+  --line: #3c473e;
+  --cream: #222a24;
+  --theme-page: #171d19;
+  --theme-surface: #222a24;
+  --theme-surface-muted: #1c241f;
+  --theme-control-strong: #3d4b40;
+  --theme-text: #edf0e9;
+  --theme-text-muted: #a5afa2;
+  --theme-line: #3c473e;
+  --theme-accent-surface: #392b25;
+  --theme-accent-text: #ffad8d;
+  --theme-accent-line: #8d5e4a;
+  --theme-success-surface: #20392d;
+  --theme-success-text: #88d8b2;
+  --theme-success-line: #48775e;
+  --theme-info-surface: #20333e;
+  --theme-info-text: #99d0ed;
+  --theme-info-line: #4a748a;
+  --theme-warning-surface: #382f21;
+  --theme-warning-text: #f0c78b;
+  --theme-warning-line: #80653c;
+  --theme-danger-surface: #3c2727;
+  --theme-danger-text: #ffa799;
+  --theme-danger-line: #945b54;
+  --theme-purple-surface: #322b40;
+  --theme-purple-text: #d6b8f2;
+  --theme-purple-line: #79608d;
+}
+body { background: var(--theme-page, #f7f7f4); color: var(--ink); }
+button, input, select, textarea { color: inherit; }
+:root[data-theme='dark'] input::placeholder, :root[data-theme='dark'] textarea::placeholder { color: #94a08f; opacity: 1; }
+:root[data-theme='dark'] :is(input, select, textarea) { accent-color: #e56743; }
+:root[data-theme='dark'] .sidebar { background: #121713; }
+:root[data-theme='dark'] .floor { background-color: #1c241f; }
+:root[data-theme='dark'] .floor-instructions { background: #222a24ed; }
+:root[data-theme='dark'] .table.occupied { background: #392b25; }
+:root[data-theme='dark'] .settings-preview { background: #19211c; }
+:root[data-theme='dark'] .settings-actionbar { background: #222a24f5; }
+:root[data-theme='dark'] .settings-amount-field input { background: transparent; }
+:root[data-theme='dark'] .settings-save:disabled { color: #9ba695; }
+:root[data-theme='dark'] .settings-discard:disabled { color: #85907f; }
+:root[data-theme='dark'] .settings-ticket { color-scheme: light; box-shadow: 0 10px 30px #0004; }
+/* The receipt preview keeps its paper colors, just like the printed ticket. */
+:root[data-theme='dark'] .settings-ticket button { color: inherit; }
+:root[data-theme='dark'] :focus-visible { outline-color: #ffad8d; }
+:root[data-theme='dark'] ::selection { background: #80513f; color: #fff; }
+
+.sidebar > .theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  flex: none;
+  min-height: 40px;
+  width: 100%;
+  margin: 10px 0;
+  padding: 10px 12px;
+  border: 1px solid #4a5146;
+  border-radius: 9px;
+  background: #ffffff06;
+  color: #d4dacc;
+  font-size: 12px;
+  font-weight: 500;
+}
+.theme-toggle svg { width: 18px; height: 18px; flex: none; }
+.sidebar > .theme-toggle:hover { border-color: #909e85; background: #ffffff0d; color: #fff; }
+.theme-toggle:focus-visible { outline: 2px solid #f3a486; outline-offset: 3px; }
+.login > .theme-toggle { position: absolute; top: 20px; right: 20px; display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--cream); color: var(--ink); font-size: 12px; }
+.login { position: relative; padding-top: 88px; padding-bottom: 70px; }
+@media (max-width: 680px) {
+  .sidebar > .theme-toggle { width: 38px; height: 38px; min-height: 38px; justify-content: center; margin: 0; padding: 8px; }
+  .sidebar > .theme-toggle span { display: none; }
+  .sidebar .profile { margin-left: 0; padding-left: 9px; }
+  .login > .theme-toggle { top: 16px; right: 16px; }
+}

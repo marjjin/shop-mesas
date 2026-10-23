@@ -1,4 +1,6 @@
-export default function Sidebar({ user, section, pendingOrdersCount, onSectionChange, onSignOut }) {
+import ThemeToggle from '../appearance/ThemeToggle.jsx'
+
+export default function Sidebar({ user, section, pendingOrdersCount, onSectionChange, onSignOut, resolvedTheme, onThemeChange }) {
   return <aside className="sidebar">
     <div className="logo">☕ Mesa<span>.</span></div>
     <nav className="sidebar-nav" aria-label="Navegación principal">
@@ -25,6 +27,7 @@ export default function Sidebar({ user, section, pendingOrdersCount, onSectionCh
         <button className={section === 'settings' ? 'active' : ''} onClick={() => onSectionChange('settings')}>⚙ <span>Configuraciones</span></button>
       </div>
     </nav>
+    <ThemeToggle resolvedTheme={resolvedTheme} onThemeChange={onThemeChange} />
     <div className="profile"><i>A</i><span><b>{user.name}</b><small>Administrador</small></span><button className="logout-button" title="Cerrar sesión" onClick={onSignOut}>↪</button></div>
   </aside>
 }

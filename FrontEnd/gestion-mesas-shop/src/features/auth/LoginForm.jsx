@@ -1,5 +1,7 @@
-export default function LoginForm({ login, error, onLoginChange, onSubmit }) {
-  return <main className="login"><form onSubmit={onSubmit}>
+import ThemeToggle from '../appearance/ThemeToggle.jsx'
+
+export default function LoginForm({ login, error, onLoginChange, onSubmit, resolvedTheme, onThemeChange }) {
+  return <main className="login"><ThemeToggle resolvedTheme={resolvedTheme} onThemeChange={onThemeChange} /><form onSubmit={onSubmit}>
     <div className="icon">☕</div>
     <p className="eyebrow">GESTIÓN DE MESAS</p>
     <h1>Bienvenido</h1>
