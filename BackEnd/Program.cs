@@ -2,6 +2,8 @@ using GestionMesas.Api;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+if (int.TryParse(Environment.GetEnvironmentVariable("PORT"), out var renderPort) && renderPort > 0 && renderPort <= 65535)
+    builder.WebHost.UseUrls($"http://0.0.0.0:{renderPort}");
 var configuredConnectionString = builder.Configuration.GetConnectionString("Restaurant")
     ?? "Data Source=gestion-mesas.db";
 builder.Services.AddDbContext<RestaurantContext>(options =>
@@ -11,7 +13,16 @@ builder.Services.AddDbContext<RestaurantContext>(options =>
     else
         options.UseSqlite(configuredConnectionString);
 });
-builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+const string frontendCorsPolicy = "Frontend";
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()?
+    .Where(origin => !string.IsNullOrWhiteSpace(origin)).Select(origin => origin.Trim().TrimEnd('/')).ToArray() ?? [];
+builder.Services.AddCors(options => options.AddPolicy(frontendCorsPolicy, policy =>
+{
+    // Without an origin list, support local clients and deployed frontend domains.
+    if (allowedOrigins.Length == 0) policy.AllowAnyOrigin();
+    else policy.WithOrigins(allowedOrigins);
+    policy.AllowAnyHeader().WithMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS");
+}));
 builder.Services.AddHostedService<CoworkingBillingService>();
 builder.Services.AddScoped<ICigaretteService, CigaretteService>();
 builder.Services.AddScoped<ICafeteriaService, CafeteriaService>();
@@ -19,12 +30,13 @@ builder.Services.AddScoped<ISupplierService, SupplierService>();
 builder.Services.AddScoped<ICashDropService, CashDropService>();
 
 var app = builder.Build();
-app.UseCors();
+app.UseCors(frontendCorsPolicy);
 
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<RestaurantContext>();
     db.Database.EnsureCreated();
+    WelcomeMessageConfiguration.EnsureSchema(db);
     if (db.Database.IsSqlite())
     {
         db.Database.ExecuteSqlRaw("""
@@ -292,6 +304,24 @@ api.MapPost("/login", async (LoginRequest request, RestaurantContext db) =>
 {
     var user = await db.Users.FirstOrDefaultAsync(item => item.Username == request.Username && item.Password == request.Password);
     return user is null ? Results.Unauthorized() : Results.Ok(new { token = "demo-admin-token", user = new { user.Id, user.Name, user.Username } });
+});
+api.MapGet("/settings/welcome-message", async (RestaurantContext db, HttpResponse response) =>
+{
+    response.Headers.CacheControl = "no-store";
+    var setting = await db.WelcomeMessageSettings.FindAsync(1);
+    return Results.Ok(setting ?? new WelcomeMessageSetting());
+});
+api.MapPut("/settings/welcome-message", async (UpdateWelcomeMessageSettingRequest request, RestaurantContext db, HttpResponse response) =>
+{
+    response.Headers.CacheControl = "no-store";
+    var current = await db.WelcomeMessageSettings.FindAsync(1);
+    var setting = WelcomeMessageConfiguration.Merge(request, current);
+    var error = WelcomeMessageConfiguration.Validate(setting);
+    if (error is not null) return Results.BadRequest(new { detail = error });
+    if (current is null) db.WelcomeMessageSettings.Add(setting);
+    else db.Entry(current).CurrentValues.SetValues(setting);
+    await db.SaveChangesAsync();
+    return Results.Ok(setting);
 });
 api.MapGet("/bootstrap", async (RestaurantContext db) => Results.Ok(new
 {

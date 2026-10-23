@@ -32,8 +32,9 @@ export default function TableMenu({ table, data, orders, now, api, load, closePa
     const printWindow = openReceiptPrintWindow()
     setOpenError('')
     try {
+      const ticketSettings = await api('/settings/welcome-message', { cache: 'no-store' })
       const openedTable = await api(`/tables/${table.id}/open`, { method: 'POST', body: JSON.stringify({ customerName: name }) })
-      const printStarted = printWelcomeReceipt(openedTable, printWindow)
+      const printStarted = printWelcomeReceipt(openedTable, printWindow, ticketSettings)
       setCustomerName('')
       await load()
       if (!printStarted) setOpenError('Mesa abierta. Habilitá las ventanas emergentes para imprimir el ticket de bienvenida.')

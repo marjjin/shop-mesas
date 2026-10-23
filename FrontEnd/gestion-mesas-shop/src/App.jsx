@@ -6,6 +6,9 @@ import History from './History.jsx'
 import PendingOrders from './PendingOrders.jsx'
 import Suppliers from './Suppliers.jsx'
 import CashDrops from './CashDrops.jsx'
+import Settings from './Settings.jsx'
+import { requireWelcomeMessageSettings } from './shared/utils/welcomeMessage.js'
+import { resolveApiUrl } from './shared/utils/apiUrl.js'
 import LoginForm from './features/auth/LoginForm.jsx'
 import Sidebar from './features/layout/Sidebar.jsx'
 import FloorPlan from './features/salon/components/FloorPlan.jsx'
@@ -19,10 +22,8 @@ import './Navigation.css'
 import './FloorPlan.css'
 import './CoffeeSales.css'
 
-const API = (import.meta.env.VITE_API_URL || (import.meta.env.PROD
-  ? 'https://shop-mesas.onrender.com/api'
-  : 'http://localhost:5000/api')).replace(/\/+$/, '')
-const sections = new Set(['salon', 'pending', 'catalog', 'cafeteria', 'cigarettes', 'suppliers', 'cash-drops', 'shift-close', 'history'])
+const API = resolveApiUrl({ configuredUrl: import.meta.env.VITE_API_URL, production: import.meta.env.PROD })
+const sections = new Set(['salon', 'pending', 'catalog', 'cafeteria', 'cigarettes', 'suppliers', 'cash-drops', 'shift-close', 'history', 'settings'])
 
 function App() {
   const [user, setUser] = useState(() => JSON.parse(sessionStorage.getItem('mesa-user') || 'null'))
@@ -36,6 +37,8 @@ function App() {
   const [assigningTable, setAssigningTable] = useState(false)
   const [coffeeSummary, setCoffeeSummary] = useState({ saleCount: 0, totalSales: 0 })
   const [sellingCoffee, setSellingCoffee] = useState(false)
+  const [welcomeSettings, setWelcomeSettings] = useState(null)
+  const [welcomeSettingsError, setWelcomeSettingsError] = useState('')
   const [section, setSection] = useState(() => {
     const storedSection = sessionStorage.getItem('mesa-section')
     return sections.has(storedSection) ? storedSection : 'salon'
@@ -54,6 +57,8 @@ function App() {
     const response = await fetch(`${API}${path}`, { ...options, headers })
     if (!response.ok) {
       const problem = await response.json().catch(() => null)
+      if (response.status === 404 && path === '/settings/welcome-message')
+        throw new Error('La API no tiene disponible la configuración de bienvenida. Reiniciá el backend actualizado en local o desplegá su nueva versión en Render.')
       throw new Error(response.status === 401 ? 'Usuario o contraseña incorrectos.' : problem?.detail || 'No se pudo completar la operación.')
     }
     return response.status === 204 ? null : response.json()
@@ -73,6 +78,14 @@ function App() {
   useEffect(() => { if (user) load() }, [user, load])
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (user) loadCoffeeSummary().catch(() => {}) }, [user, loadCoffeeSummary])
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    api('/settings/welcome-message', { cache: 'no-store' }).then((setting) => {
+      if (!cancelled) { setWelcomeSettings(requireWelcomeMessageSettings(setting)); setWelcomeSettingsError('') }
+    }).catch((error) => { if (!cancelled) setWelcomeSettingsError(error.message) })
+    return () => { cancelled = true }
+  }, [user, api, section])
   useEffect(() => { sessionStorage.setItem('mesa-section', section) }, [section])
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (user && section === 'history') loadHistory() }, [user, section, loadHistory])
@@ -178,7 +191,7 @@ function App() {
       setEditingId(null)
       setAssigningPendingOrderId(null)
     }
-    if (nextSection === 'shift-close' || nextSection === 'suppliers' || nextSection === 'cash-drops') {
+    if (nextSection === 'shift-close' || nextSection === 'suppliers' || nextSection === 'cash-drops' || nextSection === 'settings') {
       setSelectedId(null)
       setEditingId(null)
       setAssigningPendingOrderId(null)
@@ -210,8 +223,9 @@ function App() {
     setAssigningTable(true)
     setMessage('')
     try {
+      const ticketSettings = await api('/settings/welcome-message', { cache: 'no-store' })
       const result = await api(`/pending-orders/${assigningPendingOrder.id}/assign`, { method: 'POST', body: JSON.stringify({ tableId }) })
-      const printStarted = printWelcomeReceipt(result.table, printWindow)
+      const printStarted = printWelcomeReceipt(result.table, printWindow, ticketSettings)
       setAssigningPendingOrderId(null)
       await load()
       setSelectedId(result.table.id)
@@ -256,7 +270,8 @@ function App() {
         {message && <p className="error">{message}</p>}
         {editingMode && <TableEditor key={editingId ?? 'none'} table={data.tables.find((table) => table.id === editingId)} saveTable={saveTable} deleteTable={deleteTable} addTable={addTable} finishEditing={() => { setEditingMode(false); setEditingId(null) }} />}
         <FloorPlan tables={data.tables} coworkingTableIds={coworkingTableIds} editingMode={editingMode} editingId={editingId} assignmentOrder={assigningPendingOrder} assigningTable={assigningTable} onSelect={(id) => { setSelectedId(id); setEditingId(null) }} onEdit={(id) => { setSelectedId(null); setEditingId(id) }} onAssign={assignPendingOrderToTable} saveTable={saveTable} />
-      </> : section === 'pending' ? <PendingOrders data={data} api={api} load={load} onChooseTable={chooseTableForPendingOrder} /> : section === 'catalog' ? <Catalog data={data} api={api} load={load} /> : section === 'cafeteria' ? <Cafeteria api={api} onSummaryChange={setCoffeeSummary} /> : section === 'cigarettes' ? <Cigarettes api={api} /> : section === 'suppliers' ? <Suppliers api={api} /> : section === 'cash-drops' ? <CashDrops api={api} /> : section === 'shift-close' ? <Cigarettes api={api} mode="shift-close" onShiftClosed={(close) => { setCoffeeSummary({ saleCount: 0, totalSales: 0 }); loadCoffeeSummary(close.businessDate).catch(() => {}) }} /> : <History histories={histories} />}
+      </> : section === 'pending' ? <PendingOrders data={data} api={api} load={load} onChooseTable={chooseTableForPendingOrder} /> : section === 'catalog' ? <Catalog data={data} api={api} load={load} /> : section === 'cafeteria' ? <Cafeteria api={api} onSummaryChange={setCoffeeSummary} /> : section === 'cigarettes' ? <Cigarettes api={api} /> : section === 'suppliers' ? <Suppliers api={api} /> : section === 'cash-drops' ? <CashDrops api={api} /> : section === 'shift-close' ? <Cigarettes api={api} mode="shift-close" onShiftClosed={(close) => { setCoffeeSummary({ saleCount: 0, totalSales: 0 }); loadCoffeeSummary(close.businessDate).catch(() => {}) }} /> : section === 'history' ? <History histories={histories} /> : null}
+      {section === 'settings' && <Settings api={api} welcomeSettings={welcomeSettings} loadError={welcomeSettingsError} onWelcomeSettingsChange={(settings) => { setWelcomeSettings(settings); setWelcomeSettingsError('') }} />}
     </section>
     {selected && <TableMenu key={selected.id} table={selected} data={data} orders={orders} now={now} api={api} load={load} closePanel={() => setSelectedId(null)} closeTable={closeTable} updateOpenedAt={updateOpenedAt} />}
   </main>

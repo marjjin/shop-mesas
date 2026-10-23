@@ -20,6 +20,10 @@ export default function Sidebar({ user, section, pendingOrdersCount, onSectionCh
         <button className={section === 'shift-close' ? 'active' : ''} onClick={() => onSectionChange('shift-close')}>✓ <span>Cierre de turno</span></button>
         <button className={section === 'history' ? 'active' : ''} onClick={() => onSectionChange('history')}>◷ <span>Historial de mesas</span></button>
       </div>
+      <div className="sidebar-nav-group">
+        <p>Sistema</p>
+        <button className={section === 'settings' ? 'active' : ''} onClick={() => onSectionChange('settings')}>⚙ <span>Configuraciones</span></button>
+      </div>
     </nav>
     <div className="profile"><i>A</i><span><b>{user.name}</b><small>Administrador</small></span><button className="logout-button" title="Cerrar sesión" onClick={onSignOut}>↪</button></div>
   </aside>

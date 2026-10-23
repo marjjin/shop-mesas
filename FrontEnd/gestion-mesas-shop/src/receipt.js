@@ -1,3 +1,5 @@
+import { welcomeMessageContent } from './shared/utils/welcomeMessage.js'
+
 function parseUtc(value) {
   return /(?:Z|[+-]\d{2}:\d{2})$/.test(value) ? value : `${value}Z`
 }
@@ -60,7 +62,9 @@ function receiptMarkup(history) {
 </html>`
 }
 
-function welcomeReceiptMarkup(table) {
+function welcomeReceiptMarkup(table, settings) {
+  const content = welcomeMessageContent(settings, table.customerName)
+  const minimum = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(settings.amount)
   return `<!doctype html>
 <html lang="es">
 <head>
@@ -77,21 +81,19 @@ function welcomeReceiptMarkup(table) {
     p { margin: 0 0 4mm; line-height: 1.45; }
     .conditions { padding: 4mm 0; border-top: 1px dashed #000; border-bottom: 1px dashed #000; }
     .minimum { margin-top: 5mm; font-size: 12pt; font-weight: bold; }
+    .ticket-text { white-space: pre-line; overflow-wrap: anywhere; }
     footer { margin-top: 5mm; padding-top: 4mm; border-top: 1px solid #000; text-align: center; font-weight: bold; font-size: 10pt; }
   </style>
 </head>
 <body>
-  <header><h1>SHOP FAMILY</h1></header>
+  <header><h1 class="ticket-text">${escapeHtml(content.businessName)}</h1></header>
   <main>
-    <h2>Hola ${escapeHtml(table.customerName)}, bienvenido/a a Shop Family.</h2>
-    <p>Ya registramos tu pedido.</p>
-    <div class="conditions">
-      <p>Tu tiempo de mesa es de <strong>1 hora</strong>.</p>
-      <p>Pasado ese tiempo podrás renovar tu pedido o solo abonar el servicio de mesa sin consumición.</p>
-    </div>
-    <p class="minimum">Costo mínimo de consumo: $3000</p>
+    <h2 class="ticket-text">${escapeHtml(content.greetingText)}</h2>
+    ${content.messageText ? `<p class="ticket-text">${escapeHtml(content.messageText)}</p>` : ''}
+    ${content.conditionsText ? `<div class="conditions"><p class="ticket-text">${escapeHtml(content.conditionsText)}</p></div>` : ''}
+    <p class="minimum ticket-text">${escapeHtml(content.minimumLabel)}: $${minimum}</p>
   </main>
-  <footer>¡Gracias por elegirnos!</footer>
+  ${content.footerText ? `<footer class="ticket-text">${escapeHtml(content.footerText)}</footer>` : ''}
   <script>window.addEventListener('load', () => setTimeout(() => { window.focus(); window.print(); }, 100)); window.addEventListener('afterprint', () => window.close());</script>
 </body>
 </html>`
@@ -237,10 +239,12 @@ export function printReceipt(history, printWindow) {
   return true
 }
 
-export function printWelcomeReceipt(table, printWindow) {
+export function printWelcomeReceipt(table, printWindow, settings) {
+  if (!Number.isFinite(settings?.amount) || settings.amount < 0)
+    throw new Error('No se pudo obtener el importe del mensaje de bienvenida.')
   if (!printWindow || printWindow.closed) return false
   printWindow.document.open()
-  printWindow.document.write(welcomeReceiptMarkup(table))
+  printWindow.document.write(welcomeReceiptMarkup(table, settings))
   printWindow.document.close()
   return true
 }

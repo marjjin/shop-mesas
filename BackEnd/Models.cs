@@ -23,6 +23,7 @@ public class RestaurantContext(DbContextOptions<RestaurantContext> options) : Db
     public DbSet<CafeteriaSaleItem> CafeteriaSaleItems => Set<CafeteriaSaleItem>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<SupplierTransaction> SupplierTransactions => Set<SupplierTransaction>();
+    public DbSet<WelcomeMessageSetting> WelcomeMessageSettings => Set<WelcomeMessageSetting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -72,6 +73,7 @@ public class RestaurantContext(DbContextOptions<RestaurantContext> options) : Db
         modelBuilder.Entity<SupplierTransaction>().Property(transaction => transaction.CashAmount).HasPrecision(12, 2);
         modelBuilder.Entity<SupplierTransaction>().Property(transaction => transaction.MercadoPagoAmount).HasPrecision(12, 2);
         modelBuilder.Entity<SupplierTransaction>().HasIndex(transaction => new { transaction.SupplierId, transaction.CigaretteShiftCloseId }).IsUnique();
+        modelBuilder.Entity<WelcomeMessageSetting>().Property(setting => setting.Amount).HasPrecision(12, 2);
     }
 }
 
@@ -95,7 +97,22 @@ public class CafeteriaSaleItem { public int Id { get; set; } public int Cafeteri
 public class Supplier { public int Id { get; set; } public string Name { get; set; } = ""; public decimal ReservedBalance { get; set; } public decimal ReservedCashBalance { get; set; } public decimal ReservedMercadoPagoBalance { get; set; } public decimal CurrentAccountBalance { get; set; } public bool IsSeparateCashBox { get; set; } public bool IsActive { get; set; } = true; public DateTime CreatedAt { get; set; } }
 public class SupplierTransaction { public int Id { get; set; } public int SupplierId { get; set; } public int? CigaretteShiftCloseId { get; set; } public string Type { get; set; } = ""; public decimal Amount { get; set; } public decimal CashAmount { get; set; } public decimal MercadoPagoAmount { get; set; } public DateOnly BusinessDate { get; set; } public string? Note { get; set; } public DateTime CreatedAt { get; set; } }
 
+public class WelcomeMessageSetting
+{
+    public int Id { get; set; } = 1;
+    public decimal Amount { get; set; } = 3000;
+    public string BusinessName { get; set; } = "SHOP FAMILY";
+    public string GreetingText { get; set; } = "Hola {nombre}, bienvenido/a a Shop Family.";
+    public string MessageText { get; set; } = "Ya registramos tu pedido.";
+    public string ConditionsText { get; set; } = "Tu tiempo de mesa es de 1 hora.\n\nPasado ese tiempo podrás renovar tu pedido o solo abonar el servicio de mesa sin consumición.";
+    public string MinimumLabel { get; set; } = "Costo mínimo de consumo";
+    public string FooterText { get; set; } = "¡Gracias por elegirnos!";
+}
+
 public record LoginRequest(string Username, string Password);
+public sealed record UpdateWelcomeMessageSettingRequest(decimal Amount, string? BusinessName = null,
+    string? GreetingText = null, string? MessageText = null, string? ConditionsText = null,
+    string? MinimumLabel = null, string? FooterText = null);
 public record TableRequest(string? Name, int? Seats);
 public record TablePatch(string? Name, int? Seats, int? X, int? Y, int? Width, int? Height, DateTimeOffset? OpenedAt);
 public record OpenTableRequest(string CustomerName);
