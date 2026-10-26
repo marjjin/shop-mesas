@@ -1,0 +1,138 @@
+using Microsoft.EntityFrameworkCore;
+using static GestionMesas.Api.CigaretteMapping;
+using static GestionMesas.Api.CigaretteRules;
+
+namespace GestionMesas.Api;
+
+internal sealed class CigaretteInventory(RestaurantContext db)
+{
+    public async Task<CigaretteProductResponse> CreateProductAsync(CreateCigaretteProductRequest request, CancellationToken cancellationToken)
+    {
+        var name = ValidateProduct(request.Name, request.Price);
+        if (request.InitialStock < 0) throw new CigaretteValidationException("El stock inicial no puede ser negativo.");
+        var existingProduct = await db.CigaretteProducts.FirstOrDefaultAsync(product => product.Name.ToLower() == name.ToLower(), cancellationToken);
+        if (existingProduct is not null)
+        {
+            if (existingProduct.IsActive)
+                throw new CigaretteValidationException("Ya existe un cigarrillo con ese nombre.");
+
+            existingProduct.Name = name;
+            existingProduct.Price = request.Price;
+            existingProduct.Stock = request.InitialStock;
+            existingProduct.IsActive = true;
+            await db.SaveChangesAsync(cancellationToken);
+            return ToResponse(existingProduct);
+        }
+
+        var product = new CigaretteProduct { Name = name, Price = request.Price, Stock = request.InitialStock, CreatedAt = DateTime.UtcNow };
+        db.CigaretteProducts.Add(product);
+        await db.SaveChangesAsync(cancellationToken);
+        return ToResponse(product);
+    }
+
+    public async Task<CigaretteProductResponse?> UpdateProductAsync(int id, UpdateCigaretteProductRequest request, CancellationToken cancellationToken)
+    {
+        var product = await db.CigaretteProducts.FirstOrDefaultAsync(item => item.Id == id && item.IsActive, cancellationToken);
+        if (product is null) return null;
+        var name = ValidateProduct(request.Name, request.Price);
+        if (request.Stock < 0) throw new CigaretteValidationException("El stock no puede ser negativo.");
+        if (await db.CigaretteProducts.AnyAsync(item => item.Id != id && item.Name.ToLower() == name.ToLower(), cancellationToken))
+            throw new CigaretteValidationException("Ya existe un cigarrillo con ese nombre.");
+        var purchases = await db.CigarettePurchases.Where(purchase => purchase.CigaretteProductId == id)
+            .Select(purchase => new { purchase.BusinessDate, purchase.Shift, purchase.Quantity }).ToListAsync(cancellationToken);
+        var closedShifts = await db.CigaretteShiftCloses.Select(close => new { close.BusinessDate, close.Shift }).ToListAsync(cancellationToken);
+        var minimumStock = purchases.Where(purchase => !closedShifts.Any(close => close.BusinessDate == purchase.BusinessDate && close.Shift == purchase.Shift))
+            .Sum(purchase => purchase.Quantity);
+        if (request.Stock < minimumStock)
+            throw new CigaretteValidationException($"El stock no puede ser menor a {minimumStock}, porque hay compras en turnos aún abiertos.");
+        product.Name = name;
+        product.Price = request.Price;
+        product.Stock = request.Stock;
+        await db.SaveChangesAsync(cancellationToken);
+        return ToResponse(product);
+    }
+
+    public async Task<bool> DeleteProductAsync(int id, CancellationToken cancellationToken)
+    {
+        var product = await db.CigaretteProducts.FirstOrDefaultAsync(item => item.Id == id && item.IsActive, cancellationToken);
+        if (product is null) return false;
+        product.IsActive = false;
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<CigarettePurchaseResponse> CreatePurchaseAsync(CreateCigarettePurchaseRequest request, CancellationToken cancellationToken)
+    {
+        var shift = NormalizeShift(request.Shift);
+        if (request.Quantity <= 0) throw new CigaretteValidationException("La cantidad comprada debe ser mayor que cero.");
+        if (await db.CigaretteShiftCloses.AnyAsync(close => close.BusinessDate == request.BusinessDate && close.Shift == shift, cancellationToken))
+            throw new CigaretteValidationException("No se pueden cargar compras en un turno que ya fue cerrado.");
+        var product = await db.CigaretteProducts.FirstOrDefaultAsync(item => item.Id == request.CigaretteProductId && item.IsActive, cancellationToken)
+            ?? throw new CigaretteNotFoundException("El cigarrillo indicado no existe.");
+
+        var purchase = new CigarettePurchase { CigaretteProductId = product.Id, Quantity = request.Quantity, UnitCost = 0, BusinessDate = request.BusinessDate, Shift = shift, CreatedAt = DateTime.UtcNow };
+        product.Stock += request.Quantity;
+        db.CigarettePurchases.Add(purchase);
+        await db.SaveChangesAsync(cancellationToken);
+        return ToResponse(purchase, product.Name);
+    }
+
+    public async Task<CigarettePurchaseResponse?> UpdatePurchaseAsync(int id, UpdateCigarettePurchaseRequest request, CancellationToken cancellationToken)
+    {
+        var purchase = await db.CigarettePurchases.FindAsync([id], cancellationToken);
+        if (purchase is null) return null;
+        if (request.Quantity <= 0) throw new CigaretteValidationException("La cantidad comprada debe ser mayor que cero.");
+        var close = await db.CigaretteShiftCloses.Include(item => item.Items)
+            .FirstOrDefaultAsync(item => item.BusinessDate == purchase.BusinessDate && item.Shift == purchase.Shift, cancellationToken);
+        var product = await db.CigaretteProducts.FindAsync([purchase.CigaretteProductId], cancellationToken)
+            ?? throw new CigaretteNotFoundException("El cigarrillo indicado no existe.");
+        var quantityDifference = request.Quantity - purchase.Quantity;
+        var updatedStock = product.Stock + quantityDifference;
+        if (close is null && updatedStock < 0) throw new CigaretteValidationException("El stock no puede quedar negativo.");
+
+        if (close is not null) AdjustClosedPurchase(close, purchase.CigaretteProductId, quantityDifference);
+        else product.Stock = updatedStock;
+        purchase.Quantity = request.Quantity;
+        await db.SaveChangesAsync(cancellationToken);
+        return ToResponse(purchase, product.Name);
+    }
+
+    public async Task<bool> DeletePurchaseAsync(int id, CancellationToken cancellationToken)
+    {
+        var purchase = await db.CigarettePurchases.FindAsync([id], cancellationToken);
+        if (purchase is null) return false;
+        var close = await db.CigaretteShiftCloses.Include(item => item.Items)
+            .FirstOrDefaultAsync(item => item.BusinessDate == purchase.BusinessDate && item.Shift == purchase.Shift, cancellationToken);
+        var product = await db.CigaretteProducts.FindAsync([purchase.CigaretteProductId], cancellationToken)
+            ?? throw new CigaretteNotFoundException("El cigarrillo indicado no existe.");
+        if (close is null && product.Stock < purchase.Quantity) throw new CigaretteValidationException("El stock no puede quedar negativo.");
+
+        if (close is not null) AdjustClosedPurchase(close, purchase.CigaretteProductId, -purchase.Quantity);
+        else product.Stock -= purchase.Quantity;
+        db.CigarettePurchases.Remove(purchase);
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    private static void AdjustClosedPurchase(CigaretteShiftClose close, int productId, int quantityDifference)
+    {
+        var closeItem = close.Items.SingleOrDefault(item => item.CigaretteProductId == productId)
+            ?? throw new CigaretteValidationException("El cigarrillo de la compra no pertenece al cierre del turno.");
+        var purchasedQuantity = closeItem.PurchasedQuantity + quantityDifference;
+        var soldQuantity = closeItem.InitialStock + purchasedQuantity - closeItem.FinalStock;
+        if (purchasedQuantity < 0 || soldQuantity < 0)
+            throw new CigaretteValidationException($"La compra no se puede modificar porque invalidaría el cierre de {closeItem.ProductName}.");
+
+        closeItem.PurchasedQuantity = purchasedQuantity;
+        closeItem.SoldQuantity = soldQuantity;
+        closeItem.SalesAmount = soldQuantity * closeItem.UnitPrice;
+    }
+
+    private static string ValidateProduct(string name, decimal price)
+    {
+        name = name.Trim();
+        if (string.IsNullOrWhiteSpace(name) || name.Length > 100) throw new CigaretteValidationException("El nombre es obligatorio y admite hasta 100 caracteres.");
+        if (price <= 0) throw new CigaretteValidationException("El precio de venta debe ser mayor que cero.");
+        return name;
+    }
+}

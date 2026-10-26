@@ -2,6 +2,29 @@
 
 API ASP.NET Core Minimal API con Entity Framework Core y PostgreSQL. En el primer arranque crea automáticamente las categorías, productos, mesas de muestra y el usuario `admin` / `admin`.
 
+## Organización del código
+
+- `Program.cs` compone y ejecuta la aplicación.
+- `Hosting/` registra servicios, CORS, el puerto de Render y los módulos de rutas.
+- `Infrastructure/Persistence/` contiene `RestaurantContext`, la selección de SQLite/PostgreSQL, las ampliaciones de esquema y los datos iniciales. `DatabaseInitializer` mantiene el orden de inicialización anterior.
+- `Features/` agrupa autenticación, catálogo, mesas, pedidos, pedidos pendientes, historial, configuraciones, coworking, cafetería, cigarrillos, proveedores y tiradas. Cada módulo reúne sus entidades, contratos HTTP, endpoints y lógica cuando corresponde.
+- `CigaretteInventory` administra productos y compras; `CigaretteQueries` construye las consultas y respuestas; `CigaretteService` coordina cierres y sus transacciones.
+- `SupplierLedger` concentra las reglas de saldos y movimientos compartidas por proveedores y cierres. `SupplierService` conserva la coordinación y persistencia de las operaciones.
+- `TableClosing` archiva consumos y libera la mesa dentro de una transacción. `OrderConsumption` comparte las consultas de último consumo y la identificación del servicio de coworking.
+
+El namespace `GestionMesas.Api`, los nombres de entidades, las tablas y los contratos HTTP se conservan. Los módulos de persistencia contienen las mismas ampliaciones SQL existentes; esta reorganización no introduce una migración de datos. Los handlers CRUD simples usan directamente el contexto; no hay un repositorio genérico adicional.
+
+## Comprobaciones
+
+Desde la raíz del repositorio:
+
+```powershell
+dotnet test BackEnd.Tests/GestionMesas.Api.Tests.csproj -c Release
+dotnet build BackEnd/GestionMesas.Api.csproj -c Release
+```
+
+Las pruebas de servicios usan SQLite aislado. Las pruebas HTTP usan la misma composición y registro de rutas que producción, con una base SQLite en memoria y un puerto local efímero; verifican autenticación, configuración del ticket, mesas/pedidos/historial, cajas/cierres/proveedores y CORS. El worker de coworking se excluye de ese host de prueba porque tiene pruebas específicas con tiempo controlado. También se comprueban el arranque repetido sin pérdida de datos y la conversión de las URLs de PostgreSQL de Render. La suite no se conecta a bases de producción ni necesita iniciar la API de desarrollo.
+
 ## Desarrollo local
 
 Ejecutá `dotnet run --urls http://localhost:5000`. Sin configuración adicional, la API usa SQLite y crea `gestion-mesas.db` localmente. La API queda disponible en `http://localhost:5000` y el cliente Vite la consume mediante `http://localhost:5000/api`.

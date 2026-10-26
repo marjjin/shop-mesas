@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { datetimeLocal, clock, time } from '../../../shared/utils/date.js'
+import { datetimeLocal, clock, time, utcDate } from '../../../shared/utils/date.js'
 import { isCoworkingService } from '../../../shared/utils/products.js'
-import { openReceiptPrintWindow, printWelcomeReceipt } from '../../../receipt.js'
-import { parseProductSearch } from '../../../productSearch.js'
+import { openReceiptPrintWindow, printWelcomeReceipt } from '../../printing/receipt.js'
+import { parseProductSearch } from '../../../shared/utils/productSearch.js'
 
 export default function TableMenu({ table, data, orders, now, api, load, closePanel, closeTable, updateOpenedAt }) {
   const [search, setSearch] = useState('')
@@ -17,7 +17,7 @@ export default function TableMenu({ table, data, orders, now, api, load, closePa
   const [savingOrderId, setSavingOrderId] = useState(null)
   const [orderError, setOrderError] = useState('')
   const { quantity, query } = parseProductSearch(search)
-  const firstOrderTime = orders.reduce((earliest, order) => Math.min(earliest, new Date(/(?:Z|[+-]\d{2}:\d{2})$/.test(order.createdAt) ? order.createdAt : `${order.createdAt}Z`).getTime()), now)
+  const firstOrderTime = orders.reduce((earliest, order) => Math.min(earliest, new Date(utcDate(order.createdAt)).getTime()), now)
   const results = query ? data.products.filter((product) => !isCoworkingService(product)).filter((product) => product.name.toLowerCase().includes(query.toLowerCase())) : []
 
   const addConsumption = async (productId) => {

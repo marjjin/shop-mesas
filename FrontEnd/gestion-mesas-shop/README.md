@@ -47,7 +47,7 @@ La preferencia se guarda en `localStorage` con la clave `mesa-theme`, por navega
 ## Comprobaciones
 
 ```sh
-node --test src/shared/utils/apiUrl.test.js src/receipt.test.js
+npm test
 npm run build
 ```
 
