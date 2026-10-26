@@ -24,9 +24,11 @@ export default function ShiftCloseForm({ products, purchases, suppliers, allocat
   const totalSales = rows.reduce((total, row) => total + row.amount, 0)
   const { archaeologicalResult, cashTotal, separateCashBoxTotal, dailySalesTotal } = getDraftFinancialSummary({ endingBalances, cashDrops, suppliers, allocations, cafeteriaTotal: cafeteriaSummary?.totalSales || 0, totalSales })
   const isValid = rows.length > 0 && rows.every((row) => !row.invalidInitial && row.final >= 0 && row.final <= row.initial + row.purchased)
+  const excessStockRows = rows.filter((row) => !row.invalidInitial && row.final > row.initial + row.purchased)
 
   const submit = (event) => {
     event.preventDefault()
+    if (!isValid) return
     onClose({ businessDate: date, shift, items: rows.map((row) => ({ cigaretteProductId: row.id, finalStock: row.final })), supplierAllocations: suppliers.map((supplier) => ({ supplierId: supplier.id, cashAmount: Number(allocations[supplier.id]?.cashAmount || 0), mercadoPagoAmount: Number(allocations[supplier.id]?.mercadoPagoAmount || 0) })).filter((allocation) => allocation.cashAmount + allocation.mercadoPagoAmount > 0), endingCashBalance: Number(endingBalances.cash || 0), endingMercadoPagoBalance: Number(endingBalances.mercadoPago || 0), posnetTotal: Number(endingBalances.posnet || 0), receivedChangeCash: Number(endingBalances.receivedChange || 0), nextShiftChangeCash: Number(endingBalances.change || 0) })
   }
 
@@ -43,10 +45,11 @@ export default function ShiftCloseForm({ products, purchases, suppliers, allocat
       <span className="close-product"><b>{row.name}</b><small>{money.format(row.price)} c/u{row.stock <= 0 ? ' · SIN STOCK' : ''}</small></span>
       <span className={`close-metric ${row.invalidInitial ? 'invalid-initial' : ''}`}><small>Inicial</small><strong>{row.invalidInitial ? 'Corregir' : row.initial}</strong></span>
       <span className="close-metric"><small>Compras</small><strong className={row.purchased ? 'purchase-pill' : ''}>+{row.purchased}</strong></span>
-      <label className="close-metric final-stock"><small translate="no">Stock final</small><input type="number" inputMode="numeric" min="0" max={row.initial + row.purchased} required disabled={row.stock <= 0} title={row.stock <= 0 ? 'Sin stock disponible' : undefined} value={finalStocks[row.id] ?? ''} aria-label={`Stock final de ${row.name}`} onChange={(event) => changeFinalStock(row.id, event.target.value)} /></label>
+      <label className="close-metric final-stock"><small translate="no">Stock final</small><input type="number" inputMode="numeric" min="0" max={row.initial + row.purchased} required disabled={row.stock <= 0} title={row.stock <= 0 ? 'Sin stock disponible' : undefined} value={finalStocks[row.id] ?? ''} aria-label={`Stock final de ${row.name}`} aria-invalid={row.final > row.initial + row.purchased || undefined} aria-describedby={row.final > row.initial + row.purchased ? `stock-error-${row.id}` : undefined} onChange={(event) => changeFinalStock(row.id, event.target.value)} /></label>
       <span className="close-metric"><small>Vendidos</small><strong className="sold-value">{row.invalidInitial ? '—' : row.sold}</strong></span>
       <span className="close-metric amount-metric"><small>Importe</small><b>{row.invalidInitial ? '—' : money.format(row.amount)}</b></span>
     </div>)}
+    {excessStockRows.length > 0 && <div role="alert" className="close-validation-error"><strong>No se puede cerrar el turno: hay stock final mayor al disponible.</strong>{excessStockRows.map((row) => <p key={row.id} id={`stock-error-${row.id}`}>{row.name}: ingresaste {row.final} de stock final, pero el máximo es {row.initial + row.purchased} (stock inicial {row.initial} + compras {row.purchased}). Corregí el stock final o registrá las compras faltantes antes de cerrar.</p>)}</div>}
     {!products.length && <div className="cigarette-empty">Primero cargá al menos un cigarrillo.</div>}
     <div className="close-total"><span className="cash-total-summary"><small>CAJA</small><b>{money.format(cashTotal)}</b><i>Arqueo − proveedores sin caja aparte − cafetería − cigarrillos</i></span><span className="daily-sales-summary"><small>VENTAS DEL DÍA</small><b>{money.format(dailySalesTotal)}</b><i>Arqueo {money.format(archaeologicalResult)}{separateCashBoxTotal > 0 ? ` + cajas aparte ${money.format(separateCashBoxTotal)}` : ''}</i></span><button className="primary" disabled={!isValid}>Cerrar turno {shifts[shift].toLowerCase()}</button></div>
   </form>
