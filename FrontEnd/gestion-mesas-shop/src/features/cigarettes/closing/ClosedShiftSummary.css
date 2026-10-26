@@ -17,8 +17,10 @@
 .closed-shift-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 26px;padding:18px 0;border-top:1px solid var(--line)}
 .closed-shift-footer p{margin:0;color:var(--ink);font-size:12px;font-weight:600}
 .closed-shift-footer p span{display:block;margin-top:4px;color:var(--muted);font-size:11px;font-weight:400}
-.closed-shift-footer button{display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:none;min-height:40px;padding:10px 15px;border:1px solid var(--line);border-radius:8px;background:var(--theme-surface,#fff);color:var(--ink);font:600 12px inherit;cursor:pointer;transition:background .15s,border-color .15s}
-.closed-shift-footer button svg{width:16px;height:16px}
-.closed-shift-footer button:hover{background:var(--theme-surface-muted,#f5f4f0);border-color:var(--muted)}
+.closed-shift-footer button{display:inline-flex;align-items:center;justify-content:center;gap:10px;flex:none;min-height:44px;padding:11px 18px;border:1px solid var(--theme-accent-line,#ecc4b2);border-radius:10px;background:var(--theme-accent-surface,#fff0e7);color:var(--theme-accent-text,#a64021);font-family:inherit;font-size:13px;font-weight:750;line-height:1.3;box-shadow:0 2px 4px #6b33100a;cursor:pointer;transition:background .18s,border-color .18s,box-shadow .18s,transform .18s}
+.closed-shift-footer button svg{width:17px;height:17px;flex:none;stroke-width:2}
+.closed-shift-footer button:hover{background:var(--theme-danger-surface,#ffe3d3);border-color:var(--theme-accent-text,#c26640);box-shadow:0 4px 10px #6b331015;transform:translateY(-1px)}
+.closed-shift-footer button:active{transform:translateY(0);box-shadow:none}
 .closed-shift-footer button:focus-visible{outline:3px solid var(--orange);outline-offset:3px}
+@media(prefers-reduced-motion:reduce){.closed-shift-footer button{transition:none}.closed-shift-footer button:hover{transform:none}}
 @media(max-width:680px){.closed-shift-status{padding:18px;flex-wrap:wrap}.closed-shift-status h3{font-size:18px}.closed-shift-badge{margin-left:56px}.closed-shift-metrics{grid-template-columns:1fr;padding:0 18px}.closed-shift-metrics>div,.closed-shift-metrics>div:first-child,.closed-shift-metrics>div:last-child{padding:18px 0;border-left:0;border-bottom:1px solid var(--line)}.closed-shift-metrics>div:last-child{border-bottom:0}.closed-shift-metrics dd{font-size:28px;margin:8px 0}.closed-shift-footer{margin:0 18px;align-items:stretch;flex-direction:column}.closed-shift-footer button{width:100%}}
