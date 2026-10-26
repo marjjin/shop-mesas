@@ -103,3 +103,9 @@
 .closed-cash-overview strong{color:var(--theme-success-text,#23785f);font-size:23px}
 .already-closed>div{min-width:0}
 @media(max-width:680px){.closed-cash-overview{grid-template-columns:1fr}.closed-cash-overview>div{padding:14px}.stock-warning-dialog{padding:44px 18px 20px}}
+.close-card-detail>footer .delete-close-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 15px;border:1px solid var(--theme-danger-line,#edc0b9);border-radius:9px;background:var(--theme-danger-surface,#fff0ed);color:var(--theme-danger-text,#a83b2b);font-family:inherit;font-size:13px;font-weight:750;line-height:1.3;cursor:pointer;transition:background .18s,border-color .18s,box-shadow .18s}
+.delete-close-button svg{width:17px;height:17px;flex:none}
+.close-card-detail>footer .delete-close-button:hover{border-color:var(--theme-danger-text,#a83b2b);background:var(--theme-danger-surface,#ffe3dd);box-shadow:0 3px 8px #a83b2b18}
+.close-card-detail>footer .delete-close-button:active{box-shadow:none}
+.close-card-detail>footer .delete-close-button:focus-visible{outline:3px solid var(--theme-danger-text,#a83b2b);outline-offset:3px}
+@media(prefers-reduced-motion:reduce){.close-card-detail>footer .delete-close-button{transition:none}}
