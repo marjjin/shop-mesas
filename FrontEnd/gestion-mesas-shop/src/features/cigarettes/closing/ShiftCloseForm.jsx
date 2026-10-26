@@ -1,5 +1,5 @@
 import { getDraftFinancialSummary } from '../domain/closeFinancials.js'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import useCloseDraft from '../hooks/useCloseDraft.js'
 import { shifts } from '../domain/businessDate.js'
 import { money } from '../../../shared/utils/currency.js'
@@ -8,6 +8,7 @@ import SupplierAllocations from './SupplierAllocations.jsx'
 import { CafeteriaCloseSummary, CashDropsSummary } from './CloseSummary.jsx'
 
 export default function ShiftCloseForm({ products, purchases, suppliers, allocations, onAllocationsChange, cafeteriaSummary, cafeteriaError, cashDrops, shift, date, previousChangeCash, onClose }) {
+  const [validationMessage, setValidationMessage] = useState('')
   const purchasedByProduct = useMemo(() => purchases
     .filter((purchase) => purchase.shift === shift)
     .reduce((totals, purchase) => ({ ...totals, [purchase.cigaretteProductId]: (totals[purchase.cigaretteProductId] || 0) + purchase.quantity }), {}), [purchases, shift])
@@ -29,7 +30,8 @@ export default function ShiftCloseForm({ products, purchases, suppliers, allocat
     onClose({ businessDate: date, shift, items: rows.map((row) => ({ cigaretteProductId: row.id, finalStock: row.final })), supplierAllocations: suppliers.map((supplier) => ({ supplierId: supplier.id, cashAmount: Number(allocations[supplier.id]?.cashAmount || 0), mercadoPagoAmount: Number(allocations[supplier.id]?.mercadoPagoAmount || 0) })).filter((allocation) => allocation.cashAmount + allocation.mercadoPagoAmount > 0), endingCashBalance: Number(endingBalances.cash || 0), endingMercadoPagoBalance: Number(endingBalances.mercadoPago || 0), posnetTotal: Number(endingBalances.posnet || 0), receivedChangeCash: Number(endingBalances.receivedChange || 0), nextShiftChangeCash: Number(endingBalances.change || 0) })
   }
 
-  return <form className="shift-close" onSubmit={submit}>
+  return <form className="shift-close" onSubmit={submit} onInvalid={(event) => setValidationMessage(`Revisá ${event.target.getAttribute('aria-label') || event.target.closest('label')?.textContent || 'los importes del cierre'}: ${event.target.validationMessage}`)} onChange={() => setValidationMessage('')}>
+    {validationMessage && <p role="alert" className="close-validation-error">{validationMessage}</p>}
     <div className="close-draft-notice"><span>●</span><p>{hasDraft ? 'Borrador guardado automáticamente en este dispositivo.' : 'Los cambios se guardarán automáticamente mientras cargás el cierre.'}</p>{hasDraft && <button type="button" onClick={discardDraft}>Descartar borrador</button>}</div>
     <EndingBalances balances={endingBalances} cashDrops={cashDrops} onChange={changeEndingBalances} onReceivedChange={() => setReceivedChangeEdited(true)} />
     <CashDropsSummary cashDrops={cashDrops} />

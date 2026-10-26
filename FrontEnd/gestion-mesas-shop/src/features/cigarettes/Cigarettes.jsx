@@ -39,6 +39,7 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
   const [busy, setBusy] = useState(false)
 
   const [closeWarning, setCloseWarning] = useState(null)
+  const [closeConfirmation, setCloseConfirmation] = useState(null)
   const [inventoryDetails, setInventoryDetails] = useState(null)
 
   const { dashboard, suppliers, cafeteriaSummary, cafeteriaError, previousChangeCash, monthlyRanking, loadingRanking, rankingError, load, loadMonthlyRanking } = useCigaretteDashboard({ api, date, shift, setMessage })
@@ -113,8 +114,10 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
   }
   const closeShift = async (request) => {
     const previous = previousShift(request.businessDate, request.shift)
+    setMessage('Comprobando el turno anterior…')
     try {
       const previousDashboard = previous.businessDate === date ? dashboard : await api(`/cigarettes?date=${previous.businessDate}`)
+      setMessage('')
       const previousIsClosed = previousDashboard.closes.some((close) => close.shift === previous.shift)
       if (!previousIsClosed) {
         setCloseWarning({ request, previous })
@@ -124,19 +127,25 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
       setMessage('No se pudo comprobar si el turno anterior está cerrado. Intentá nuevamente.')
       return
     }
-    if (window.confirm(`¿Confirmar el cierre del turno ${shifts[request.shift].toLowerCase()}?`)) await saveShiftClose(request)
+    setCloseConfirmation({ request })
   }
   const continueClosingShift = async () => {
     const request = closeWarning?.request
     setCloseWarning(null)
-    if (request && window.confirm(`¿Confirmar el cierre del turno ${shifts[request.shift].toLowerCase()}?`)) await saveShiftClose(request)
+    if (request) setCloseConfirmation({ request })
   }
   const closeInPendingShift = async () => {
     if (!closeWarning) return
     const { request, previous } = closeWarning
     setCloseWarning(null)
     const correctedRequest = { ...request, businessDate: previous.businessDate, shift: previous.shift }
-    if (window.confirm(`Se cerrará como turno ${shifts[previous.shift].toLowerCase()} del ${new Date(`${previous.businessDate}T12:00:00`).toLocaleDateString('es-AR')}, usando los stocks que ya cargaste. ¿Continuar?`)) await saveShiftClose(correctedRequest, request)
+    setCloseConfirmation({ request: correctedRequest, sourceDraft: request })
+  }
+  const confirmShiftClose = async () => {
+    if (!closeConfirmation || busy) return
+    const { request, sourceDraft } = closeConfirmation
+    setCloseConfirmation(null)
+    await saveShiftClose(request, sourceDraft)
   }
   const saveCloseCorrection = async (request) => {
     const targetDate = request.businessDate || date
@@ -204,7 +213,9 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
       {availableTabs.map(([value, icon, label]) => <button key={value} className={tab === value ? 'active' : ''} onClick={() => setTab(value)}><i>{icon}</i>{label}</button>)}
     </nav>
     {!isClosingView && <section className="inventory-value-card" aria-label="Resumen del inventario de cigarrillos"><div className="inventory-total"><span className="inventory-value-icon" aria-hidden="true">▥</span><div><small>VALOR DEL INVENTARIO</small><b>{money.format(inventoryValue)}</b><p>{dashboard.products.length} {dashboard.products.length === 1 ? 'variedad activa' : 'variedades activas'} · {dashboard.products.reduce((total, item) => total + item.stock, 0)} unidades</p></div></div><div className="inventory-insights"><div className="inventory-insight best-seller"><small>MÁS VENDIDO DEL MES</small><b>{loadingRanking ? 'Cargando…' : bestSeller?.name || 'Sin ventas aún'}</b><span>{bestSeller ? `${bestSeller.quantity} ${bestSeller.quantity === 1 ? 'unidad' : 'unidades'}` : 'Cierres del mes seleccionado'}</span><button type="button" onClick={showMonthlyRanking}>▤ Ver ranking mensual</button></div><div className="inventory-insight low-stock"><small>BAJO STOCK</small><b>{lowStockCount}</b><span>{lowStockCount === 1 ? 'variedad' : 'variedades'} · 1 a 5 un.</span><button type="button" onClick={() => setInventoryDetails('low')}>⌕ Ver detalles</button></div><div className="inventory-insight out-of-stock"><small>SIN STOCK</small><b>{outOfStockCount}</b><span>{outOfStockCount === 1 ? 'variedad agotada' : 'variedades agotadas'}</span><button type="button" onClick={() => setInventoryDetails('out')}>⌕ Ver detalles</button></div></div></section>}
-    {message && <p className={message.includes('correctamente') || message.includes('actualizado') ? 'cigarette-message success' : 'cigarette-message'}>{message}</p>}
+    {message && <p role="status" className={message.includes('correctamente') || message.includes('actualizado') ? 'cigarette-message success' : 'cigarette-message'}>{message}</p>}
+    {busy && <p role="status" className="cigarette-message">Procesando operación…</p>}
+    {closeConfirmation && <div className="shift-warning-backdrop" role="presentation"><section className="shift-warning" role="dialog" aria-modal="true" aria-labelledby="close-confirmation-title"><span className="shift-warning-icon">✓</span><div><h2 id="close-confirmation-title">Confirmar cierre de turno</h2><p>Se cerrará el turno <b>{shifts[closeConfirmation.request.shift].toLowerCase()}</b> del <b>{new Date(`${closeConfirmation.request.businessDate}T12:00:00`).toLocaleDateString('es-AR')}</b> con los stocks y los importes que cargaste.</p></div><footer><button type="button" className="secondary" onClick={() => setCloseConfirmation(null)}>Seguir revisando</button><button type="button" className="primary" disabled={busy} onClick={confirmShiftClose}>Confirmar cierre</button></footer></section></div>}
     {inventoryDetails && <InventoryDetails inventoryDetails={inventoryDetails} date={date} setInventoryDetails={setInventoryDetails} loadingRanking={loadingRanking} rankingError={rankingError} monthlyRanking={monthlyRanking} lowStockProducts={lowStockProducts} outOfStockProducts={outOfStockProducts} />}
     {closeWarning && <div className="shift-warning-backdrop" role="presentation"><section className="shift-warning" role="dialog" aria-modal="true" aria-labelledby="shift-warning-title"><span className="shift-warning-icon">!</span><div><small>REVISÁ LA SECUENCIA DE CIERRES</small><h2 id="shift-warning-title">Hay un turno pendiente</h2><p>Antes de cerrar <b>{shifts[closeWarning.request.shift].toLowerCase()} del {new Date(`${closeWarning.request.businessDate}T12:00:00`).toLocaleDateString('es-AR')}</b>, falta cerrar <b>{shifts[closeWarning.previous.shift].toLowerCase()} del {new Date(`${closeWarning.previous.businessDate}T12:00:00`).toLocaleDateString('es-AR')}</b>.</p><p className="shift-warning-note">Podés cerrar ese turno ahora usando los stocks que ya cargaste; no tendrás que ingresarlos otra vez.</p></div><footer><button type="button" className="secondary" onClick={continueClosingShift}>Cerrar en el turno elegido</button><button type="button" className="primary" onClick={closeInPendingShift}>Cerrar en el turno correcto</button></footer></section></div>}
 
