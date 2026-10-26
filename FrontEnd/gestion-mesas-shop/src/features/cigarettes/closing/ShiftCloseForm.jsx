@@ -6,9 +6,11 @@ import { money } from '../../../shared/utils/currency.js'
 import EndingBalances from './EndingBalances.jsx'
 import SupplierAllocations from './SupplierAllocations.jsx'
 import { CafeteriaCloseSummary, CashDropsSummary } from './CloseSummary.jsx'
+import StockWarning from './StockWarning.jsx'
 
 export default function ShiftCloseForm({ products, purchases, suppliers, allocations, onAllocationsChange, cafeteriaSummary, cafeteriaError, cashDrops, shift, date, previousChangeCash, onClose }) {
   const [validationMessage, setValidationMessage] = useState('')
+  const [showStockWarning, setShowStockWarning] = useState(false)
   const purchasedByProduct = useMemo(() => purchases
     .filter((purchase) => purchase.shift === shift)
     .reduce((totals, purchase) => ({ ...totals, [purchase.cigaretteProductId]: (totals[purchase.cigaretteProductId] || 0) + purchase.quantity }), {}), [purchases, shift])
@@ -32,7 +34,15 @@ export default function ShiftCloseForm({ products, purchases, suppliers, allocat
     onClose({ businessDate: date, shift, items: rows.map((row) => ({ cigaretteProductId: row.id, finalStock: row.final })), supplierAllocations: suppliers.map((supplier) => ({ supplierId: supplier.id, cashAmount: Number(allocations[supplier.id]?.cashAmount || 0), mercadoPagoAmount: Number(allocations[supplier.id]?.mercadoPagoAmount || 0) })).filter((allocation) => allocation.cashAmount + allocation.mercadoPagoAmount > 0), endingCashBalance: Number(endingBalances.cash || 0), endingMercadoPagoBalance: Number(endingBalances.mercadoPago || 0), posnetTotal: Number(endingBalances.posnet || 0), receivedChangeCash: Number(endingBalances.receivedChange || 0), nextShiftChangeCash: Number(endingBalances.change || 0) })
   }
 
-  return <form className="shift-close" onSubmit={submit} onInvalid={(event) => setValidationMessage(`Revisá ${event.target.getAttribute('aria-label') || event.target.closest('label')?.textContent || 'los importes del cierre'}: ${event.target.validationMessage}`)} onChange={() => setValidationMessage('')}>
+  return <form className="shift-close" onSubmit={submit} onInvalid={(event) => {
+    if (excessStockRows.length) {
+      event.preventDefault()
+      setShowStockWarning(true)
+    } else setValidationMessage(`Revisá ${event.target.getAttribute('aria-label') || event.target.closest('label')?.textContent || 'los importes del cierre'}: ${event.target.validationMessage}`)
+  }} onBlur={(event) => {
+    if (event.target.getAttribute('aria-invalid') === 'true' && excessStockRows.length) setShowStockWarning(true)
+  }} onChange={() => setValidationMessage('')}>
+    {showStockWarning && excessStockRows.length > 0 && <StockWarning rows={excessStockRows} onClose={() => setShowStockWarning(false)} />}
     {validationMessage && <p role="alert" className="close-validation-error">{validationMessage}</p>}
     <div className="close-draft-notice"><span>●</span><p>{hasDraft ? 'Borrador guardado automáticamente en este dispositivo.' : 'Los cambios se guardarán automáticamente mientras cargás el cierre.'}</p>{hasDraft && <button type="button" onClick={discardDraft}>Descartar borrador</button>}</div>
     <EndingBalances balances={endingBalances} cashDrops={cashDrops} onChange={changeEndingBalances} onReceivedChange={() => setReceivedChangeEdited(true)} />
@@ -50,6 +60,7 @@ export default function ShiftCloseForm({ products, purchases, suppliers, allocat
       <span className="close-metric amount-metric"><small>Importe</small><b>{row.invalidInitial ? '—' : money.format(row.amount)}</b></span>
     </div>)}
     {excessStockRows.length > 0 && <div role="alert" className="close-validation-error"><strong>No se puede cerrar el turno: hay stock final mayor al disponible.</strong>{excessStockRows.map((row) => <p key={row.id} id={`stock-error-${row.id}`}>{row.name}: ingresaste {row.final} de stock final, pero el máximo es {row.initial + row.purchased} (stock inicial {row.initial} + compras {row.purchased}). Corregí el stock final o registrá las compras faltantes antes de cerrar.</p>)}</div>}
+    {excessStockRows.length > 0 && <button type="button" className="edit-close-button" onClick={() => setShowStockWarning(true)}>Ver aviso de stock</button>}
     {!products.length && <div className="cigarette-empty">Primero cargá al menos un cigarrillo.</div>}
     <div className="close-total"><span className="cash-total-summary"><small>CAJA</small><b>{money.format(cashTotal)}</b><i>Arqueo − proveedores sin caja aparte − cafetería − cigarrillos</i></span><span className="daily-sales-summary"><small>VENTAS DEL DÍA</small><b>{money.format(dailySalesTotal)}</b><i>Arqueo {money.format(archaeologicalResult)}{separateCashBoxTotal > 0 ? ` + cajas aparte ${money.format(separateCashBoxTotal)}` : ''}</i></span><button className="primary" disabled={!isValid}>Cerrar turno {shifts[shift].toLowerCase()}</button></div>
   </form>
