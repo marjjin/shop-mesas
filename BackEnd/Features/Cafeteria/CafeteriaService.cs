@@ -20,8 +20,7 @@ public sealed class CafeteriaService(RestaurantContext db) : ICafeteriaService
         var products = await GetProductsAsync(cancellationToken);
         var lastClose = await GetLastCloseAsync(cancellationToken);
         var activeShift = lastClose?.Shift == "morning" ? "afternoon" : "morning";
-        var summary = await GetSummaryAsync(sale => !db.CigaretteShiftCloses.Any(close =>
-            close.BusinessDate == sale.BusinessDate && close.Shift == sale.Shift), cancellationToken);
+        var summary = await GetSummaryAsync(GetPendingSales(db), cancellationToken);
         var daySummary = await GetPeriodSummaryAsync(date, date.AddDays(1), cancellationToken);
         var monthStart = new DateOnly(date.Year, date.Month, 1);
         var monthSummary = await GetPeriodSummaryAsync(monthStart, monthStart.AddMonths(1), cancellationToken);
@@ -34,11 +33,19 @@ public sealed class CafeteriaService(RestaurantContext db) : ICafeteriaService
         var products = await db.CafeteriaProducts.Where(product => product.IsActive).OrderBy(product => product.CreatedAt).ToListAsync(cancellationToken);
         if (products.Count == 0) throw new CafeteriaValidationException("Primero cargá al menos un artículo en Caja Cafetería.");
 
+        var lastClose = await GetLastCloseAsync(cancellationToken);
+        var shift = lastClose?.Shift == "morning" ? "afternoon" : "morning";
+        var businessDate = date;
+        if (lastClose is not null)
+        {
+            var nextShiftDate = lastClose.Shift == "afternoon" ? lastClose.BusinessDate.AddDays(1) : lastClose.BusinessDate;
+            if (businessDate < nextShiftDate) businessDate = nextShiftDate;
+        }
         var now = DateTime.UtcNow;
         var sale = new CafeteriaSale
         {
-            BusinessDate = date,
-            Shift = (await GetLastCloseAsync(cancellationToken))?.Shift == "morning" ? "afternoon" : "morning",
+            BusinessDate = businessDate,
+            Shift = shift,
             CreatedAt = now
         };
         sale.Items.AddRange(products.Select(product => new CafeteriaSaleItem { CafeteriaProductId = product.Id, ProductName = product.Name, UnitPrice = product.Price }));
@@ -90,17 +97,20 @@ public sealed class CafeteriaService(RestaurantContext db) : ICafeteriaService
     }
 
     public Task<CafeteriaSalesSummaryResponse> GetSummaryAsync(DateOnly businessDate, string shift, CancellationToken cancellationToken) =>
-        GetSummaryAsync(sale => sale.BusinessDate == businessDate && sale.Shift == shift, cancellationToken);
+        GetSummaryAsync(db.CafeteriaSales.Where(sale => sale.BusinessDate == businessDate && sale.Shift == shift), cancellationToken);
 
     public Task<IReadOnlyList<CafeteriaShiftSalesHistoryResponse>> GetShiftHistoryAsync(DateOnly date, CancellationToken cancellationToken) =>
         GetShiftHistoryForPeriodAsync(date, date.AddDays(1), cancellationToken);
 
-    private async Task<CafeteriaSalesSummaryResponse> GetSummaryAsync(
-        System.Linq.Expressions.Expression<Func<CafeteriaSale, bool>> predicate,
+    internal static IQueryable<CafeteriaSale> GetPendingSales(RestaurantContext db) =>
+        db.CafeteriaSales.Where(sale => !db.CigaretteShiftCloses.Any(close =>
+            close.BusinessDate == sale.BusinessDate && close.Shift == sale.Shift));
+
+    private static async Task<CafeteriaSalesSummaryResponse> GetSummaryAsync(
+        IQueryable<CafeteriaSale> query,
         CancellationToken cancellationToken)
     {
-        var sales = await db.CafeteriaSales.AsNoTracking()
-            .Where(predicate)
+        var sales = await query.AsNoTracking()
             .Include(sale => sale.Items).ToListAsync(cancellationToken);
         var items = sales.SelectMany(sale => sale.Items).GroupBy(item => new { item.ProductName, item.UnitPrice })
             .OrderBy(group => group.Key.ProductName).Select(group => new CafeteriaSalesSummaryItemResponse(group.Key.ProductName, group.Count(), group.Key.UnitPrice, group.Sum(item => item.UnitPrice))).ToList();

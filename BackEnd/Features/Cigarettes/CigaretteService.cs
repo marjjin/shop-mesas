@@ -64,6 +64,8 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
         if (suppliers.Count != supplierIds.Count)
             throw new CigaretteNotFoundException("Uno de los proveedores del cierre no existe o está inactivo.");
 
+        // Capture the same pending sales shown by the counter before saving the close.
+        var cafeteriaSales = await CafeteriaService.GetPendingSales(db).ToListAsync(cancellationToken);
         var close = new CigaretteShiftClose { BusinessDate = request.BusinessDate, Shift = shift, EndingCashBalance = request.EndingCashBalance, EndingMercadoPagoBalance = request.EndingMercadoPagoBalance, NextShiftChangeCash = request.NextShiftChangeCash, ReceivedChangeCash = request.ReceivedChangeCash, PosnetTotal = request.PosnetTotal, ClosedAt = DateTime.UtcNow };
         foreach (var input in request.Items)
         {
@@ -78,6 +80,11 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
             product.Stock = input.FinalStock;
         }
 
+        foreach (var sale in cafeteriaSales)
+        {
+            sale.BusinessDate = close.BusinessDate;
+            sale.Shift = close.Shift;
+        }
         db.CigaretteShiftCloses.Add(close);
         await db.SaveChangesAsync(cancellationToken);
         foreach (var cashDrop in cashDrops)
