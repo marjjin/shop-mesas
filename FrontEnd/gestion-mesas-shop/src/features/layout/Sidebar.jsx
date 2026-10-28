@@ -1,4 +1,13 @@
 import ThemeToggle from '../appearance/ThemeToggle.jsx'
+import { sectionPaths } from './sectionNavigation.js'
+
+function SectionLink({ target, section, onSectionChange, children }) {
+  return <a href={sectionPaths[target]} className={section === target ? 'active' : ''} aria-current={section === target ? 'page' : undefined} onClick={(event) => {
+    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
+    event.preventDefault()
+    onSectionChange(target)
+  }}>{children}</a>
+}
 
 export default function Sidebar({ user, section, pendingOrdersCount, onSectionChange, onSignOut, resolvedTheme, onThemeChange }) {
   return <aside className="sidebar">
@@ -6,25 +15,25 @@ export default function Sidebar({ user, section, pendingOrdersCount, onSectionCh
     <nav className="sidebar-nav" aria-label="Navegación principal">
       <div className="sidebar-nav-group">
         <p>Operación</p>
-        <button className={section === 'salon' ? 'active' : ''} onClick={() => onSectionChange('salon')}>▦ <span>Plano de mesas</span></button>
-        <button className={section === 'pending' ? 'active' : ''} onClick={() => onSectionChange('pending')}>⌛ <span>Pedidos{pendingOrdersCount ? ` (${pendingOrdersCount})` : ''}</span></button>
+        <SectionLink target="salon" section={section} onSectionChange={onSectionChange}>▦ <span>Plano de mesas</span></SectionLink>
+        <SectionLink target="pending" section={section} onSectionChange={onSectionChange}>⌛ <span>Pedidos{pendingOrdersCount ? ` (${pendingOrdersCount})` : ''}</span></SectionLink>
       </div>
       <div className="sidebar-nav-group">
         <p>Cajas y stock</p>
-        <button className={section === 'catalog' ? 'active' : ''} onClick={() => onSectionChange('catalog')}>☷ <span>Artículos</span></button>
-        <button className={section === 'cafeteria' ? 'active' : ''} onClick={() => onSectionChange('cafeteria')}>☕ <span>Caja Cafetería</span></button>
-        <button className={section === 'cigarettes' ? 'active' : ''} onClick={() => onSectionChange('cigarettes')}>▥ <span>Cigarrillos</span></button>
-        <button className={section === 'suppliers' ? 'active' : ''} onClick={() => onSectionChange('suppliers')}>▣ <span>Proveedores</span></button>
-        <button className={section === 'cash-drops' ? 'active' : ''} onClick={() => onSectionChange('cash-drops')}>↘ <span>Tiradas</span></button>
+        <SectionLink target="catalog" section={section} onSectionChange={onSectionChange}>☷ <span>Artículos</span></SectionLink>
+        <SectionLink target="cafeteria" section={section} onSectionChange={onSectionChange}>☕ <span>Caja Cafetería</span></SectionLink>
+        <SectionLink target="cigarettes" section={section} onSectionChange={onSectionChange}>▥ <span>Cigarrillos</span></SectionLink>
+        <SectionLink target="suppliers" section={section} onSectionChange={onSectionChange}>▣ <span>Proveedores</span></SectionLink>
+        <SectionLink target="cash-drops" section={section} onSectionChange={onSectionChange}>↘ <span>Tiradas</span></SectionLink>
       </div>
       <div className="sidebar-nav-group">
         <p>Cierres y control</p>
-        <button className={section === 'shift-close' ? 'active' : ''} onClick={() => onSectionChange('shift-close')}>✓ <span>Cierre de turno</span></button>
-        <button className={section === 'history' ? 'active' : ''} onClick={() => onSectionChange('history')}>◷ <span>Historial de mesas</span></button>
+        <SectionLink target="shift-close" section={section} onSectionChange={onSectionChange}>✓ <span>Cierre de turno</span></SectionLink>
+        <SectionLink target="history" section={section} onSectionChange={onSectionChange}>◷ <span>Historial de mesas</span></SectionLink>
       </div>
       <div className="sidebar-nav-group">
         <p>Sistema</p>
-        <button className={section === 'settings' ? 'active' : ''} onClick={() => onSectionChange('settings')}>⚙ <span>Configuraciones</span></button>
+        <SectionLink target="settings" section={section} onSectionChange={onSectionChange}>⚙ <span>Configuraciones</span></SectionLink>
       </div>
     </nav>
     <ThemeToggle resolvedTheme={resolvedTheme} onThemeChange={onThemeChange} />

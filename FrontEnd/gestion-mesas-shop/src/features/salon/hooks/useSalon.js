@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { isCoworkingService } from '../../../shared/utils/products.js'
 import { openReceiptPrintWindow, printReceipt, printWelcomeReceipt } from '../../printing/receipt.js'
 
@@ -71,7 +71,7 @@ export default function useSalon({ api, data, setData, load, loadHistory, setMes
       return false
     }
   }
-  const changeSection = (nextSection) => {
+  const changeSection = useCallback((nextSection) => {
     if (nextSection === 'pending') {
       setSelectedId(null)
       setEditingId(null)
@@ -100,7 +100,7 @@ export default function useSalon({ api, data, setData, load, loadHistory, setMes
       setSelectedId(null)
       setAssigningPendingOrderId(null)
     }
-  }
+  }, [])
   const chooseTableForPendingOrder = (pendingOrderId) => {
     setSection('salon')
     setAssigningPendingOrderId(pendingOrderId)
