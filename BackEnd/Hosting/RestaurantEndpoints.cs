@@ -4,7 +4,7 @@ public static class RestaurantEndpoints
 {
     public static WebApplication MapRestaurantEndpoints(this WebApplication app)
     {
-        var api = app.MapGroup("/api");
+        var api = app.MapGroup("/api").RequireAuthorization(SessionAuthentication.AccessPolicy);
         api.MapCigaretteEndpoints();
         api.MapCafeteriaEndpoints();
         api.MapSupplierEndpoints();
@@ -17,7 +17,7 @@ public static class RestaurantEndpoints
         api.MapCatalogEndpoints();
         api.MapPendingOrdersEndpoints();
         api.MapOrdersEndpoints();
-        app.MapGet("/", () => Results.Ok(new { name = "Gestion Mesas API", status = "online" }));
+        app.MapGet("/", () => Results.Ok(new { name = "Gestion Mesas API", status = "online" })).AllowAnonymous();
         return app;
     }
 }

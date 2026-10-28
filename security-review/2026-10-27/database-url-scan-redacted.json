@@ -1,0 +1,20 @@
+[
+  {
+    "commit": "7d65553",
+    "file": "BackEnd.Tests/DatabaseInitializationTests.cs",
+    "redactedLine": "+    [InlineData(\"[REDACTED_DATABASE_CREDENTIALS]@localhost/mesas\", true)]",
+    "placeholderMarker": true
+  },
+  {
+    "commit": "7d65553",
+    "file": "BackEnd.Tests/DatabaseInitializationTests.cs",
+    "redactedLine": "+    [InlineData(\"[REDACTED_DATABASE_CREDENTIALS]@localhost/mesas\", true)]",
+    "placeholderMarker": true
+  },
+  {
+    "commit": "7d65553",
+    "file": "BackEnd.Tests/DatabaseInitializationTests.cs",
+    "redactedLine": "+        var converted = DatabaseConnection.ToNpgsqlConnectionString(\"[REDACTED_DATABASE_CREDENTIALS]@db.example:5433/mesas?sslmode=require\");",
+    "placeholderMarker": true
+  }
+]

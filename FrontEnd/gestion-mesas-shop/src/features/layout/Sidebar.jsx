@@ -2,7 +2,7 @@ import ThemeToggle from '../appearance/ThemeToggle.jsx'
 
 export default function Sidebar({ user, section, pendingOrdersCount, onSectionChange, onSignOut, resolvedTheme, onThemeChange }) {
   return <aside className="sidebar">
-    <div className="logo">☕ Mesa<span>.</span></div>
+    <div className="logo">☕ SHOP <span>FAMILY</span></div>
     <nav className="sidebar-nav" aria-label="Navegación principal">
       <div className="sidebar-nav-group">
         <p>Operación</p>

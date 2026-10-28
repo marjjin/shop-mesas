@@ -52,3 +52,43 @@ test('network failures are passed to the calling feature', async () => {
   const client = createApiClient('https://example.com/api', async () => { throw failure })
   await assert.rejects(client('/bootstrap'), (error) => error === failure)
 })
+
+test('the current session authenticates reads, writes and logout without adding credentials to the URL', async () => {
+  let token = 'first-session'
+  const requests = []
+  const client = createApiClient('https://example.com/api', async (url, options) => {
+    requests.push({ url, ...options })
+    return Response.json({ ok: true })
+  }, { getToken: () => token })
+  await client('/bootstrap')
+  token = 'second-session'
+  await client('/cafeteria/sales', { method: 'POST' })
+  await client('/logout', { method: 'POST' })
+  assert.equal(requests[0].headers.get('Authorization'), 'Bearer first-session')
+  assert.equal(requests[1].headers.get('Authorization'), 'Bearer second-session')
+  assert.equal(requests[2].headers.get('Authorization'), 'Bearer second-session')
+  assert.equal(requests[0].headers.has('Content-Type'), false)
+  assert.ok(requests.every((request) => !request.url.includes('session')))
+})
+
+test('expired sessions notify the UI using the token of the failing request, without expiring failed logins', async () => {
+  let token = 'old-session'
+  const expired = []
+  const client = createApiClient('https://example.com/api', async () => {
+    token = 'new-session'
+    return new Response(null, { status: 401 })
+  }, { getToken: () => token, onUnauthorized: (value) => expired.push(value) })
+  await assert.rejects(client('/bootstrap'), { status: 401, message: 'La sesión venció. Volvé a ingresar.' })
+  assert.deepEqual(expired, ['old-session'])
+  await assert.rejects(client('/login', { method: 'POST' }), { status: 401, message: 'Usuario o contraseña incorrectos.' })
+  assert.deepEqual(expired, ['old-session'])
+})
+
+test('permission and throttling failures do not erase a valid session', async () => {
+  for (const [status, message] of [[403, 'No tenés permiso para realizar esta operación.'], [429, 'Demasiados intentos. Esperá un minuto y volvé a intentar.']]) {
+    const client = createApiClient('https://example.com/api', async () => new Response(null, { status }), {
+      getToken: () => 'session', onUnauthorized: () => assert.fail('The session must remain valid'),
+    })
+    await assert.rejects(client('/bootstrap'), { status, message })
+  }
+})

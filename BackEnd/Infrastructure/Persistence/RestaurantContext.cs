@@ -5,6 +5,7 @@ namespace GestionMesas.Api;
 public class RestaurantContext(DbContextOptions<RestaurantContext> options) : DbContext(options)
 {
     public DbSet<User> Users => Set<User>();
+    public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<RestaurantTable> Tables => Set<RestaurantTable>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Product> Products => Set<Product>();
@@ -27,6 +28,14 @@ public class RestaurantContext(DbContextOptions<RestaurantContext> options) : Db
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<User>().Property(user => user.Role).HasDefaultValue("Administrator");
+        modelBuilder.Entity<UserSession>().HasKey(session => session.TokenHash);
+        modelBuilder.Entity<UserSession>().Property(session => session.TokenHash).HasMaxLength(64);
+        modelBuilder.Entity<UserSession>().Property(session => session.CredentialStamp).HasMaxLength(64);
+        modelBuilder.Entity<UserSession>().HasIndex(session => session.UserId);
+        modelBuilder.Entity<UserSession>().HasIndex(session => session.ExpiresAt);
+        modelBuilder.Entity<UserSession>().HasOne(session => session.User).WithMany()
+            .HasForeignKey(session => session.UserId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<PendingOrder>()
             .HasMany(order => order.Items)
             .WithOne()

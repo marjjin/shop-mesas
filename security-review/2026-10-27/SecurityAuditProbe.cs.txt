@@ -1,0 +1,203 @@
+using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text.Json;
+using GestionMesas.Api;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Xunit;
+
+namespace GestionMesas.Api.Tests;
+
+// Temporary audit probes: successful assertions confirm vulnerabilities, not security.
+public sealed class SecurityAuditProbe
+{
+    [Fact]
+    public async Task AnonymousAndInvalidTokenClientsCanReadSensitiveEndpoints()
+    {
+        await using var host = await ApiTestHost.StartAsync();
+        foreach (var path in new[] { "/api/bootstrap", "/api/history", "/api/suppliers", "/api/cafeteria/dashboard", "/api/cigarettes?date=2026-10-27", "/api/cash-drops?date=2026-10-27&shift=morning" })
+            Assert.Equal(HttpStatusCode.OK, (await host.Client.GetAsync(path)).StatusCode);
+        host.Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "invalid-audit-token");
+        Assert.Equal(HttpStatusCode.OK, (await host.Client.GetAsync("/api/bootstrap")).StatusCode);
+    }
+
+    [Fact]
+    public async Task FreshDatabaseAcceptsDefaultCredentialsAndReturnsTheSameToken()
+    {
+        await using var host = await ApiTestHost.StartAsync();
+        var first = await Send(host.Client, HttpMethod.Post, "/api/login", new { username = "admin", password = "admin" }, HttpStatusCode.OK);
+        var second = await Send(host.Client, HttpMethod.Post, "/api/login", new { username = "admin", password = "admin" }, HttpStatusCode.OK);
+        Assert.Equal("demo-admin-token", first.GetProperty("token").GetString());
+        Assert.Equal(first.GetProperty("token").GetString(), second.GetProperty("token").GetString());
+    }
+
+    [Fact]
+    public async Task AnonymousClientCanDeleteTheCatalogAndActiveConsumption()
+    {
+        await using var host = await ApiTestHost.StartAsync();
+        var before = await Get(host.Client, "/api/bootstrap");
+        Assert.NotEmpty(before.GetProperty("orders").EnumerateArray());
+        Assert.Equal(HttpStatusCode.NoContent, (await host.Client.DeleteAsync("/api/products")).StatusCode);
+        var after = await Get(host.Client, "/api/bootstrap");
+        Assert.Empty(after.GetProperty("orders").EnumerateArray());
+        Assert.Empty(after.GetProperty("products").EnumerateArray());
+        Assert.Empty((await Get(host.Client, "/api/history")).EnumerateArray());
+    }
+
+    [Fact]
+    public async Task DefaultCorsAllowsUntrustedOriginToChangeSettings()
+    {
+        await using var host = await ApiTestHost.StartAsync();
+        using var preflight = new HttpRequestMessage(HttpMethod.Options, "/api/settings/welcome-message");
+        preflight.Headers.Add("Origin", "https://untrusted.example");
+        preflight.Headers.Add("Access-Control-Request-Method", "PUT");
+        preflight.Headers.Add("Access-Control-Request-Headers", "content-type");
+        using var response = await host.Client.SendAsync(preflight);
+        Assert.Equal("*", Assert.Single(response.Headers.GetValues("Access-Control-Allow-Origin")));
+        using var update = new HttpRequestMessage(HttpMethod.Put, "/api/settings/welcome-message")
+        {
+            Content = JsonContent.Create(new { amount = 1 })
+        };
+        update.Headers.Add("Origin", "https://untrusted.example");
+        using var changed = await host.Client.SendAsync(update);
+        Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
+        Assert.Equal("*", Assert.Single(changed.Headers.GetValues("Access-Control-Allow-Origin")));
+    }
+
+    [Fact]
+    public async Task RestrictingCorsStillAllowsAnonymousDirectAccess()
+    {
+        await using var host = await ApiTestHost.StartAsync("https://trusted.example");
+        Assert.Equal(HttpStatusCode.OK, (await host.Client.GetAsync("/api/bootstrap")).StatusCode);
+        await Send(host.Client, HttpMethod.Post, "/api/products", new { name = "Audit item" }, HttpStatusCode.Created);
+    }
+
+    [Fact]
+    public async Task CashDropCanBeChangedAndDeletedAfterClosingItsShift()
+    {
+        await using var host = await ApiTestHost.StartAsync();
+        const string date = "2026-10-27";
+        var product = await Send(host.Client, HttpMethod.Post, "/api/cigarettes/products", new { name = "Audit cigarette", price = 100, initialStock = 10 }, HttpStatusCode.Created);
+        var drop = await Send(host.Client, HttpMethod.Post, "/api/cash-drops", new { amount = 500, businessDate = date, shift = "morning" }, HttpStatusCode.Created);
+        await Send(host.Client, HttpMethod.Post, "/api/cigarettes/closes", new
+        {
+            businessDate = date, shift = "morning", items = new[] { new { cigaretteProductId = product.GetProperty("id").GetInt32(), finalStock = 9 } }
+        }, HttpStatusCode.Created);
+        var dropPath = $"/api/cash-drops/{drop.GetProperty("id").GetInt32()}";
+        await Send(host.Client, HttpMethod.Put, dropPath, new { amount = 1 }, HttpStatusCode.OK);
+        var closes = await Get(host.Client, $"/api/cigarettes/closes?from={date}&to={date}");
+        Assert.Equal(1m, closes[0].GetProperty("cashDropsTotal").GetDecimal());
+        Assert.Equal(HttpStatusCode.NoContent, (await host.Client.DeleteAsync(dropPath)).StatusCode);
+        closes = await Get(host.Client, $"/api/cigarettes/closes?from={date}&to={date}");
+        Assert.Equal(0m, closes[0].GetProperty("cashDropsTotal").GetDecimal());
+    }
+
+    [Fact]
+    public async Task PendingQuantityOverflowsAndAssignsANegativeConsumption()
+    {
+        await using var host = await ApiTestHost.StartAsync();
+        var product = await Send(host.Client, HttpMethod.Post, "/api/products", new { name = "Audit item" }, HttpStatusCode.Created);
+        var pending = await Send(host.Client, HttpMethod.Post, "/api/pending-orders", new { customerName = "Audit" }, HttpStatusCode.Created);
+        var path = $"/api/pending-orders/{pending.GetProperty("id").GetInt32()}";
+        var productId = product.GetProperty("id").GetInt32();
+        await Send(host.Client, HttpMethod.Post, path + "/items", new { productId, quantity = int.MaxValue }, HttpStatusCode.OK);
+        var overflow = await Send(host.Client, HttpMethod.Post, path + "/items", new { productId, quantity = 1 }, HttpStatusCode.OK);
+        Assert.Equal(int.MinValue, overflow.GetProperty("quantity").GetInt32());
+        await Send(host.Client, HttpMethod.Post, path + "/assign", new { tableId = 1 }, HttpStatusCode.OK);
+        var bootstrap = await Get(host.Client, "/api/bootstrap");
+        Assert.Contains(bootstrap.GetProperty("orders").EnumerateArray(), order => order.GetProperty("quantity").GetInt32() == int.MinValue);
+    }
+
+    [Fact]
+    public async Task CigarettePurchaseCanOverflowStockToANegativeValue()
+    {
+        await using var host = await ApiTestHost.StartAsync();
+        var product = await Send(host.Client, HttpMethod.Post, "/api/cigarettes/products", new { name = "Audit cigarette", price = 100, initialStock = int.MaxValue }, HttpStatusCode.Created);
+        await Send(host.Client, HttpMethod.Post, "/api/cigarettes/purchases", new { cigaretteProductId = product.GetProperty("id").GetInt32(), quantity = 1, businessDate = "2026-10-27", shift = "morning" }, HttpStatusCode.Created);
+        var dashboard = await Get(host.Client, "/api/cigarettes?date=2026-10-27");
+        Assert.Equal(int.MinValue, dashboard.GetProperty("products")[0].GetProperty("stock").GetInt32());
+    }
+
+    [Fact]
+    public async Task AnOccupiedTableCanBeReopenedToResetItsCustomerAndClock()
+    {
+        await using var host = await ApiTestHost.StartAsync();
+        var before = await Get(host.Client, "/api/bootstrap");
+        var original = Assert.Single(before.GetProperty("tables").EnumerateArray(), table => table.GetProperty("id").GetInt32() == 2);
+        var changed = await Send(host.Client, HttpMethod.Post, "/api/tables/2/open", new { customerName = "Audit replacement" }, HttpStatusCode.OK);
+        Assert.NotEqual(original.GetProperty("openedAt").GetString(), changed.GetProperty("openedAt").GetString());
+        Assert.Equal("Audit replacement", changed.GetProperty("customerName").GetString());
+        var after = await Get(host.Client, "/api/bootstrap");
+        Assert.Equal(before.GetProperty("orders").GetArrayLength(), after.GetProperty("orders").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task ParallelSupplierSnapshotsAllowTwoPaymentsAgainstTheSameFunds()
+    {
+        var connectionString = $"Data Source=security-audit-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
+        await using var keeper = new SqliteConnection(connectionString);
+        await keeper.OpenAsync();
+        var options = new DbContextOptionsBuilder<RestaurantContext>().UseSqlite(connectionString).Options;
+        await using var firstDb = new RestaurantContext(options);
+        await firstDb.Database.EnsureCreatedAsync();
+        firstDb.Suppliers.Add(new Supplier { Name = "Audit supplier", ReservedCashBalance = 1000, ReservedBalance = 1000, CurrentAccountBalance = 1000 });
+        await firstDb.SaveChangesAsync();
+        firstDb.ChangeTracker.Clear();
+        await using var secondDb = new RestaurantContext(options);
+        await firstDb.Suppliers.SingleAsync();
+        await secondDb.Suppliers.SingleAsync();
+        // Deterministic interleaving: both requests read the original balance before either writes.
+        await new SupplierService(firstDb).RecordPaymentAsync(1, new CreateSupplierPaymentRequest(800, 0, "Audit A"), default);
+        await new SupplierService(secondDb).RecordPaymentAsync(1, new CreateSupplierPaymentRequest(800, 0, "Audit B"), default);
+        await using var check = new RestaurantContext(options);
+        Assert.Equal(2, await check.SupplierTransactions.CountAsync());
+        Assert.Equal(1600m, (await check.SupplierTransactions.ToListAsync()).Sum(item => item.Amount));
+        var supplier = await check.Suppliers.SingleAsync();
+        Assert.Equal(200m, supplier.ReservedCashBalance);
+        Assert.Equal(200m, supplier.CurrentAccountBalance);
+    }
+
+    [Fact]
+    public async Task TableClockAcceptsYearOneWhichFeedsTheUnboundedBillingLoop()
+    {
+        await using var host = await ApiTestHost.StartAsync();
+        var table = await Send(host.Client, HttpMethod.Post, "/api/tables", new { name = "Audit empty table", seats = 2 }, HttpStatusCode.Created);
+        var path = $"/api/tables/{table.GetProperty("id").GetInt32()}";
+        await Send(host.Client, HttpMethod.Post, path + "/open", new { customerName = "Audit" }, HttpStatusCode.OK);
+        var changed = await Send(host.Client, HttpMethod.Patch, path, new { openedAt = "0001-01-01T00:00:00Z" }, HttpStatusCode.OK);
+        Assert.StartsWith("0001-01-01", changed.GetProperty("openedAt").GetString());
+        // Do not execute billing with this date: source review shows ~35 million half-hour charges.
+    }
+
+    [Fact]
+    public async Task NullRequiredStringProducesAnInternalServerError()
+    {
+        await using var host = await ApiTestHost.StartAsync();
+        using var response = await host.Client.PostAsJsonAsync("/api/pending-orders", new { customerName = (string?)null });
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task RepeatedInvalidLoginsHaveNoApplicationThrottling()
+    {
+        await using var host = await ApiTestHost.StartAsync();
+        for (var index = 0; index < 30; index++)
+        {
+            using var response = await host.Client.PostAsJsonAsync("/api/login", new { username = "admin", password = "incorrect-audit" });
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+        await Send(host.Client, HttpMethod.Post, "/api/login", new { username = "admin", password = "admin" }, HttpStatusCode.OK);
+    }
+
+    private static async Task<JsonElement> Get(HttpClient client, string path) =>
+        (await client.GetFromJsonAsync<JsonElement>(path));
+
+    private static async Task<JsonElement> Send(HttpClient client, HttpMethod method, string path, object body, HttpStatusCode expected)
+    {
+        using var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body) };
+        using var response = await client.SendAsync(request);
+        Assert.Equal(expected, response.StatusCode);
+        return await response.Content.ReadFromJsonAsync<JsonElement>();
+    }
+}

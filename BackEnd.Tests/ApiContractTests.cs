@@ -1,21 +1,25 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Net.Http.Headers;
 using Xunit;
 
 namespace GestionMesas.Api.Tests;
 
 public sealed class ApiContractTests
 {
-    [Fact]
-    public async Task LoginBootstrapAndWelcomeSettingsKeepTheirHttpContract()
+    [Theory]
+    [InlineData("Testing")]
+    [InlineData("Production")]
+    public async Task LoginBootstrapAndWelcomeSettingsKeepTheirHttpContract(string environment)
     {
-        await using var host = await ApiTestHost.StartAsync();
+        await using var host = await StartHostAsync(environment);
         var http = host.Client;
         Assert.Equal("online", (await GetJson(http, "/" )).GetProperty("status").GetString());
         Assert.Equal(HttpStatusCode.Unauthorized, (await http.PostAsJsonAsync("/api/login", new { username = "admin", password = "wrong" })).StatusCode);
-        var login = await SendJson(http, HttpMethod.Post, "/api/login", new { username = "admin", password = "admin" }, HttpStatusCode.OK);
-        Assert.Equal("demo-admin-token", login.GetProperty("token").GetString());
+        var login = await SendJson(http, HttpMethod.Post, "/api/login", new { username = "admin", password = ApiTestHost.AdminPassword }, HttpStatusCode.OK);
+        Assert.Equal(64, login.GetProperty("token").GetString()!.Length);
+        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.GetProperty("token").GetString());
         Assert.Equal("Administrador", login.GetProperty("user").GetProperty("name").GetString());
         var bootstrap = await GetJson(http, "/api/bootstrap");
         foreach (var field in new[] { "tables", "products", "categories", "orders", "pendingOrders", "pendingOrderItems" })
@@ -38,12 +42,18 @@ public sealed class ApiContractTests
         var invalid = await SendJson(http, HttpMethod.Put, "/api/settings/welcome-message", new { amount = -1 }, HttpStatusCode.BadRequest);
         Assert.False(string.IsNullOrWhiteSpace(invalid.GetProperty("detail").GetString()));
         Assert.Equal(5000, (await GetJson(http, "/api/settings/welcome-message")).GetProperty("amount").GetDecimal());
+        Assert.Equal("admin", (await GetJson(http, "/api/session")).GetProperty("user").GetProperty("username").GetString());
+        Assert.Equal(HttpStatusCode.NoContent, (await http.PostAsync("/api/logout", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await http.GetAsync("/api/bootstrap")).StatusCode);
     }
 
-    [Fact]
-    public async Task PendingOrdersAndTableClosurePreserveConsumptionAndHistory()
+    [Theory]
+    [InlineData("Testing")]
+    [InlineData("Production")]
+    public async Task PendingOrdersAndTableClosurePreserveConsumptionAndHistory(string environment)
     {
-        await using var host = await ApiTestHost.StartAsync();
+        await using var host = await StartHostAsync(environment);
+        await host.SignInAsync();
         var http = host.Client;
         var product = await SendJson(http, HttpMethod.Post, "/api/products", new { name = "Artículo de prueba" }, HttpStatusCode.Created);
         var productId = product.GetProperty("id").GetInt32();
@@ -74,10 +84,13 @@ public sealed class ApiContractTests
         Assert.Equal(HttpStatusCode.NoContent, (await http.DeleteAsync($"/api/tables/{tableId}")).StatusCode);
     }
 
-    [Fact]
-    public async Task ShiftClosesIncludeCafeteriaCashDropsAndSupplierAllocations()
+    [Theory]
+    [InlineData("Testing")]
+    [InlineData("Production")]
+    public async Task ShiftClosesIncludeCafeteriaCashDropsAndSupplierAllocations(string environment)
     {
-        await using var host = await ApiTestHost.StartAsync();
+        await using var host = await StartHostAsync(environment);
+        await host.SignInAsync();
         var http = host.Client;
         const string date = "2026-10-23";
         var cigarette = await SendJson(http, HttpMethod.Post, "/api/cigarettes/products", new { name = "Cigarrillo prueba", price = 100, initialStock = 10 }, HttpStatusCode.Created);
@@ -110,8 +123,8 @@ public sealed class ApiContractTests
     }
 
     [Theory]
-    [InlineData(null, "http://localhost:5173", "*")]
-    [InlineData(null, "https://mesas.vercel.app", "*")]
+    [InlineData(null, "http://localhost:5173", "http://localhost:5173")]
+    [InlineData(null, "https://otro.example", null)]
     [InlineData(" https://mesas.vercel.app/ ", "https://mesas.vercel.app", "https://mesas.vercel.app")]
     [InlineData("https://mesas.vercel.app", "https://otro.example", null)]
     public async Task CorsPreservesLocalAndDeployedOrigins(string? configured, string origin, string? expected)
@@ -136,6 +149,7 @@ public sealed class ApiContractTests
     {
         using var response = await http.GetAsync(path);
         response.EnsureSuccessStatusCode();
+        AssertFrontendOrigin(http, response);
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
 
@@ -144,6 +158,21 @@ public sealed class ApiContractTests
         using var request = new HttpRequestMessage(method, path) { Content = body is null ? null : JsonContent.Create(body) };
         using var response = await http.SendAsync(request);
         Assert.True(response.StatusCode == expected, $"{method} {path}: expected {expected}, got {response.StatusCode}. {await response.Content.ReadAsStringAsync()}");
+        AssertFrontendOrigin(http, response);
         return await response.Content.ReadFromJsonAsync<JsonElement>();
+    }
+
+    private static async Task<ApiTestHost> StartHostAsync(string environment)
+    {
+        const string frontend = "https://gestion-mesas-shop.vercel.app";
+        var host = await ApiTestHost.StartAsync(allowedOrigin: environment == "Production" ? frontend : null, environment: environment);
+        if (environment == "Production") host.Client.DefaultRequestHeaders.Add("Origin", frontend);
+        return host;
+    }
+
+    private static void AssertFrontendOrigin(HttpClient http, HttpResponseMessage response)
+    {
+        if (http.DefaultRequestHeaders.TryGetValues("Origin", out var origins))
+            Assert.Equal(Assert.Single(origins), Assert.Single(response.Headers.GetValues("Access-Control-Allow-Origin")));
     }
 }

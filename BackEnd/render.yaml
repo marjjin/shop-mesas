@@ -7,6 +7,10 @@ services:
     dockerContext: .
     healthCheckPath: /
     envVars:
+      - key: Authentication__AdminPassword
+        sync: false
+      - key: Cors__AllowedOrigins__0
+        value: https://gestion-mesas-shop.vercel.app
       - key: ConnectionStrings__Restaurant
         fromDatabase:
           name: gestion-mesas-db

@@ -1,0 +1,106 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="472aea80-82ac-4fa0-950f-aaf112b7b764" name="Carmona@DESKTOP-AVSLHO3 2026-10-27 21:05:23" runUser="DESKTOP-AVSLHO3\Carmona" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-27T21:05:23.8665375-03:00" queuing="2026-10-27T21:05:23.8665376-03:00" start="2026-10-27T21:05:22.0380630-03:00" finish="2026-10-27T21:05:25.7457033-03:00" />
+  <TestSettings name="default" id="7de8dc6c-8d54-4473-9289-4a7624fe2770">
+    <Deployment runDeploymentRoot="Carmona_DESKTOP-AVSLHO3_2026-10-27_21_05_23" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="1dd009f1-58bc-4e6b-83b8-835e530b1cc2" testId="7f2e93ab-b90a-3713-79b2-0dfb03d22e5a" testName="GestionMesas.Api.Tests.SecurityAuditProbe.AnOccupiedTableCanBeReopenedToResetItsCustomerAndClock" computerName="DESKTOP-AVSLHO3" duration="00:00:00.1370505" startTime="2026-10-27T21:05:24.2377830-03:00" endTime="2026-10-27T21:05:24.3749923-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1dd009f1-58bc-4e6b-83b8-835e530b1cc2" />
+    <UnitTestResult executionId="31baed04-408a-461f-aef3-0bc5e6fd9451" testId="90a7a26b-7024-d4dc-5ae8-e68745fed462" testName="GestionMesas.Api.Tests.SecurityAuditProbe.CashDropCanBeChangedAndDeletedAfterClosingItsShift" computerName="DESKTOP-AVSLHO3" duration="00:00:00.2701007" startTime="2026-10-27T21:05:24.5833623-03:00" endTime="2026-10-27T21:05:24.8535880-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="31baed04-408a-461f-aef3-0bc5e6fd9451" />
+    <UnitTestResult executionId="3543de91-7f36-4eb1-a3d0-c57326bb3ac5" testId="9da78e2b-3cd3-429d-c4b6-9296df360cea" testName="GestionMesas.Api.Tests.SecurityAuditProbe.ParallelSupplierSnapshotsAllowTwoPaymentsAgainstTheSameFunds" computerName="DESKTOP-AVSLHO3" duration="00:00:00.9616312" startTime="2026-10-27T21:05:22.5317632-03:00" endTime="2026-10-27T21:05:23.4991710-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3543de91-7f36-4eb1-a3d0-c57326bb3ac5" />
+    <UnitTestResult executionId="1c631ec9-d678-454a-b527-0df566e2e159" testId="8a6ac09e-3948-ffc3-a98d-81f8775b92a6" testName="GestionMesas.Api.Tests.SecurityAuditProbe.RestrictingCorsStillAllowsAnonymousDirectAccess" computerName="DESKTOP-AVSLHO3" duration="00:00:00.0996992" startTime="2026-10-27T21:05:25.1221439-03:00" endTime="2026-10-27T21:05:25.2219298-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1c631ec9-d678-454a-b527-0df566e2e159" />
+    <UnitTestResult executionId="277ba491-9d00-45fd-9f44-99ca25327c61" testId="1b3316de-4d66-c6ab-7367-053754278d17" testName="GestionMesas.Api.Tests.SecurityAuditProbe.FreshDatabaseAcceptsDefaultCredentialsAndReturnsTheSameToken" computerName="DESKTOP-AVSLHO3" duration="00:00:00.1051042" startTime="2026-10-27T21:05:25.3471067-03:00" endTime="2026-10-27T21:05:25.4509702-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="277ba491-9d00-45fd-9f44-99ca25327c61" />
+    <UnitTestResult executionId="9842225c-61cd-4de4-98c1-13b0c104bf85" testId="c94d7620-b90c-8cf3-9ff7-0d331ce2b7e8" testName="GestionMesas.Api.Tests.SecurityAuditProbe.AnonymousAndInvalidTokenClientsCanReadSensitiveEndpoints" computerName="DESKTOP-AVSLHO3" duration="00:00:00.1690992" startTime="2026-10-27T21:05:24.8537167-03:00" endTime="2026-10-27T21:05:25.0229239-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9842225c-61cd-4de4-98c1-13b0c104bf85" />
+    <UnitTestResult executionId="7cd35ac1-a3b0-48bb-865e-61ce9a81c255" testId="93899aea-6755-2194-0f9c-f7d92397d3ea" testName="GestionMesas.Api.Tests.SecurityAuditProbe.CigarettePurchaseCanOverflowStockToANegativeValue" computerName="DESKTOP-AVSLHO3" duration="00:00:00.5830972" startTime="2026-10-27T21:05:23.5079566-03:00" endTime="2026-10-27T21:05:24.0848990-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="7cd35ac1-a3b0-48bb-865e-61ce9a81c255" />
+    <UnitTestResult executionId="7329360a-a972-4d69-bf7b-8a7952fc3a71" testId="85177210-c64b-38ff-a33d-79fa75a82326" testName="GestionMesas.Api.Tests.SecurityAuditProbe.NullRequiredStringProducesAnInternalServerError" computerName="DESKTOP-AVSLHO3" duration="00:00:00.0988038" startTime="2026-10-27T21:05:25.0230483-03:00" endTime="2026-10-27T21:05:25.1220140-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="7329360a-a972-4d69-bf7b-8a7952fc3a71" />
+    <UnitTestResult executionId="c7856e98-90bc-4ed1-b92a-fb2d4fcbf404" testId="3ca385f2-0e8a-e67f-3d5c-01d3f9c8a76b" testName="GestionMesas.Api.Tests.SecurityAuditProbe.AnonymousClientCanDeleteTheCatalogAndActiveConsumption" computerName="DESKTOP-AVSLHO3" duration="00:00:00.1234462" startTime="2026-10-27T21:05:25.2220612-03:00" endTime="2026-10-27T21:05:25.3456317-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c7856e98-90bc-4ed1-b92a-fb2d4fcbf404" />
+    <UnitTestResult executionId="e8848597-aad8-4013-b9a5-457cc28f9adb" testId="642dfdb7-53ce-0905-148f-c99ce682627b" testName="GestionMesas.Api.Tests.SecurityAuditProbe.PendingQuantityOverflowsAndAssignsANegativeConsumption" computerName="DESKTOP-AVSLHO3" duration="00:00:00.2079896" startTime="2026-10-27T21:05:24.3751371-03:00" endTime="2026-10-27T21:05:24.5832343-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e8848597-aad8-4013-b9a5-457cc28f9adb" />
+    <UnitTestResult executionId="f6177590-dcf7-4b44-a850-d689be007ca6" testId="ac92b6b3-0d82-7380-c2ff-330d62a0b967" testName="GestionMesas.Api.Tests.SecurityAuditProbe.RepeatedInvalidLoginsHaveNoApplicationThrottling" computerName="DESKTOP-AVSLHO3" duration="00:00:00.1247440" startTime="2026-10-27T21:05:25.4510904-03:00" endTime="2026-10-27T21:05:25.5759819-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f6177590-dcf7-4b44-a850-d689be007ca6" />
+    <UnitTestResult executionId="205c446c-83e9-47dc-a81a-5340c0ff912c" testId="c252b148-ebaf-495c-d381-e335e64fac97" testName="GestionMesas.Api.Tests.SecurityAuditProbe.DefaultCorsAllowsUntrustedOriginToChangeSettings" computerName="DESKTOP-AVSLHO3" duration="00:00:00.1159615" startTime="2026-10-27T21:05:25.5761136-03:00" endTime="2026-10-27T21:05:25.6921813-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="205c446c-83e9-47dc-a81a-5340c0ff912c" />
+    <UnitTestResult executionId="92c5af5b-3f33-48fa-b171-9ab317f1273d" testId="574160a7-e2ce-a68e-8cf2-d787e3e7280b" testName="GestionMesas.Api.Tests.SecurityAuditProbe.TableClockAcceptsYearOneWhichFeedsTheUnboundedBillingLoop" computerName="DESKTOP-AVSLHO3" duration="00:00:00.1512255" startTime="2026-10-27T21:05:24.0861060-03:00" endTime="2026-10-27T21:05:24.2376420-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="92c5af5b-3f33-48fa-b171-9ab317f1273d" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="GestionMesas.Api.Tests.SecurityAuditProbe.ParallelSupplierSnapshotsAllowTwoPaymentsAgainstTheSameFunds" storage="c:\users\carmona\onedrive\escritorio\shop-mesas\backend.tests\bin\security-review\debug\net10.0\gestionmesas.api.tests.dll" id="9da78e2b-3cd3-429d-c4b6-9296df360cea">
+      <Execution id="3543de91-7f36-4eb1-a3d0-c57326bb3ac5" />
+      <TestMethod codeBase="C:\Users\Carmona\OneDrive\Escritorio\shop-mesas\BackEnd.Tests\bin\security-review\Debug\net10.0\GestionMesas.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="GestionMesas.Api.Tests.SecurityAuditProbe" name="ParallelSupplierSnapshotsAllowTwoPaymentsAgainstTheSameFunds" />
+    </UnitTest>
+    <UnitTest name="GestionMesas.Api.Tests.SecurityAuditProbe.AnOccupiedTableCanBeReopenedToResetItsCustomerAndClock" storage="c:\users\carmona\onedrive\escritorio\shop-mesas\backend.tests\bin\security-review\debug\net10.0\gestionmesas.api.tests.dll" id="7f2e93ab-b90a-3713-79b2-0dfb03d22e5a">
+      <Execution id="1dd009f1-58bc-4e6b-83b8-835e530b1cc2" />
+      <TestMethod codeBase="C:\Users\Carmona\OneDrive\Escritorio\shop-mesas\BackEnd.Tests\bin\security-review\Debug\net10.0\GestionMesas.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="GestionMesas.Api.Tests.SecurityAuditProbe" name="AnOccupiedTableCanBeReopenedToResetItsCustomerAndClock" />
+    </UnitTest>
+    <UnitTest name="GestionMesas.Api.Tests.SecurityAuditProbe.RestrictingCorsStillAllowsAnonymousDirectAccess" storage="c:\users\carmona\onedrive\escritorio\shop-mesas\backend.tests\bin\security-review\debug\net10.0\gestionmesas.api.tests.dll" id="8a6ac09e-3948-ffc3-a98d-81f8775b92a6">
+      <Execution id="1c631ec9-d678-454a-b527-0df566e2e159" />
+      <TestMethod codeBase="C:\Users\Carmona\OneDrive\Escritorio\shop-mesas\BackEnd.Tests\bin\security-review\Debug\net10.0\GestionMesas.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="GestionMesas.Api.Tests.SecurityAuditProbe" name="RestrictingCorsStillAllowsAnonymousDirectAccess" />
+    </UnitTest>
+    <UnitTest name="GestionMesas.Api.Tests.SecurityAuditProbe.RepeatedInvalidLoginsHaveNoApplicationThrottling" storage="c:\users\carmona\onedrive\escritorio\shop-mesas\backend.tests\bin\security-review\debug\net10.0\gestionmesas.api.tests.dll" id="ac92b6b3-0d82-7380-c2ff-330d62a0b967">
+      <Execution id="f6177590-dcf7-4b44-a850-d689be007ca6" />
+      <TestMethod codeBase="C:\Users\Carmona\OneDrive\Escritorio\shop-mesas\BackEnd.Tests\bin\security-review\Debug\net10.0\GestionMesas.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="GestionMesas.Api.Tests.SecurityAuditProbe" name="RepeatedInvalidLoginsHaveNoApplicationThrottling" />
+    </UnitTest>
+    <UnitTest name="GestionMesas.Api.Tests.SecurityAuditProbe.FreshDatabaseAcceptsDefaultCredentialsAndReturnsTheSameToken" storage="c:\users\carmona\onedrive\escritorio\shop-mesas\backend.tests\bin\security-review\debug\net10.0\gestionmesas.api.tests.dll" id="1b3316de-4d66-c6ab-7367-053754278d17">
+      <Execution id="277ba491-9d00-45fd-9f44-99ca25327c61" />
+      <TestMethod codeBase="C:\Users\Carmona\OneDrive\Escritorio\shop-mesas\BackEnd.Tests\bin\security-review\Debug\net10.0\GestionMesas.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="GestionMesas.Api.Tests.SecurityAuditProbe" name="FreshDatabaseAcceptsDefaultCredentialsAndReturnsTheSameToken" />
+    </UnitTest>
+    <UnitTest name="GestionMesas.Api.Tests.SecurityAuditProbe.TableClockAcceptsYearOneWhichFeedsTheUnboundedBillingLoop" storage="c:\users\carmona\onedrive\escritorio\shop-mesas\backend.tests\bin\security-review\debug\net10.0\gestionmesas.api.tests.dll" id="574160a7-e2ce-a68e-8cf2-d787e3e7280b">
+      <Execution id="92c5af5b-3f33-48fa-b171-9ab317f1273d" />
+      <TestMethod codeBase="C:\Users\Carmona\OneDrive\Escritorio\shop-mesas\BackEnd.Tests\bin\security-review\Debug\net10.0\GestionMesas.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="GestionMesas.Api.Tests.SecurityAuditProbe" name="TableClockAcceptsYearOneWhichFeedsTheUnboundedBillingLoop" />
+    </UnitTest>
+    <UnitTest name="GestionMesas.Api.Tests.SecurityAuditProbe.CashDropCanBeChangedAndDeletedAfterClosingItsShift" storage="c:\users\carmona\onedrive\escritorio\shop-mesas\backend.tests\bin\security-review\debug\net10.0\gestionmesas.api.tests.dll" id="90a7a26b-7024-d4dc-5ae8-e68745fed462">
+      <Execution id="31baed04-408a-461f-aef3-0bc5e6fd9451" />
+      <TestMethod codeBase="C:\Users\Carmona\OneDrive\Escritorio\shop-mesas\BackEnd.Tests\bin\security-review\Debug\net10.0\GestionMesas.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="GestionMesas.Api.Tests.SecurityAuditProbe" name="CashDropCanBeChangedAndDeletedAfterClosingItsShift" />
+    </UnitTest>
+    <UnitTest name="GestionMesas.Api.Tests.SecurityAuditProbe.DefaultCorsAllowsUntrustedOriginToChangeSettings" storage="c:\users\carmona\onedrive\escritorio\shop-mesas\backend.tests\bin\security-review\debug\net10.0\gestionmesas.api.tests.dll" id="c252b148-ebaf-495c-d381-e335e64fac97">
+      <Execution id="205c446c-83e9-47dc-a81a-5340c0ff912c" />
+      <TestMethod codeBase="C:\Users\Carmona\OneDrive\Escritorio\shop-mesas\BackEnd.Tests\bin\security-review\Debug\net10.0\GestionMesas.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="GestionMesas.Api.Tests.SecurityAuditProbe" name="DefaultCorsAllowsUntrustedOriginToChangeSettings" />
+    </UnitTest>
+    <UnitTest name="GestionMesas.Api.Tests.SecurityAuditProbe.NullRequiredStringProducesAnInternalServerError" storage="c:\users\carmona\onedrive\escritorio\shop-mesas\backend.tests\bin\security-review\debug\net10.0\gestionmesas.api.tests.dll" id="85177210-c64b-38ff-a33d-79fa75a82326">
+      <Execution id="7329360a-a972-4d69-bf7b-8a7952fc3a71" />
+      <TestMethod codeBase="C:\Users\Carmona\OneDrive\Escritorio\shop-mesas\BackEnd.Tests\bin\security-review\Debug\net10.0\GestionMesas.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="GestionMesas.Api.Tests.SecurityAuditProbe" name="NullRequiredStringProducesAnInternalServerError" />
+    </UnitTest>
+    <UnitTest name="GestionMesas.Api.Tests.SecurityAuditProbe.PendingQuantityOverflowsAndAssignsANegativeConsumption" storage="c:\users\carmona\onedrive\escritorio\shop-mesas\backend.tests\bin\security-review\debug\net10.0\gestionmesas.api.tests.dll" id="642dfdb7-53ce-0905-148f-c99ce682627b">
+      <Execution id="e8848597-aad8-4013-b9a5-457cc28f9adb" />
+      <TestMethod codeBase="C:\Users\Carmona\OneDrive\Escritorio\shop-mesas\BackEnd.Tests\bin\security-review\Debug\net10.0\GestionMesas.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="GestionMesas.Api.Tests.SecurityAuditProbe" name="PendingQuantityOverflowsAndAssignsANegativeConsumption" />
+    </UnitTest>
+    <UnitTest name="GestionMesas.Api.Tests.SecurityAuditProbe.AnonymousClientCanDeleteTheCatalogAndActiveConsumption" storage="c:\users\carmona\onedrive\escritorio\shop-mesas\backend.tests\bin\security-review\debug\net10.0\gestionmesas.api.tests.dll" id="3ca385f2-0e8a-e67f-3d5c-01d3f9c8a76b">
+      <Execution id="c7856e98-90bc-4ed1-b92a-fb2d4fcbf404" />
+      <TestMethod codeBase="C:\Users\Carmona\OneDrive\Escritorio\shop-mesas\BackEnd.Tests\bin\security-review\Debug\net10.0\GestionMesas.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="GestionMesas.Api.Tests.SecurityAuditProbe" name="AnonymousClientCanDeleteTheCatalogAndActiveConsumption" />
+    </UnitTest>
+    <UnitTest name="GestionMesas.Api.Tests.SecurityAuditProbe.AnonymousAndInvalidTokenClientsCanReadSensitiveEndpoints" storage="c:\users\carmona\onedrive\escritorio\shop-mesas\backend.tests\bin\security-review\debug\net10.0\gestionmesas.api.tests.dll" id="c94d7620-b90c-8cf3-9ff7-0d331ce2b7e8">
+      <Execution id="9842225c-61cd-4de4-98c1-13b0c104bf85" />
+      <TestMethod codeBase="C:\Users\Carmona\OneDrive\Escritorio\shop-mesas\BackEnd.Tests\bin\security-review\Debug\net10.0\GestionMesas.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="GestionMesas.Api.Tests.SecurityAuditProbe" name="AnonymousAndInvalidTokenClientsCanReadSensitiveEndpoints" />
+    </UnitTest>
+    <UnitTest name="GestionMesas.Api.Tests.SecurityAuditProbe.CigarettePurchaseCanOverflowStockToANegativeValue" storage="c:\users\carmona\onedrive\escritorio\shop-mesas\backend.tests\bin\security-review\debug\net10.0\gestionmesas.api.tests.dll" id="93899aea-6755-2194-0f9c-f7d92397d3ea">
+      <Execution id="7cd35ac1-a3b0-48bb-865e-61ce9a81c255" />
+      <TestMethod codeBase="C:\Users\Carmona\OneDrive\Escritorio\shop-mesas\BackEnd.Tests\bin\security-review\Debug\net10.0\GestionMesas.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="GestionMesas.Api.Tests.SecurityAuditProbe" name="CigarettePurchaseCanOverflowStockToANegativeValue" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="7f2e93ab-b90a-3713-79b2-0dfb03d22e5a" executionId="1dd009f1-58bc-4e6b-83b8-835e530b1cc2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="90a7a26b-7024-d4dc-5ae8-e68745fed462" executionId="31baed04-408a-461f-aef3-0bc5e6fd9451" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9da78e2b-3cd3-429d-c4b6-9296df360cea" executionId="3543de91-7f36-4eb1-a3d0-c57326bb3ac5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8a6ac09e-3948-ffc3-a98d-81f8775b92a6" executionId="1c631ec9-d678-454a-b527-0df566e2e159" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1b3316de-4d66-c6ab-7367-053754278d17" executionId="277ba491-9d00-45fd-9f44-99ca25327c61" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c94d7620-b90c-8cf3-9ff7-0d331ce2b7e8" executionId="9842225c-61cd-4de4-98c1-13b0c104bf85" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="93899aea-6755-2194-0f9c-f7d92397d3ea" executionId="7cd35ac1-a3b0-48bb-865e-61ce9a81c255" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="85177210-c64b-38ff-a33d-79fa75a82326" executionId="7329360a-a972-4d69-bf7b-8a7952fc3a71" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3ca385f2-0e8a-e67f-3d5c-01d3f9c8a76b" executionId="c7856e98-90bc-4ed1-b92a-fb2d4fcbf404" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="642dfdb7-53ce-0905-148f-c99ce682627b" executionId="e8848597-aad8-4013-b9a5-457cc28f9adb" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ac92b6b3-0d82-7380-c2ff-330d62a0b967" executionId="f6177590-dcf7-4b44-a850-d689be007ca6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c252b148-ebaf-495c-d381-e335e64fac97" executionId="205c446c-83e9-47dc-a81a-5340c0ff912c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="574160a7-e2ce-a68e-8cf2-d787e3e7280b" executionId="92c5af5b-3f33-48fa-b171-9ab317f1273d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Resultados sin formato de lista" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="Todos los resultados cargados" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="13" executed="13" passed="13" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.5+1b188a7b0a (64-bit .NET 10.0.11)&#xD;
+[xUnit.net 00:00:00.07]   Discovering: GestionMesas.Api.Tests&#xD;
+[xUnit.net 00:00:00.11]   Discovered:  GestionMesas.Api.Tests&#xD;
+[xUnit.net 00:00:00.13]   Starting:    GestionMesas.Api.Tests&#xD;
+[xUnit.net 00:00:03.32]   Finished:    GestionMesas.Api.Tests&#xD;
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>

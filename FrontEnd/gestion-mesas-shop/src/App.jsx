@@ -46,9 +46,9 @@ export default function App() {
     if (nextSection === 'salon') loadCoffeeSummary().catch(() => {})
     salon.changeSection(nextSection)
   }
-  const signOut = () => { salon.reset(); session.signOut() }
+  const signOut = async () => { if (await session.signOut()) salon.reset() }
 
-  if (!user) return <LoginForm login={login} error={message} onLoginChange={setLogin} onSubmit={loginSubmit} resolvedTheme={resolvedTheme} onThemeChange={changeTheme} />
+  if (!user) return <LoginForm login={login} error={message} onLoginChange={setLogin} onSubmit={loginSubmit} resolvedTheme={resolvedTheme} onThemeChange={changeTheme} busy={session.busy} restoring={session.restoring} />
 
   return <main className="layout">
     <Sidebar user={user} section={section} pendingOrdersCount={data.pendingOrders?.length} onSectionChange={changeSection} onSignOut={signOut} resolvedTheme={resolvedTheme} onThemeChange={changeTheme} />

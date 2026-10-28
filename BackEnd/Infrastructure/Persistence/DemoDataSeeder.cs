@@ -7,7 +7,8 @@ public static class DemoDataSeeder
         if (!db.Users.Any())
         {
             var now = DateTime.UtcNow;
-            db.Users.Add(new User { Username = "admin", Password = "admin", Name = "Administrador" });
+            // AuthenticationBootstrap sets a configured password before HTTP requests are served.
+            db.Users.Add(new User { Username = "admin", Name = "Administrador" });
             db.Categories.AddRange(new Category { Name = "Bebidas", Color = "#2f80ed" }, new Category { Name = "Cocina", Color = "#f2994a" }, new Category { Name = "Postres", Color = "#9b51e0" });
             db.SaveChanges();
             db.Products.AddRange(new Product { Name = "Café espresso", Price = 1800, CategoryId = 1 }, new Product { Name = "Limonada", Price = 2500, CategoryId = 1 }, new Product { Name = "Hamburguesa clásica", Price = 7800, CategoryId = 2 }, new Product { Name = "Papas rústicas", Price = 3200, CategoryId = 2 }, new Product { Name = "Brownie con helado", Price = 4200, CategoryId = 3 });

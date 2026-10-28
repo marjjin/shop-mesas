@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-28",
+  "server": "PostgreSQL 18.6",
+  "platform": "Windows x64 local",
+  "environment": "Production and Testing",
+  "isolation": "Loopback only; fresh database per HTTP host; no production access",
+  "backend": {
+    "skipped": 0,
+    "failed": 0,
+    "total": 112,
+    "scope": "HTTP hosts use PostgreSQL; service-only SQLite tests remain SQLite; includes legacy PostgreSQL migration",
+    "passed": 112
+  },
+  "sqlite": {
+    "skipped": 1,
+    "failed": 0,
+    "skippedReason": "PostgreSQL-only migration test",
+    "total": 112,
+    "passed": 111
+  },
+  "frontend": {
+    "testsPassed": 28,
+    "build": "passed",
+    "lint": "passed"
+  },
+  "defectFixed": "PostgresSchemaUpgrade referenced missing legacy Suppliers.Balance on new databases",
+  "remainingTestDatabases": 0,
+  "deployed": false
+}

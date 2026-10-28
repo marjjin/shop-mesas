@@ -161,7 +161,13 @@ public static class PostgresSchemaUpgrade
         db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ADD COLUMN IF NOT EXISTS "ReservedMercadoPagoBalance" numeric(12,2);""");
         db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ADD COLUMN IF NOT EXISTS "CurrentAccountBalance" numeric(12,2);""");
         db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ADD COLUMN IF NOT EXISTS "IsSeparateCashBox" boolean NOT NULL DEFAULT FALSE;""");
-        db.Database.ExecuteSqlRaw("""UPDATE "Suppliers" SET "ReservedBalance" = "Balance" WHERE "ReservedBalance" IS NULL;""");
+        // Legacy schemas have Balance; databases created from the current model do not.
+        // JSON field lookup returns NULL for an absent legacy column without failing SQL parsing.
+        db.Database.ExecuteSqlRaw("""
+            UPDATE "Suppliers" AS supplier
+            SET "ReservedBalance" = COALESCE((to_jsonb(supplier) ->> 'Balance')::numeric, 0)
+            WHERE "ReservedBalance" IS NULL;
+            """);
         db.Database.ExecuteSqlRaw("""UPDATE "Suppliers" SET "ReservedCashBalance" = "ReservedBalance" WHERE "ReservedCashBalance" IS NULL;""");
         db.Database.ExecuteSqlRaw("""UPDATE "Suppliers" SET "ReservedMercadoPagoBalance" = 0 WHERE "ReservedMercadoPagoBalance" IS NULL;""");
         db.Database.ExecuteSqlRaw("""UPDATE "Suppliers" SET "CurrentAccountBalance" = 0 WHERE "CurrentAccountBalance" IS NULL;""");
