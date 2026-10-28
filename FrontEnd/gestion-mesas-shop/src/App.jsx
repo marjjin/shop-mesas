@@ -48,6 +48,10 @@ export default function App() {
   }
   const signOut = async () => { if (await session.signOut()) salon.reset() }
 
+  if (session.restoring) return <main className="session-loading" aria-busy="true">
+    <div role="status"><div className="icon" aria-hidden="true">☕</div><p className="eyebrow">SHOP FAMILY</p><p>Cargando…</p></div>
+  </main>
+
   if (!user) return <LoginForm login={login} error={message} onLoginChange={setLogin} onSubmit={loginSubmit} resolvedTheme={resolvedTheme} onThemeChange={changeTheme} busy={session.busy} restoring={session.restoring} />
 
   return <main className="layout">

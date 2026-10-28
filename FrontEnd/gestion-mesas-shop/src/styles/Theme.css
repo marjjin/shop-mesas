@@ -33,6 +33,8 @@
   --theme-purple-line: #79608d;
 }
 body { background: var(--theme-page, #f7f7f4); color: var(--ink); }
+.session-loading { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 24px; text-align: center; background: var(--theme-page, #f7f7f4); }
+.session-loading p:last-child { color: var(--muted); font-size: 14px; }
 button, input, select, textarea { color: inherit; }
 :root[data-theme='dark'] input::placeholder, :root[data-theme='dark'] textarea::placeholder { color: #94a08f; opacity: 1; }
 :root[data-theme='dark'] :is(input, select, textarea) { accent-color: #e56743; }
