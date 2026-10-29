@@ -1,6 +1,7 @@
 import ThemeToggle from '../appearance/ThemeToggle.jsx'
 import NavigationMenu from './NavigationMenu.jsx'
 import MobileNavigation from './MobileNavigation.jsx'
+import AppVersion from '../../shared/components/AppVersion.jsx'
 
 export default function Sidebar({ user, section, pendingOrdersCount, onSectionChange, onSignOut, resolvedTheme, onThemeChange }) {
   return <>
@@ -10,6 +11,7 @@ export default function Sidebar({ user, section, pendingOrdersCount, onSectionCh
       <NavigationMenu section={section} pendingOrdersCount={pendingOrdersCount} onSectionChange={onSectionChange} />
       <ThemeToggle resolvedTheme={resolvedTheme} onThemeChange={onThemeChange} />
       <div className="profile"><i>A</i><span><b>{user.name}</b><small>Administrador</small></span><button className="logout-button" title="Cerrar sesión" onClick={onSignOut}>↪</button></div>
+      <AppVersion />
     </aside>
   </>
 }

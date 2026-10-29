@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import ThemeToggle from '../appearance/ThemeToggle.jsx'
 import NavigationMenu from './NavigationMenu.jsx'
 import { sectionLabels } from './navigationItems.js'
+import AppVersion from '../../shared/components/AppVersion.jsx'
 
 export default function MobileNavigation({ user, section, pendingOrdersCount, onSectionChange, onSignOut, resolvedTheme, onThemeChange }) {
   const dialogRef = useRef(null)
@@ -58,6 +59,7 @@ export default function MobileNavigation({ user, section, pendingOrdersCount, on
         <button type="button" className="mobile-nav-logout" onClick={() => { closeMenu(); onSignOut() }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 4H4v16h5 M9 12h12 M16 7l5 5-5 5" /></svg>Cerrar sesión
         </button>
+        <AppVersion />
       </footer>
     </dialog>
   </>

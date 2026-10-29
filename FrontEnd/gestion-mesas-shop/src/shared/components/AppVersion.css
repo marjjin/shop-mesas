@@ -1,0 +1,12 @@
+.app-version {
+  display: block;
+  flex: none;
+  font-size: 10px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+  letter-spacing: .3px;
+}
+
+.sidebar > .app-version { padding: 8px 8px 0; color: #a3ab9b; }
+.mobile-nav-footer > .app-version { margin-top: 12px; color: #a3ab9b; text-align: center; }
