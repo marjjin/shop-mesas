@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Catalog from './features/catalog/Catalog.jsx'
 import Cafeteria from './features/cafeteria/Cafeteria.jsx'
 import Cigarettes from './features/cigarettes/Cigarettes.jsx'
@@ -31,6 +31,7 @@ import './styles/Theme.css'
 export default function App() {
   const { preference, resolvedTheme, changeTheme } = useTheme()
   const [message, setMessage] = useState('')
+  const dismissMessage = useCallback((expected) => setMessage((current) => current === expected ? '' : current), [])
   const session = useSession(api, setMessage)
   const { user, login, setLogin, loginSubmit } = session
   const { section, setSection, subscribeToSectionChanges } = useNavigation()
@@ -60,7 +61,7 @@ export default function App() {
     <section className="page">
       {sectionLoading ? <LoadingSkeleton section={section} /> : <>
         {sectionError && <p className="error" role="alert">{sectionError} <button type="button" onClick={section === 'history' ? loadHistory : load}>Reintentar</button></p>}
-        {section === 'salon' ? <Salon data={data} message={message} salon={salon} coffee={coffee} /> : section === 'pending' ? <PendingOrders data={data} api={api} load={load} onChooseTable={chooseTableForPendingOrder} /> : section === 'catalog' ? <Catalog data={data} api={api} load={load} /> : section === 'cafeteria' ? <Cafeteria api={api} onSummaryChange={setCoffeeSummary} /> : section === 'cigarettes' ? <Cigarettes api={api} /> : section === 'suppliers' ? <Suppliers api={api} /> : section === 'cash-drops' ? <CashDrops api={api} /> : section === 'shift-close' ? <Cigarettes api={api} mode="shift-close" onShiftClosed={(close) => { setCoffeeSummary({ saleCount: 0, totalSales: 0 }); loadCoffeeSummary(close.businessDate).catch(() => {}) }} /> : section === 'history' ? <History histories={histories} /> : null}
+        {section === 'salon' ? <Salon data={data} message={message} onDismissMessage={dismissMessage} salon={salon} coffee={coffee} /> : section === 'pending' ? <PendingOrders data={data} api={api} load={load} onChooseTable={chooseTableForPendingOrder} /> : section === 'catalog' ? <Catalog data={data} api={api} load={load} /> : section === 'cafeteria' ? <Cafeteria api={api} onSummaryChange={setCoffeeSummary} /> : section === 'cigarettes' ? <Cigarettes api={api} /> : section === 'suppliers' ? <Suppliers api={api} /> : section === 'cash-drops' ? <CashDrops api={api} /> : section === 'shift-close' ? <Cigarettes api={api} mode="shift-close" onShiftClosed={(close) => { setCoffeeSummary({ saleCount: 0, totalSales: 0 }); loadCoffeeSummary(close.businessDate).catch(() => {}) }} /> : section === 'history' ? <History histories={histories} /> : null}
         {section === 'settings' && <Settings api={api} welcomeSettings={welcomeSettings} loadError={welcomeSettingsError} onWelcomeSettingsChange={updateWelcomeSettings} themePreference={preference} resolvedTheme={resolvedTheme} onThemeChange={changeTheme} />}
       </>}
     </section>

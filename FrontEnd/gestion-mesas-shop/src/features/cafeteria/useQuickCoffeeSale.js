@@ -9,6 +9,7 @@ export default function useQuickCoffeeSale(api, user, setMessage) {
   const registerCoffeeSale = async () => {
     if (sellingCoffee) return
     setSellingCoffee(true)
+    setMessage('')
     try {
       const dashboard = await api('/cafeteria/sales', { method: 'POST' })
       setCoffeeSummary(dashboard.summary)

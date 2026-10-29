@@ -132,10 +132,10 @@
 .salon-table-row .salon-list-alert { display: flex; align-items: center; gap: 5px; color: var(--theme-danger-text, #af624a); font-size: 10px; }
 .salon-list-alert svg { width: 12px; height: 12px; }
 .salon-table-row.has-alert { border-left-color: var(--theme-danger-line, #c97965); }
-.salon-assignment-notice, .salon-coworking-notice, .salon-feedback { display: flex; align-items: center; gap: 12px; margin: 0 0 20px; padding: 14px 16px; border: 1px solid var(--theme-info-line, #d5ddd9); border-radius: 10px; background: var(--theme-info-surface, #f4f7f5); color: var(--theme-info-text, #506d62); }
+.salon-assignment-notice, .salon-coworking-notice { display: flex; align-items: center; gap: 12px; margin: 0 0 20px; padding: 14px 16px; border: 1px solid var(--theme-info-line, #d5ddd9); border-radius: 10px; background: var(--theme-info-surface, #f4f7f5); color: var(--theme-info-text, #506d62); }
 .salon-assignment-notice > div, .salon-coworking-notice > div { display: grid; flex: 1; gap: 5px; }
 .salon-assignment-notice strong, .salon-coworking-notice strong { font-size: 12px; font-weight: 600; }
-.salon-assignment-notice span, .salon-coworking-notice span, .salon-feedback > span { font-size: 11px; line-height: 1.6; }
+.salon-assignment-notice span, .salon-coworking-notice span { font-size: 11px; line-height: 1.6; }
 .salon-assignment-notice { border-color: var(--theme-success-line, #cfe2d5); background: var(--theme-success-surface, #f0f8f1); color: var(--theme-success-text, #477455); }
 .salon-assignment-notice button { flex: none; min-height: 36px; padding: 7px 10px; border: 1px solid var(--theme-success-line, #cadfcf); border-radius: 7px; background: var(--theme-surface, #fff); color: inherit; font-size: 11px; font-weight: 600; }
 .salon-coworking-notice { border-color: var(--theme-danger-line, #ebd2c6); background: var(--theme-danger-surface, #fff5ee); color: var(--theme-danger-text, #ac6148); }

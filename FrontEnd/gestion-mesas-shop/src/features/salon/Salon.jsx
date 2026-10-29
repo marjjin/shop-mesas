@@ -3,10 +3,11 @@ import FloorPlan from './components/FloorPlan.jsx'
 import TableEditor from './components/TableEditor.jsx'
 import TableList from './components/TableList.jsx'
 import SalonIcon from './components/SalonIcon.jsx'
+import SalonToast from './components/SalonToast.jsx'
 import { filterSalonTables, getSalonSummary } from './domain/salonPresentation.js'
 import './styles/Salon.css'
 
-export default function Salon({ data, message, salon, coffee }) {
+export default function Salon({ data, message, onDismissMessage, salon, coffee }) {
   const { editingMode, setEditingMode, editingId, setEditingId, selectedId, setSelectedId, assigningPendingOrder, assigningTable,
     setAssigningPendingOrderId, coworkingTables, coworkingTableIds, saveTable, deleteTable, addTable, assignPendingOrderToTable } = salon
   const { sellingCoffee, registerCoffeeSale, coffeeSummary } = coffee
@@ -61,7 +62,7 @@ export default function Salon({ data, message, salon, coffee }) {
 
     {assigningPendingOrder && <div className="salon-assignment-notice" role="status"><SalonIcon name="users" /><div><strong>Elegí una mesa para {assigningPendingOrder.customerName}</strong><span>Seleccioná una mesa libre para asignar el pedido e imprimir su ticket.</span></div><button type="button" disabled={assigningTable} onClick={() => setAssigningPendingOrderId(null)}>Cancelar asignación</button></div>}
     {coworkingTables.length > 0 && <div className="salon-coworking-notice" role="alert"><SalonIcon name="alert" /><div><strong>Revisá los servicios de coworking</strong><span>{coworkingTables.map((table) => table.name).join(', ')} {coworkingTables.length === 1 ? 'tiene' : 'tienen'} un servicio automático cargado.</span></div></div>}
-    {message && <div className="salon-feedback" role="status"><SalonIcon name="info" /><span>{message}</span></div>}
+    {message && <SalonToast key={message} message={message} onDismiss={onDismissMessage} />}
     {editingMode && <TableEditor key={editingId ?? 'none'} table={data.tables.find((table) => table.id === editingId)} saveTable={saveTable} deleteTable={deleteTable} addTable={createTable} addingTable={addingTable} finishEditing={finishEditing} />}
 
     <section className="salon-plan" aria-labelledby="salon-plan-title">

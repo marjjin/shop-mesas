@@ -8,11 +8,11 @@ export default function useRestaurantData(api, user, section, setMessage) {
   const [dataError, setDataError] = useState('')
   const [historyError, setHistoryError] = useState('')
   const load = useCallback(() => api('/bootstrap')
-    .then((result) => { setData(result); setDataError(''); setMessage('') })
+    .then((result) => { setData(result); setDataError(''); setMessage((current) => current === 'No hay conexión con la API.' ? '' : current) })
     .catch(() => { setDataError('No hay conexión con la API.'); setMessage('No hay conexión con la API.') })
     .finally(() => setLoadedUser(user)), [api, user, setMessage])
   const loadHistory = useCallback(() => api('/history')
-    .then((result) => { setHistories(result); setHistoryError(''); setMessage('') })
+    .then((result) => { setHistories(result); setHistoryError(''); setMessage((current) => current === 'No se pudo cargar el historial.' ? '' : current) })
     .catch(() => { setHistoryError('No se pudo cargar el historial.'); setMessage('No se pudo cargar el historial.') })
     .finally(() => setHistoryUser(user)), [api, user, setMessage])
 
