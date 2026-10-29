@@ -1,13 +1,18 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { datetimeLocal, clock, time, utcDate } from '../../../shared/utils/date.js'
 import { isCoworkingService } from '../../../shared/utils/products.js'
 import { openReceiptPrintWindow, printWelcomeReceipt } from '../../printing/receipt.js'
 import { parseProductSearch } from '../../../shared/utils/productSearch.js'
+import { reprintWelcome } from '../domain/reprintWelcome.js'
+import SalonIcon from './SalonIcon.jsx'
 
 export default function TableMenu({ table, data, orders, now, api, load, closePanel, closeTable, updateOpenedAt }) {
   const [search, setSearch] = useState('')
   const [customerName, setCustomerName] = useState('')
   const [openError, setOpenError] = useState('')
+  const [reprintingWelcome, setReprintingWelcome] = useState(false)
+  const [reprintError, setReprintError] = useState('')
+  const reprintLock = useRef(false)
   const [openedAt, setOpenedAt] = useState(() => datetimeLocal(table.openedAt))
   const [savingStart, setSavingStart] = useState(false)
   const [startError, setStartError] = useState('')
@@ -41,6 +46,25 @@ export default function TableMenu({ table, data, orders, now, api, load, closePa
     } catch {
       printWindow?.close()
       setOpenError('No se pudo abrir la mesa. Intentá nuevamente.')
+    }
+  }
+  const reprintWelcomeTicket = async () => {
+    if (table.status !== 'occupied' || reprintLock.current) return
+    reprintLock.current = true
+    setReprintingWelcome(true)
+    setReprintError('')
+    let printWindow
+    try {
+      printWindow = openReceiptPrintWindow()
+      if (!await reprintWelcome(table, api, printWindow)) {
+        setReprintError('No se pudo abrir la impresión. Habilitá las ventanas emergentes y volvé a intentar.')
+      }
+    } catch {
+      printWindow?.close()
+      setReprintError('No se pudo preparar la bienvenida. Revisá la conexión y volvé a intentar.')
+    } finally {
+      reprintLock.current = false
+      setReprintingWelcome(false)
     }
   }
   const saveOpenedAt = async (event) => {
@@ -97,6 +121,7 @@ export default function TableMenu({ table, data, orders, now, api, load, closePa
       <h2>{table.name}</h2>
       {table.status === 'occupied' ? <>
         <div className="customer-card"><small>CLIENTE</small><strong>{table.customerName || 'Sin nombre'}</strong></div>
+        <div className="welcome-reprint"><button type="button" className="welcome-reprint-button" disabled={reprintingWelcome} aria-busy={reprintingWelcome} onClick={reprintWelcomeTicket}><SalonIcon name="print" />{reprintingWelcome ? 'Preparando bienvenida…' : 'Reimprimir bienvenida'}</button>{reprintError && <small className="start-time-error" role="alert">{reprintError}</small>}</div>
         <div className="timers"><div><small>INICIO</small><b>{time(table.openedAt)}</b></div><div><small>TIEMPO EN MESA</small><b>{clock(table.openedAt, now)}</b></div><div><small>SIN CONSUMIR</small><b>{clock(table.lastConsumptionAt, now)}</b></div></div>
         <form className="start-time-form" onSubmit={saveOpenedAt}><label htmlFor={`opened-at-${table.id}`}>Modificar inicio</label><div><input id={`opened-at-${table.id}`} type="datetime-local" required max={datetimeLocal(firstOrderTime)} value={openedAt} onChange={(event) => setOpenedAt(event.target.value)} /><button type="submit" disabled={savingStart}>{savingStart ? 'Guardando…' : 'Guardar'}</button></div>{startError && <small className="start-time-error">{startError}</small>}</form>
       </> : <form className="open-table-form" onSubmit={openTable}><label htmlFor={`customer-${table.id}`}>Nombre del cliente</label><input id={`customer-${table.id}`} maxLength="80" autoComplete="off" autoFocus placeholder="Ej.: Martín" value={customerName} onChange={(event) => setCustomerName(event.target.value)} /><button className="primary wide" disabled={!customerName.trim()}>Abrir mesa e imprimir</button>{openError && <small className="start-time-error">{openError}</small>}</form>}

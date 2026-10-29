@@ -15,6 +15,7 @@ const paths = {
   alert: 'm12 3 10 18H2L12 3Zm0 6v5m0 3v.01',
   move: 'M12 3v18M3 12h18M8 7l4-4 4 4M8 17l4 4 4-4M7 8l-4 4 4 4m10-8 4 4-4 4',
   info: 'M12 11v6m0-10v.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
+  print: 'M7 8V3h10v5M7 16H3V8h18v8h-4M7 13h10v8H7v-8Zm10-2h.01',
 }
 
 export default function SalonIcon({ name }) {

@@ -12,6 +12,12 @@
 .customer-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; padding: 10px 12px; border: 1px solid var(--theme-accent-line, #f0d6cd); border-radius: 9px; background: var(--theme-surface-muted, #fff6f2); }
 .customer-card small { color: var(--theme-danger-text, #9b6b5c); font-size: 9px; font-weight: 800; letter-spacing: .5px; }
 .customer-card strong { overflow: hidden; color: var(--theme-danger-text, #9e3f27); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.welcome-reprint { margin: 0 0 14px; }
+.welcome-reprint-button { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 40px; padding: 10px 12px; border: 1px solid var(--theme-line, #dedfd6); border-radius: 8px; background: var(--theme-surface, #fff); color: var(--theme-text, #526743); font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; }
+.welcome-reprint-button svg { width: 16px; height: 16px; flex: none; }
+.welcome-reprint-button:hover:not(:disabled) { background: var(--theme-surface-muted, #f6f9f0); border-color: var(--theme-accent-line, #e7c8b6); }
+.welcome-reprint-button:focus-visible { outline: 2px solid var(--theme-accent-text, #bb5533); outline-offset: 3px; }
+.welcome-reprint-button:disabled { opacity: .55; cursor: wait; }
 .start-time-form { margin-top: 10px; }
 .start-time-form > label { display: block; margin-bottom: 5px; color: var(--theme-text-muted, #858683); font-size: 9px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; }
 .start-time-form > div { display: flex; gap: 7px; }

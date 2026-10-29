@@ -1,3 +1,4 @@
+import ClosingIcon from './ClosingIcon.jsx'
 import { getDraftFinancialSummary } from '../domain/closeFinancials.js'
 import { useMemo, useState } from 'react'
 import useCloseDraft from '../hooks/useCloseDraft.js'
@@ -44,13 +45,13 @@ export default function ShiftCloseForm({ products, purchases, suppliers, allocat
   }} onChange={() => setValidationMessage('')}>
     {showStockWarning && excessStockRows.length > 0 && <StockWarning rows={excessStockRows} onClose={() => setShowStockWarning(false)} />}
     {validationMessage && <p role="alert" className="close-validation-error">{validationMessage}</p>}
-    <div className="close-draft-notice"><span>●</span><p>{hasDraft ? 'Borrador guardado automáticamente en este dispositivo.' : 'Los cambios se guardarán automáticamente mientras cargás el cierre.'}</p>{hasDraft && <button type="button" onClick={discardDraft}>Descartar borrador</button>}</div>
+    <div className="close-draft-notice"><span><ClosingIcon name="check" /></span><p>{hasDraft ? 'Borrador guardado automáticamente en este dispositivo.' : 'Los cambios se guardarán automáticamente mientras cargás el cierre.'}</p>{hasDraft && <button type="button" onClick={discardDraft}>Descartar borrador</button>}</div>
     <EndingBalances balances={endingBalances} cashDrops={cashDrops} onChange={changeEndingBalances} onReceivedChange={() => setReceivedChangeEdited(true)} />
     <CashDropsSummary cashDrops={cashDrops} />
     <SupplierAllocations suppliers={suppliers} allocations={allocations} onAllocationsChange={changeAllocations} />
     <CafeteriaCloseSummary summary={cafeteriaSummary} error={cafeteriaError} />
     {rows.some((row) => row.invalidInitial) && <p className="close-validation-error">Hay un stock actual menor a las compras del turno. Corregí el stock del producto antes de cerrar.</p>}
-    <div className="close-grid-header"><span>Producto</span><span>Inicial</span><span>Compras</span><span>Final</span><span>Vendidos</span><span>Importe</span></div>
+    <section className="closing-stock-section"><div className="closing-stock-heading"><span className="closing-block-icon"><ClosingIcon name="box" /></span><div><small>INVENTARIO DE CIGARRILLOS</small><h3>Stock al cierre</h3><p>Ingresá las unidades contadas al finalizar el turno.</p></div></div><div className="close-grid-header"><span>Producto</span><span>Inicial</span><span>Compras</span><span>Final</span><span>Vendidos</span><span>Importe</span></div>
     {rows.map((row) => <div className={`close-grid-row ${row.stock <= 0 ? 'stock-empty' : ''}`} key={row.id}>
       <span className="close-product"><b>{row.name}</b><small>{money.format(row.price)} c/u{row.stock <= 0 ? ' · SIN STOCK' : ''}</small></span>
       <span className={`close-metric ${row.invalidInitial ? 'invalid-initial' : ''}`}><small>Inicial</small><strong>{row.invalidInitial ? 'Corregir' : row.initial}</strong></span>
@@ -62,6 +63,7 @@ export default function ShiftCloseForm({ products, purchases, suppliers, allocat
     {excessStockRows.length > 0 && <div role="alert" className="close-validation-error"><strong>No se puede cerrar el turno: hay stock final mayor al disponible.</strong>{excessStockRows.map((row) => <p key={row.id} id={`stock-error-${row.id}`}>{row.name}: ingresaste {row.final} de stock final, pero el máximo es {row.initial + row.purchased} (stock inicial {row.initial} + compras {row.purchased}). Corregí el stock final o registrá las compras faltantes antes de cerrar.</p>)}</div>}
     {excessStockRows.length > 0 && <button type="button" className="edit-close-button" onClick={() => setShowStockWarning(true)}>Ver aviso de stock</button>}
     {!products.length && <div className="cigarette-empty">Primero cargá al menos un cigarrillo.</div>}
-    <div className="close-total"><span className="cash-total-summary"><small>CAJA</small><b>{money.format(cashTotal)}</b><i>Arqueo − proveedores sin caja aparte − cafetería − cigarrillos</i></span><span className="daily-sales-summary"><small>VENTAS DEL DÍA</small><b>{money.format(dailySalesTotal)}</b><i>Arqueo {money.format(archaeologicalResult)}{separateCashBoxTotal > 0 ? ` + cajas aparte ${money.format(separateCashBoxTotal)}` : ''}</i></span><button className="primary" disabled={!isValid}>Cerrar turno {shifts[shift].toLowerCase()}</button></div>
+    </section>
+    <div className="close-total"><span className="cash-total-summary"><small>CAJA</small><b>{money.format(cashTotal)}</b><i>Arqueo − proveedores sin caja aparte − cafetería − cigarrillos</i></span><span className="daily-sales-summary"><small>VENTAS DEL DÍA</small><b>{money.format(dailySalesTotal)}</b><i>Arqueo {money.format(archaeologicalResult)}{separateCashBoxTotal > 0 ? ` + cajas aparte ${money.format(separateCashBoxTotal)}` : ''}</i></span><button className="primary" disabled={!isValid}><ClosingIcon name="check" />Cerrar turno {shifts[shift].toLowerCase()}</button></div>
   </form>
 }

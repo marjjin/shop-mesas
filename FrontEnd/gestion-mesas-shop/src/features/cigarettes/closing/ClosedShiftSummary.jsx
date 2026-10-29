@@ -1,3 +1,4 @@
+import ClosingIcon from './ClosingIcon.jsx'
 import { money } from '../../../shared/utils/currency.js'
 import { shifts } from '../domain/businessDate.js'
 import { getCloseFinancialSummary } from '../domain/closeFinancials.js'
@@ -8,8 +9,8 @@ export default function ClosedShiftSummary({ close, suppliers, onEdit }) {
   const date = new Date(`${close.businessDate}T12:00:00`).toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })
   return <section className="closed-shift-summary" aria-label="Resumen de caja del turno cerrado">
     <header className="closed-shift-status">
-      <span className="closed-shift-check" aria-hidden="true">✓</span>
-      <div><span className="closed-shift-eyebrow">CIERRE REGISTRADO</span><h3>Todo listo por este turno</h3><p>{date} <span aria-hidden="true">·</span> Turno {shifts[close.shift].toLowerCase()}</p></div>
+      <span className="closed-shift-check" aria-hidden="true"><ClosingIcon name="check" /></span>
+      <div><span className="closed-shift-eyebrow">CIERRE REGISTRADO</span><h3>Turno cerrado</h3><p>{date} <span aria-hidden="true">·</span> Turno {shifts[close.shift].toLowerCase()}</p></div>
       <span className="closed-shift-badge">Caja cerrada</span>
     </header>
     <dl className="closed-shift-metrics">

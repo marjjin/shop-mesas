@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react'
+import { dateInputValue } from '../domain/cafeteriaView.js'
 
-export default function useCafeteriaHistory(api) {
-  const [selection, setSelection] = useState(() => ({ date: new Date().toISOString().slice(0, 10) }))
+export default function useCafeteriaHistory(api, businessDate, refreshKey) {
+  const [selection, setSelection] = useState(() => ({ date: businessDate || dateInputValue() }))
   const [result, setResult] = useState(null)
   const historyDate = selection.date
-  const setHistoryDate = (date) => setSelection((current) => current.date === date ? current : { date })
-  // Each selection identifies its request, including returning to a previous date.
-  const current = result?.selection === selection && result.api === api
+  const setHistoryDate = (date) => {
+    if (date) setSelection((current) => current.date === date ? current : { date })
+  }
+  const retryHistory = () => setSelection((current) => ({ ...current }))
+  // Each selection and dashboard refresh identifies its own request.
+  const current = result?.selection === selection && result.api === api && result.refreshKey === refreshKey
   const loadingHistory = !current
   const shiftHistory = current ? result.items : []
   const historyError = current ? result.error : ''
@@ -15,13 +19,13 @@ export default function useCafeteriaHistory(api) {
     let cancelled = false
     api('/cafeteria/history?date=' + selection.date)
       .then((items) => {
-        if (!cancelled) setResult({ selection, api, items, error: '' })
+        if (!cancelled) setResult({ selection, api, refreshKey, items, error: '' })
       })
       .catch(() => {
-        if (!cancelled) setResult({ selection, api, items: [], error: 'No se pudo cargar el historial de este día.' })
+        if (!cancelled) setResult({ selection, api, refreshKey, items: [], error: 'No se pudo cargar el historial de este día.' })
       })
     return () => { cancelled = true }
-  }, [api, selection])
+  }, [api, selection, refreshKey])
 
-  return { historyDate, setHistoryDate, loadingHistory, shiftHistory, historyError }
+  return { historyDate, setHistoryDate, retryHistory, loadingHistory, shiftHistory, historyError }
 }

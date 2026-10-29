@@ -1,3 +1,4 @@
+import ClosingIcon from './ClosingIcon.jsx'
 import { money } from '../../../shared/utils/currency.js'
 
 export default function EndingBalances({ balances, cashDrops = [], onChange, onReceivedChange }) {
@@ -11,7 +12,7 @@ export default function EndingBalances({ balances, cashDrops = [], onChange, onR
     onChange({ ...balances, cash: value === '' ? '' : String(Math.max(0, Number(value) - cashDropsTotal)) })
   }
   return <section className="ending-balances">
-    <header className="ending-balances-header"><div><small>ARQUEO DE CAJA</small><h3>Dinero al finalizar el turno</h3><p>Registrá cada medio de cobro antes de confirmar el cierre.</p></div></header>
+    <header className="ending-balances-header"><span className="closing-block-icon"><ClosingIcon name="wallet" /></span><div><small>ARQUEO DE CAJA</small><h3>Dinero al finalizar el turno</h3><p>Registrá cada medio de cobro antes de confirmar el cierre.</p></div></header>
     <div className="ending-arqueo-layout"><div className="ending-arqueo-inputs"><div className="ending-payment-inputs">
        <label><span>Efectivo en caja</span><input type="number" min="0" step="0.01" inputMode="decimal" value={balances.cash === '' ? (cashDropsTotal || '') : cashInBox} onChange={changeCash} placeholder="$ 0" /></label>
       <label><span>Mercado Pago</span><input type="number" min="0" step="0.01" inputMode="decimal" value={balances.mercadoPago} onChange={(event) => onChange({ ...balances, mercadoPago: event.target.value })} placeholder="$ 0" /></label>

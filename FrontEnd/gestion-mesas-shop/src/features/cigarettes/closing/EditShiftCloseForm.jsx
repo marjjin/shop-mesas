@@ -1,3 +1,4 @@
+import ClosingIcon from './ClosingIcon.jsx'
 import { getDraftFinancialSummary } from '../domain/closeFinancials.js'
 import { useState } from 'react'
 import { money } from '../../../shared/utils/currency.js'
@@ -40,7 +41,7 @@ export default function EditShiftCloseForm({ close, suppliers, cafeteria, cashDr
     <SupplierAllocations suppliers={suppliers} allocations={allocations} onAllocationsChange={setAllocations} />
     <CafeteriaCloseSummary summary={cafeteria} />
     <label className="close-cafeteria-count"><span>Ventas de cafetería de este turno</span><input type="number" min="0" step="1" value={cafeteriaSaleCount} onChange={(event) => setCafeteriaSaleCount(event.target.value)} /><small>Al aumentar, se replica el detalle de una venta existente; al reducir, se quitan las últimas ventas.</small></label>
-    <div className="close-grid-header"><span>Producto</span><span>Inicial</span><span>Compras</span><span>Final</span><span>Vendidos</span><span>Importe</span></div>
+    <section className="closing-stock-section"><div className="closing-stock-heading"><span className="closing-block-icon"><ClosingIcon name="box" /></span><div><small>INVENTARIO DE CIGARRILLOS</small><h3>Stock al cierre</h3><p>Ingresá las unidades contadas al finalizar el turno.</p></div></div><div className="close-grid-header"><span>Producto</span><span>Inicial</span><span>Compras</span><span>Final</span><span>Vendidos</span><span>Importe</span></div>
     {rows.map((row) => <div className="close-grid-row" key={row.cigaretteProductId}>
       <span className="close-product"><b>{row.productName}</b><small>{money.format(row.unitPrice)} c/u</small></span>
       <span className="close-metric"><small>Inicial</small><strong>{row.initialStock}</strong></span>
@@ -49,6 +50,7 @@ export default function EditShiftCloseForm({ close, suppliers, cafeteria, cashDr
       <span className="close-metric"><small>Vendidos</small><strong className="sold-value">{row.sold}</strong></span>
       <span className="close-metric amount-metric"><small>Importe</small><b>{money.format(row.amount)}</b></span>
     </div>)}
-    <div className="close-total"><span className="cash-total-summary"><small>CAJA</small><b>{money.format(cashTotal)}</b><i>Arqueo − proveedores sin caja aparte − cafetería − cigarrillos</i></span><span className="daily-sales-summary"><small>VENTAS DEL DÍA</small><b>{money.format(dailySalesTotal)}</b><i>Arqueo {money.format(archaeologicalResult)}{separateCashBoxTotal > 0 ? ` + cajas aparte ${money.format(separateCashBoxTotal)}` : ''}</i></span><button type="button" className="secondary" onClick={onCancel}>Cancelar</button><button className="primary" disabled={busy || !isValid}>Guardar corrección</button></div>
+    </section>
+    <div className="close-total"><span className="cash-total-summary"><small>CAJA</small><b>{money.format(cashTotal)}</b><i>Arqueo − proveedores sin caja aparte − cafetería − cigarrillos</i></span><span className="daily-sales-summary"><small>VENTAS DEL DÍA</small><b>{money.format(dailySalesTotal)}</b><i>Arqueo {money.format(archaeologicalResult)}{separateCashBoxTotal > 0 ? ` + cajas aparte ${money.format(separateCashBoxTotal)}` : ''}</i></span><button type="button" className="secondary" onClick={onCancel}>Cancelar</button><button className="primary" disabled={busy || !isValid}><ClosingIcon name="check" />Guardar corrección</button></div>
   </form>
 }

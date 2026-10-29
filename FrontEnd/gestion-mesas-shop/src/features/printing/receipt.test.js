@@ -16,6 +16,27 @@ function ticketWindow() {
   }
 }
 
+test('table reprints keep the closed record and open the native printing flow in 80 mm format', () => {
+  const printWindow = ticketWindow()
+  const history = {
+    tableName: 'Mesa 5 <Patio>',
+    openedAt: '2026-10-29T14:00:00Z',
+    closedAt: '2026-10-29T15:00:00Z',
+    items: [{ id: 1, quantity: 2, productName: 'Café & medialunas', createdAt: '2026-10-29T14:15:00Z' }],
+  }
+  const original = structuredClone(history)
+  assert.equal(printReceipt(history, printWindow), true)
+  assert.ok(printWindow.markup.includes('@page { size: 80mm auto;'))
+  assert.ok(printWindow.markup.includes('Mesa 5 &lt;Patio&gt;'))
+  assert.ok(printWindow.markup.includes('<b>2x</b> Café &amp; medialunas'))
+  assert.ok(printWindow.markup.includes('window.print()'))
+  assert.ok(printWindow.markup.includes("addEventListener('afterprint'"))
+  assert.deepEqual(history, original)
+
+  assert.equal(printReceipt({ ...history, items: [] }, printWindow), true)
+  assert.ok(printWindow.markup.includes('Sin artículos cargados'))
+})
+
 test('welcome ticket uses the supplied amount, including zero and cents', () => {
   for (const [amount, formatted] of [[3500, '$3.500'], [0, '$0'], [4520.75, '$4.520,75']]) {
     const printWindow = ticketWindow()
