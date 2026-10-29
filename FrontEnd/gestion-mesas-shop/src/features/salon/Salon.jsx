@@ -16,6 +16,7 @@ export default function Salon({ data, message, onDismissMessage, salon, coffee }
   const [filter, setFilter] = useState('all')
   const [addingTable, setAddingTable] = useState(false)
   const searchRef = useRef(null)
+  const editorRef = useRef(null)
   const summary = getSalonSummary(data.tables)
   const activeView = editingMode ? 'map' : view
   const activeFilter = editingMode ? 'all' : assigningPendingOrder ? 'free' : filter
@@ -31,6 +32,7 @@ export default function Salon({ data, message, onDismissMessage, salon, coffee }
     setEditingId(null)
     setSearch('')
     setFilter('all')
+    if (!editingMode) requestAnimationFrame(() => editorRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' }))
   }
   const createTable = async () => {
     if (addingTable) return
@@ -47,7 +49,7 @@ export default function Salon({ data, message, onDismissMessage, salon, coffee }
   return <div className="salon-page">
     <header className="salon-header">
       <div><p className="eyebrow">OPERACIÓN EN VIVO</p><h1>Salón principal</h1><p>Todo tu salón de un vistazo. Seleccioná una mesa para atenderla.</p></div>
-      <div className="salon-header-actions">
+      <div className={`salon-header-actions salon-floating-actions${salon.selected ? ' has-open-table' : ''}`} role="group" aria-label="Acciones del salón">
         <button type="button" className="salon-coffee-button" disabled={sellingCoffee} onClick={registerCoffeeSale} aria-label={`Registrar venta de cafetería. Ventas del turno: ${coffeeSummary.saleCount}`}><SalonIcon name="coffee" /><span>{sellingCoffee ? 'Registrando…' : 'Venta café'}<small>Ventas del turno</small></span><b>{coffeeSummary.saleCount}</b></button>
         <button type="button" className={`salon-edit-button${editingMode ? ' active' : ''}`} disabled={Boolean(assigningPendingOrder)} aria-pressed={editingMode} onClick={toggleEditing}><SalonIcon name={editingMode ? 'check' : 'edit'} />{editingMode ? 'Finalizar edición' : 'Editar plano'}</button>
       </div>
@@ -63,7 +65,7 @@ export default function Salon({ data, message, onDismissMessage, salon, coffee }
     {assigningPendingOrder && <div className="salon-assignment-notice" role="status"><SalonIcon name="users" /><div><strong>Elegí una mesa para {assigningPendingOrder.customerName}</strong><span>Seleccioná una mesa libre para asignar el pedido e imprimir su ticket.</span></div><button type="button" disabled={assigningTable} onClick={() => setAssigningPendingOrderId(null)}>Cancelar asignación</button></div>}
     {coworkingTables.length > 0 && <div className="salon-coworking-notice" role="alert"><SalonIcon name="alert" /><div><strong>Revisá los servicios de coworking</strong><span>{coworkingTables.map((table) => table.name).join(', ')} {coworkingTables.length === 1 ? 'tiene' : 'tienen'} un servicio automático cargado.</span></div></div>}
     {message && <SalonToast key={message} message={message} onDismiss={onDismissMessage} />}
-    {editingMode && <TableEditor key={editingId ?? 'none'} table={data.tables.find((table) => table.id === editingId)} saveTable={saveTable} deleteTable={deleteTable} addTable={createTable} addingTable={addingTable} finishEditing={finishEditing} />}
+    {editingMode && <div ref={editorRef} className="salon-editor-anchor"><TableEditor key={editingId ?? 'none'} table={data.tables.find((table) => table.id === editingId)} saveTable={saveTable} deleteTable={deleteTable} addTable={createTable} addingTable={addingTable} finishEditing={finishEditing} /></div>}
 
     <section className="salon-plan" aria-labelledby="salon-plan-title">
       <div className="salon-plan-heading"><div className="salon-plan-title"><span><SalonIcon name="tables" /></span><div><h2 id="salon-plan-title">{editingMode ? 'Diseñá tu salón' : 'Distribución de mesas'}</h2><p>{editingMode ? 'Elegí una mesa para moverla, redimensionarla o cambiar su nombre.' : assigningPendingOrder ? 'Las mesas libres están disponibles para asignar el pedido.' : 'Seleccioná una mesa para abrir su cuenta y cargar consumos.'}</p></div></div><div className="salon-view-switch" role="group" aria-label="Vista de mesas"><button type="button" aria-pressed={activeView === 'map'} disabled={editingMode} onClick={() => setView('map')}><SalonIcon name="tables" />Plano</button><button type="button" aria-pressed={activeView === 'list'} disabled={editingMode} onClick={() => setView('list')}><SalonIcon name="list" />Lista</button></div></div>

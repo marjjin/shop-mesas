@@ -6,11 +6,15 @@
 }
 
 .salon-page svg { width: 18px; height: 18px; flex: none; }
-.salon-page .salon-header { align-items: center; gap: 24px; margin-bottom: 25px; }
+.salon-page .salon-header { align-items: center; gap: 24px; min-height: 72px; margin-bottom: 25px; padding-right: 360px; }
 .salon-header > div:first-child { min-width: 0; }
 .salon-header h1 { font-size: clamp(30px, 3.1vw, 40px); }
 .salon-header > div > p:last-child { margin: 12px 0 0; color: var(--salon-muted); font-size: 13px; line-height: 1.65; }
 .salon-header-actions { display: flex; flex: none; align-items: center; gap: 10px; }
+.salon-page .salon-floating-actions { position: fixed; z-index: 30; right: max(24px, env(safe-area-inset-right)); top: max(24px, env(safe-area-inset-top)); width: max-content; max-width: calc(100vw - 48px); height: 70px; align-items: stretch; flex-wrap: nowrap; gap: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 15px; background: var(--theme-surface, #fffdfa); box-shadow: 0 8px 30px #26361c24, 0 2px 6px #26361c08; }
+.salon-page .salon-floating-actions > button { height: 52px; min-height: 52px; }
+.salon-page .salon-floating-actions.has-open-table { right: calc(345px + max(24px, env(safe-area-inset-right))); }
+.salon-editor-anchor { scroll-margin-top: 114px; }
 .salon-coffee-button { display: flex; align-items: center; gap: 11px; min-height: 50px; padding: 9px 10px 9px 15px; border: 1px solid transparent; border-radius: 10px; background: var(--orange); color: #fff; text-align: left; box-shadow: 0 3px 8px #ad58301a; transition: background 150ms, box-shadow 150ms; }
 .salon-coffee-button > svg { width: 20px; height: 20px; }
 .salon-coffee-button > span { display: grid; gap: 3px; font-size: 12px; font-weight: 700; }
@@ -156,7 +160,8 @@
 .salon-page .floor:focus-visible { outline-offset: -3px; }
 
 @media (max-width: 1100px) {
-  .salon-page .salon-header { align-items: flex-start; flex-direction: column; gap: 18px; }
+  .salon-page .salon-floating-actions.has-open-table { display: none; }
+  .salon-page .salon-header { align-items: flex-start; flex-direction: column; gap: 18px; padding-top: 86px; padding-right: 0; }
   .salon-metric { gap: 9px; padding: 0 15px; }
   .salon-metric strong > small { display: none; }
   .salon-occupancy { padding: 0 18px; }
@@ -174,6 +179,10 @@
 }
 
 @media (max-width: 680px) {
+  .salon-page .salon-floating-actions { right: max(16px, env(safe-area-inset-right)); top: calc(88px + env(safe-area-inset-top)); width: calc(100% - 32px); max-width: none; }
+  .salon-page .salon-floating-actions > button { min-width: 0; flex: 1; }
+  .salon-page .salon-floating-actions .salon-edit-button { white-space: normal; line-height: 1.3; }
+  .salon-editor-anchor { scroll-margin-top: calc(174px + env(safe-area-inset-top)); }
   .salon-page .salon-header { margin-bottom: 20px; }
   .salon-header > div > p:last-child { margin-top: 10px; font-size: 12px; }
   .salon-header-actions { width: 100%; align-items: stretch; flex-wrap: wrap; }
