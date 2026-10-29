@@ -109,3 +109,5 @@
 .close-card-detail>footer .delete-close-button:active{box-shadow:none}
 .close-card-detail>footer .delete-close-button:focus-visible{outline:3px solid var(--theme-danger-text,#a83b2b);outline-offset:3px}
 @media(prefers-reduced-motion:reduce){.close-card-detail>footer .delete-close-button{transition:none}}
+
+.ranking-list > .skeleton-loading { display: block; padding: 0; border: 0; }

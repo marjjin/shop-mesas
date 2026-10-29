@@ -1,3 +1,4 @@
+import LoadingSkeleton from '../../shared/components/LoadingSkeleton.jsx'
 import useCafeteria from './hooks/useCafeteria.js'
 import CafeteriaHistory from './components/CafeteriaHistory.jsx'
 import CafeteriaProducts from './components/CafeteriaProducts.jsx'
@@ -7,6 +8,8 @@ import './Cafeteria.css'
 export default function Cafeteria({ api, onSummaryChange }) {
   const cafeteria = useCafeteria({ api, onSummaryChange })
   const { dashboard, businessDateLabel, monthLabel, message } = cafeteria
+
+  if (cafeteria.loading) return <LoadingSkeleton section="cafeteria" />
 
   return <div className="cafeteria-page">
     <header className="cafeteria-header"><div><p className="eyebrow">VENTAS RÁPIDAS</p><h1>Caja Cafetería</h1><p>Configurá los artículos de cada venta. Cada clic en <b>VENTA CAFÉ</b> registra una unidad de todos los artículos activos.</p></div></header>

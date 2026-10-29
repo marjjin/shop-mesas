@@ -1,3 +1,4 @@
+import LoadingSkeleton from '../../shared/components/LoadingSkeleton.jsx'
 import useCashDrops from './hooks/useCashDrops.js'
 import CashDropForm from './components/CashDropForm.jsx'
 import CashDropHistory from './components/CashDropHistory.jsx'
@@ -8,6 +9,8 @@ import './CashDrops.css'
 export default function CashDrops({ api }) {
   const cashDrops = useCashDrops(api)
   const { date, setDate, message, totalForDate, openShift, activeTotal } = cashDrops
+
+  if (cashDrops.loading) return <LoadingSkeleton section="cash-drops" />
 
   return <div className="cash-drops-page">
     <header className="cash-drops-header">

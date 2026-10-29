@@ -1,3 +1,4 @@
+import LoadingSkeleton from '../../shared/components/LoadingSkeleton.jsx'
 import SupplierOperations from './components/SupplierOperations.jsx'
 import SupplierHistory from './components/SupplierHistory.jsx'
 import TransactionDialog from './components/TransactionDialog.jsx'
@@ -19,6 +20,7 @@ export default function Suppliers({ api }) {
 
   const {
     suppliers,
+    loading,
     name,
     setName,
     creatingSupplier,
@@ -63,6 +65,8 @@ export default function Suppliers({ api }) {
   const visibleSuppliers = normalizedSupplierSearch
     ? activeSuppliers.filter((supplier) => supplier.name.toLocaleLowerCase('es-AR').normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(normalizedSupplierSearch))
     : activeSuppliers
+
+  if (loading) return <LoadingSkeleton section="suppliers" />
 
   if (selectedSupplier) {
     const paidTotal = selectedSupplier.transactions

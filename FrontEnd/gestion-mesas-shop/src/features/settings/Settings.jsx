@@ -4,6 +4,7 @@ import WelcomeTicketEditor from './components/WelcomeTicketEditor.jsx'
 import WelcomeTicketPreview from './components/WelcomeTicketPreview.jsx'
 import WelcomeTicketActions from './components/WelcomeTicketActions.jsx'
 import useWelcomeTicketEditor from './hooks/useWelcomeTicketEditor.js'
+import { SettingsSkeleton } from '../../shared/components/LoadingSkeleton.jsx'
 import './Settings.css'
 
 export default function Settings({ api, welcomeSettings, loadError, onWelcomeSettingsChange, themePreference, resolvedTheme, onThemeChange }) {
@@ -19,11 +20,13 @@ export default function Settings({ api, welcomeSettings, loadError, onWelcomeSet
         <div><h2 id="welcome-settings-title">Ticket de bienvenida</h2><p>Editá los textos y el consumo mínimo del ticket.</p></div>
         <span className="settings-card-badge">PERSONALIZACIÓN</span>
       </div>
-      <div className="settings-workspace">
-        <WelcomeTicketEditor editor={editor} />
-        <WelcomeTicketPreview editor={editor} />
-      </div>
-      <WelcomeTicketActions editor={editor} />
+      {loading ? <SettingsSkeleton /> : <>
+        <div className="settings-workspace">
+          <WelcomeTicketEditor editor={editor} />
+          <WelcomeTicketPreview editor={editor} />
+        </div>
+        <WelcomeTicketActions editor={editor} />
+      </>}
     </section>
   </div>
 }

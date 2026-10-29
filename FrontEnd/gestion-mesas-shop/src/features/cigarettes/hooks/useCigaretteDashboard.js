@@ -4,6 +4,7 @@ import { normalizeCigaretteDashboard, buildMonthlyRanking } from '../domain/dash
 
 export default function useCigaretteDashboard({ api, date, shift, setMessage }) {
   const [dashboard, setDashboard] = useState({ products: [], purchases: [], closes: [], cashDrops: [] })
+  const [loadedDate, setLoadedDate] = useState(null)
   const [suppliers, setSuppliers] = useState([])
   const [cafeteriaSummary, setCafeteriaSummary] = useState(null)
   const [cafeteriaError, setCafeteriaError] = useState('')
@@ -33,7 +34,11 @@ export default function useCigaretteDashboard({ api, date, shift, setMessage }) 
       const loadedSuppliers = suppliersResult.status === 'fulfilled' && Array.isArray(suppliersResult.value) ? suppliersResult.value : []
       setSuppliers(loadedSuppliers.filter((supplier) => supplier.isActive))
       setMessage('')
-    } catch { setMessage('No se pudo cargar la información de cigarrillos.') }
+    } catch {
+      if (currentLoadId === dashboardLoadId.current) setMessage('No se pudo cargar la información de cigarrillos.')
+    } finally {
+      if (currentLoadId === dashboardLoadId.current) setLoadedDate(date)
+    }
   }, [api, date, setMessage])
   const loadMonthlyRanking = useCallback(async () => {
     setLoadingRanking(true)
@@ -73,5 +78,5 @@ export default function useCigaretteDashboard({ api, date, shift, setMessage }) 
     return () => { cancelled = true }
   }, [api, dashboard.closes, date, shift, setMessage])
 
-  return { dashboard, suppliers, cafeteriaSummary, cafeteriaError, previousChangeCash, monthlyRanking, loadingRanking, rankingError, load, loadMonthlyRanking }
+  return { dashboard, suppliers, cafeteriaSummary, cafeteriaError, previousChangeCash, monthlyRanking, loadingRanking, rankingError, load, loadMonthlyRanking, loading: loadedDate !== date }
 }

@@ -6,6 +6,7 @@ export default function useCafeteria({ api, onSummaryChange }) {
   const [editing, setEditing] = useState(null)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
+  const [loading, setLoading] = useState(true)
   const businessDate = new Date(`${dashboard.businessDate || new Date().toISOString().slice(0, 10)}T12:00:00`)
   const businessDateLabel = businessDate.toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })
   const monthLabel = businessDate.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
@@ -18,6 +19,8 @@ export default function useCafeteria({ api, onSummaryChange }) {
       setMessage('')
     } catch {
       setMessage('No se pudo cargar la Caja Cafetería.')
+    } finally {
+      setLoading(false)
     }
   }, [api, onSummaryChange])
 
@@ -55,6 +58,6 @@ export default function useCafeteria({ api, onSummaryChange }) {
   }
 
 
-  return { dashboard, product, setProduct, editing, setEditing, busy, message,
+  return { dashboard, product, setProduct, editing, setEditing, busy, message, loading,
     businessDateLabel, monthLabel, addProduct, saveProduct, deleteProduct }
 }

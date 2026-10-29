@@ -12,20 +12,26 @@ export default function useCashDrops(api) {
   const [editingAmount, setEditingAmount] = useState('')
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  const [loadedDate, setLoadedDate] = useState(null)
+  const loadId = useRef(0)
   const amountInputRef = useRef(null)
 
   const load = useCallback(async () => {
+    const currentLoadId = ++loadId.current
     try {
       const [open, morning, afternoon] = await Promise.all([
         api(`/cash-drops/open?date=${date}`),
         api(`/cash-drops?date=${date}&shift=morning`),
         api(`/cash-drops?date=${date}&shift=afternoon`)
       ])
+      if (currentLoadId !== loadId.current) return
       setOpenShift(open.shift ? { date: open.businessDate, shift: open.shift } : null)
       setDrops({ morning, afternoon })
       setMessage('')
     } catch (error) {
-      setMessage(error.message || 'No se pudieron cargar las tiradas.')
+      if (currentLoadId === loadId.current) setMessage(error.message || 'No se pudieron cargar las tiradas.')
+    } finally {
+      if (currentLoadId === loadId.current) setLoadedDate(date)
     }
   }, [api, date])
 
@@ -100,5 +106,5 @@ export default function useCashDrops(api) {
 
   return { date, setDate, openShift, drops, amount, setAmount, editing, setEditing,
     editingAmount, setEditingAmount, message, busy, amountInputRef, activeDrops,
-    activeTotal, totalForDate, create, save, remove, print }
+    activeTotal, totalForDate, create, save, remove, print, loading: loadedDate !== date }
 }

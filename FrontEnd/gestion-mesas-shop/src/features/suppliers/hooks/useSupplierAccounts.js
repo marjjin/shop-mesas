@@ -3,6 +3,7 @@ import { normalizeSuppliers } from '../domain/transactions.js'
 
 export default function useSupplierAccounts({ api, setMessage }) {
   const [suppliers, setSuppliers] = useState([])
+  const [loading, setLoading] = useState(true)
   const [name, setName] = useState('')
   const [balances, setBalances] = useState({ reservedCashBalance: '', reservedMercadoPagoBalance: '', currentAccountBalance: '', note: '' })
   const [editingBalances, setEditingBalances] = useState(false)
@@ -13,6 +14,7 @@ export default function useSupplierAccounts({ api, setMessage }) {
   })
   const load = useCallback(async () => {
     try { setSuppliers(normalizeSuppliers(await api('/suppliers'))); setMessage('') } catch (error) { setMessage(error.message) }
+    finally { setLoading(false) }
   }, [api, setMessage])
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load() }, [load])
@@ -62,6 +64,7 @@ export default function useSupplierAccounts({ api, setMessage }) {
   }
 
   return {
+    loading,
     suppliers,
     name,
     setName,
