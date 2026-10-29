@@ -52,7 +52,8 @@ export default function LoadingSkeleton({ section = 'salon' }) {
     <span className="skeleton-status">Cargando {title.toLocaleLowerCase('es-AR')}</span>
     <div aria-hidden="true">
       <header className="skeleton-heading"><div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><SkeletonBlock className="skeleton-description" /></div><SkeletonBlock className="skeleton-button" /></header>
-      {section === 'salon' ? <div className="skeleton-floor">{Array.from({ length: 8 }, (_, index) => <div className="skeleton-table" key={index}><SkeletonBlock className="skeleton-line" /><SkeletonBlock className="skeleton-line skeleton-short" /></div>)}</div> : <>
+      {section === 'salon' && <div className="skeleton-salon-overview">{Array.from({ length: 4 }, (_, index) => <div key={index}><SkeletonBlock className="skeleton-line skeleton-short" /><SkeletonBlock className="skeleton-title" /></div>)}</div>}
+      {section === 'salon' ? <><div className="skeleton-salon-tools"><SkeletonBlock className="skeleton-control" /><SkeletonBlock className="skeleton-button" /></div><div className="skeleton-floor">{Array.from({ length: 8 }, (_, index) => <div className="skeleton-table" key={index}><SkeletonBlock className="skeleton-line" /><SkeletonBlock className="skeleton-line skeleton-short" /></div>)}</div></> : <>
         {hasSummary && <div className="skeleton-summary">{Array.from({ length: 3 }, (_, index) => <Card key={index}><SkeletonBlock className="skeleton-number" /><SkeletonBlock className="skeleton-line" /></Card>)}</div>}
         <div className={`skeleton-content${['pending', 'suppliers', 'cash-drops', 'shift-close', 'catalog'].includes(section) ? ' skeleton-columns' : ''}`}>
           {section === 'suppliers' ? Array.from({ length: 4 }, (_, index) => <Card key={index}><SkeletonBlock className="skeleton-number" /><Rows count={2} /><SkeletonBlock className="skeleton-control" /></Card>) : <>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import SalonIcon from './SalonIcon.jsx'
 
-export default function TableEditor({ table, saveTable, deleteTable, addTable, finishEditing }) {
+export default function TableEditor({ table, saveTable, deleteTable, addTable, addingTable = false, finishEditing }) {
   const [name, setName] = useState(() => table?.name || '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -27,8 +28,8 @@ export default function TableEditor({ table, saveTable, deleteTable, addTable, f
         <h2>{table ? table.name : 'Elegí una mesa'}</h2>
       </div>
       <div className="editing-actions">
-        <button type="button" className="add-table-button" onClick={addTable}><span aria-hidden="true">+</span> Agregar mesa</button>
-        <button type="button" className="finish-editing-button" onClick={finishEditing}><span aria-hidden="true">✓</span> Finalizar</button>
+        <button type="button" className="add-table-button" disabled={addingTable} onClick={addTable}><SalonIcon name="plus" />{addingTable ? 'Agregando…' : 'Agregar mesa'}</button>
+        <button type="button" className="finish-editing-button" onClick={finishEditing}><SalonIcon name="check" />Finalizar</button>
       </div>
     </div>
     {table ? <>
