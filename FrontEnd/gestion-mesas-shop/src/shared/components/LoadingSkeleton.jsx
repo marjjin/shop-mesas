@@ -54,10 +54,11 @@ export default function LoadingSkeleton({ section = 'salon' }) {
       <header className="skeleton-heading"><div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><SkeletonBlock className="skeleton-description" /></div><SkeletonBlock className="skeleton-button" /></header>
       {section === 'salon' ? <div className="skeleton-floor">{Array.from({ length: 8 }, (_, index) => <div className="skeleton-table" key={index}><SkeletonBlock className="skeleton-line" /><SkeletonBlock className="skeleton-line skeleton-short" /></div>)}</div> : <>
         {hasSummary && <div className="skeleton-summary">{Array.from({ length: 3 }, (_, index) => <Card key={index}><SkeletonBlock className="skeleton-number" /><SkeletonBlock className="skeleton-line" /></Card>)}</div>}
-        <div className={`skeleton-content${['pending', 'suppliers', 'cash-drops', 'shift-close'].includes(section) ? ' skeleton-columns' : ''}`}>
+        <div className={`skeleton-content${['pending', 'suppliers', 'cash-drops', 'shift-close', 'catalog'].includes(section) ? ' skeleton-columns' : ''}`}>
           {section === 'suppliers' ? Array.from({ length: 4 }, (_, index) => <Card key={index}><SkeletonBlock className="skeleton-number" /><Rows count={2} /><SkeletonBlock className="skeleton-control" /></Card>) : <>
             {['pending', 'cash-drops', 'shift-close'].includes(section) && <Card><SkeletonBlock className="skeleton-control skeleton-input" /><SkeletonBlock className="skeleton-control skeleton-input" /><SkeletonBlock className="skeleton-control" /></Card>}
             <Card>{['catalog', 'cigarettes'].includes(section) && <SkeletonBlock className="skeleton-control skeleton-input" />}<Rows count={section === 'history' ? 5 : 4} /></Card>
+            {section === 'catalog' && <Card><SkeletonBlock className="skeleton-title" /><SkeletonBlock className="skeleton-control skeleton-input" /><SkeletonBlock className="skeleton-control" /><Rows count={1} /></Card>}
           </>}
         </div>
       </>}
