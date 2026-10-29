@@ -23,6 +23,13 @@ $previousUsername = $env:Authentication__AdminUsername
 $previousAdminUserId = $env:Authentication__AdminUserId
 $previousConnection = $env:ConnectionStrings__Restaurant
 
+function Test-LocalAdminPassword {
+    param([string]$Value)
+    return -not ([string]::IsNullOrWhiteSpace($Value) -or $Value.Length -gt 1024 -or
+        $Value.Equals('admin', [System.StringComparison]::OrdinalIgnoreCase) -or
+        $Value.IndexOf('CHANGE_ME', [System.StringComparison]::OrdinalIgnoreCase) -ge 0)
+}
+
 try {
     $env:ASPNETCORE_ENVIRONMENT = 'Development'
     $env:DOTNET_ENVIRONMENT = 'Development'
@@ -38,19 +45,24 @@ try {
     }
     if ($PSBoundParameters.ContainsKey('AdminUserId')) { $env:Authentication__AdminUserId = $AdminUserId.ToString() }
     if ([string]::IsNullOrEmpty($env:Authentication__AdminPassword)) {
-        $securePassword = Read-Host 'Clave de acceso (actual para conservarla, o nueva para cambiarla)' -AsSecureString
-        try {
-            $env:Authentication__AdminPassword = [System.Net.NetworkCredential]::new('', $securePassword).Password
-        }
-        finally { $securePassword.Dispose() }
+        if ($PSBoundParameters.ContainsKey('Username')) { Write-Host ('Usuario de ingreso: ' + $Username) }
+        Write-Host 'Ahora elegi la CONTRASENA. Debe ser distinta de admin; no se mostrara mientras escribis.'
+        do {
+            $securePassword = Read-Host 'Contrasena (actual para conservarla, o nueva para cambiarla)' -AsSecureString
+            try {
+                $env:Authentication__AdminPassword = [System.Net.NetworkCredential]::new('', $securePassword).Password
+            }
+            finally { $securePassword.Dispose() }
+            $validPassword = Test-LocalAdminPassword $env:Authentication__AdminPassword
+            if (-not $validPassword) {
+                Write-Warning 'Elegi otra contrasena: no puede estar vacia, ser admin, contener CHANGE_ME ni superar 1024 caracteres.'
+                $env:Authentication__AdminPassword = $null
+            }
+        } while (-not $validPassword)
     }
-    $password = $env:Authentication__AdminPassword
-    if ([string]::IsNullOrWhiteSpace($password) -or $password.Length -gt 1024 -or
-        $password.Equals('admin', [System.StringComparison]::OrdinalIgnoreCase) -or
-        $password.IndexOf('CHANGE_ME', [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
+    if (-not (Test-LocalAdminPassword $env:Authentication__AdminPassword)) {
         throw 'La clave no puede estar vacia, superar 1024 caracteres ni ser admin o un valor de ejemplo.'
     }
-    $password = $null
 
     # A fresh output directory also supports restarting an API launched by this same script.
     & dotnet build $projectFile ('-p:BaseOutputPath=' + $buildOutput)

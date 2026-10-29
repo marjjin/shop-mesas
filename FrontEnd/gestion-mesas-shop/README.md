@@ -9,7 +9,7 @@ npm ci
 npm run dev
 ```
 
-En desarrollo se usa `http://localhost:5000/api`. Para otra API, definí `VITE_API_URL` en `.env.local`.
+En desarrollo, el navegador usa `/api` del propio servidor Vite, que reenvía las consultas a `http://localhost:5000/api`. Esto permite usar localhost o 127.0.0.1 incluso cuando Vite elige otro puerto, sin depender del CORS de la API. Para otra API, definí `VITE_API_URL` en `.env.local` y reiniciá Vite; el proxy conserva la ruta base configurada. El backend debe estar iniciado.
 
 ## Vercel
 
