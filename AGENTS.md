@@ -26,6 +26,10 @@ The API defaults to SQLite; set `ConnectionStrings__Restaurant` to use PostgreSQ
 
 Use two spaces in JavaScript/JSX and four spaces in C#. Follow the existing ESLint configuration and run `npm run lint` before submitting frontend changes. Use PascalCase for React components and C# types, camelCase for JavaScript variables/functions, and descriptive service/endpoint names. Keep feature code near its feature and shared logic in `src/shared/`.
 
+## Interface Copy
+
+Use concise, functional Spanish in the interface. Do not add marketing slogans, promotional descriptions, or business catchphrases. Prefer clear labels, factual feature names, and instructions needed to complete the user's task.
+
 ## Testing Guidelines
 
 Use xUnit for backend tests and run `dotnet test` from the repository root or against the test project. Name tests after the behavior or workflow they verify (for example, `PendingOrderWorkflowTests`). Add regression coverage for changed service, persistence, and order/shift-close behavior. The frontend currently has lint and production-build checks but no configured test runner.
