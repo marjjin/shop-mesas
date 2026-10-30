@@ -1,32 +1,22 @@
-import Jscanify from './vendor/jscanify.js'
+import { findDocumentCorners } from './documentDetection.js'
 import { defaultCorners, isValidQuad, outputSize } from './geometry.js'
 import { enhanceDocument } from './processImage.js'
 
 // OpenCV stays inside the worker. Only serializable pixels and normalized points
 // cross the boundary; every WASM Mat is released even when processing fails.
 export function createOpenCvScanner(cv) {
-  const scanner = new Jscanify(cv)
   return {
     detect(image) {
       const source = cv.matFromImageData(image)
       const reduced = new cv.Mat()
-      const gray = new cv.Mat()
-      let contour
       try {
         const scale = Math.min(1, 1000 / Math.max(image.width, image.height))
         const width = Math.round(image.width * scale), height = Math.round(image.height * scale)
         cv.resize(source, reduced, new cv.Size(width, height), 0, 0, cv.INTER_AREA)
-        cv.cvtColor(reduced, gray, cv.COLOR_RGBA2GRAY)
-        contour = scanner.findPaperContour(gray)
-        if (contour && cv.contourArea(contour) >= width * height * .08) {
-          const points = scanner.getCornerPoints(contour)
-          const corners = ['topLeftCorner', 'topRightCorner', 'bottomRightCorner', 'bottomLeftCorner'].map((name) => ({
-            x: points[name]?.x / (width - 1), y: points[name]?.y / (height - 1),
-          }))
-          if (isValidQuad(corners)) return { corners, detection: 'automatic', engine: 'opencv' }
-        }
+        const corners = findDocumentCorners(cv, reduced)
+        if (corners) return { corners, detection: 'automatic', engine: 'opencv' }
         return { corners: defaultCorners(), detection: 'manual', engine: 'opencv' }
-      } finally { contour?.delete(); source.delete(); reduced.delete(); gray.delete() }
+      } finally { source.delete(); reduced.delete() }
     },
     scan(image, corners, mode = 'document') {
       if (!isValidQuad(corners)) throw new Error('Ajustá las esquinas para que no se crucen y abarquen el documento.')

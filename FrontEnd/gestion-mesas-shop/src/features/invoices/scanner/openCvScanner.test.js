@@ -4,7 +4,7 @@ import cvModule from '@techstark/opencv-js'
 import { initializeOpenCv } from './openCvRuntime.js'
 import { defaultCorners, isValidQuad } from './geometry.js'
 
-// Exercise the real WASM runtime and the adapted jscanify detector, not mocks.
+// Exercise the real WASM runtime and the document detector, not mocks.
 const scanner = await initializeOpenCv(cvModule)
 const rectangle = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }]
 function image(width, height, pixel) {
@@ -13,18 +13,21 @@ function image(width, height, pixel) {
   return { width, height, data }
 }
 
-test('jscanify locates the four corners of a skewed invoice on a contrasting surface', () => {
-  const corners = [{ x: .15, y: .1 }, { x: .85, y: .2 }, { x: .8, y: .9 }, { x: .1, y: .8 }]
-  const source = image(401, 501, (x, y) => {
+function photo(corners, background, overlay = () => null) {
+  return image(401, 501, (x, y) => {
     const point = { x: x / 400, y: y / 500 }
+    const covered = overlay(point.x, point.y)
+    if (covered) return covered
     const inside = corners.every((a, i) => {
       const b = corners[(i + 1) % 4]
       return (b.x - a.x) * (point.y - a.y) - (b.y - a.y) * (point.x - a.x) >= 0
     })
     // A few dark printed lines inside the sheet must not replace its outline.
-    if (inside && x > 90 && x < 260 && y > 200 && y < 300 && y % 20 < 3) return [25, 25, 25]
-    return inside ? [240, 237, 232] : [45, 50, 55]
+    if (inside && x > 150 && x < 250 && y > 200 && y < 300 && y % 20 < 3) return [25, 25, 25]
+    return inside ? [240, 237, 232] : background(point.x, point.y)
   })
+}
+function assertCorners(source, corners) {
   const detection = scanner.detect(source)
   assert.equal(detection.engine, 'opencv')
   assert.equal(detection.detection, 'automatic')
@@ -33,6 +36,37 @@ test('jscanify locates the four corners of a skewed invoice on a contrasting sur
     assert.ok(Math.abs(point.x - corners[i].x) < .025, `corner ${i} x`)
     assert.ok(Math.abs(point.y - corners[i].y) < .025, `corner ${i} y`)
   })
+}
+const skewed = [{ x: .15, y: .1 }, { x: .85, y: .2 }, { x: .8, y: .9 }, { x: .1, y: .8 }]
+const plain = () => [45, 50, 55]
+const tiles = (x, y) => (x * 6) % 1 < .02 || (y * 8) % 1 < .02 ? [70, 70, 72] : [150, 148, 142]
+
+test('locates the four corners of a skewed invoice on a contrasting surface', () => {
+  assertCorners(photo(skewed, plain), skewed)
+})
+
+test('keeps the outline of a sheet rotated close to 45 degrees', () => {
+  const rotated = [{ x: .42, y: .06 }, { x: .93, y: .42 }, { x: .58, y: .93 }, { x: .07, y: .57 }]
+  assertCorners(photo(rotated, plain), rotated)
+})
+
+test('ignores tile seams that cross the whole photo', () => {
+  assertCorners(photo(skewed, tiles), skewed)
+})
+
+test('fits the sheet when an object covers part of one side', () => {
+  const hand = (x, y) => y > .5 && y < .62 && x < .22 ? [190, 140, 115] : null
+  assertCorners(photo(skewed, plain, hand), skewed)
+})
+
+test('prefers the sheet over the outline of the table under it', () => {
+  const table = (x, y) => x > .05 && x < .95 && y > .04 && y < .96 ? [120, 80, 50] : [230, 228, 222]
+  assertCorners(photo(skewed, table), skewed)
+})
+
+test('a patterned surface without a document offers manual corners', () => {
+  const detection = scanner.detect(image(401, 501, (x, y) => tiles(x / 400, y / 500)))
+  assert.equal(detection.detection, 'manual')
 })
 
 test('empty frames and small objects offer manual corners instead of a false crop', () => {

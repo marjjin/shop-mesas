@@ -1,12 +1,5 @@
 Invoice scanner components
 
-jscanify browser detection methods, npm package 1.4.3 (source header v1.4.0)
-Copyright (c) 2023 ColonelParrot and other contributors
-MIT: see jscanify.LICENSE.txt
-https://github.com/puffinsoft/jscanify
-Adaptations: ES modules, OpenCV dependency injection, omission of unused DOM
-methods, explicit temporary contour cleanup and exception-safe resource disposal.
-
 OpenCV JavaScript distribution @techstark/opencv-js 4.12.0-release.1
 Apache License 2.0: see opencv.LICENSE.txt
 https://github.com/TechStark/opencv-js
