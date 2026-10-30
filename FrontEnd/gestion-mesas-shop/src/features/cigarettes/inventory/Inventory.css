@@ -227,3 +227,10 @@
   .cigarettes-inventory-page button { transition: none; }
 }
 .cigarettes-inventory-page .cigarette-message.processing { background: var(--theme-surface-muted, #f0f4e9); color: var(--theme-text-muted, #647454); font-size: 12px; font-weight: 500; }
+.inv-purchase-cost-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; margin: 8px 0 16px; }
+.inv-purchase-cost-fields label { display: grid; gap: 8px; }
+.inv-purchase-cost-fields select { width: 100%; min-width: 0; min-height: 44px; padding: 11px 12px; border: 1px solid var(--theme-line, #dfe3d6); border-radius: 9px; background: var(--theme-surface, #fff); color: var(--theme-text, #303c29); font: inherit; font-size: 12px; }
+.inv-purchase-cost-fields small { color: var(--theme-text-muted, #737b6b); font-size: 11px; line-height: 1.6; }
+.inv-purchase-total { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px; margin-bottom: 14px; border: 1px solid var(--theme-line, #dfe3d6); border-radius: 10px; background: var(--theme-surface-muted, #f6f7f2); font-size: 12px; }
+.inv-purchase-total small { display: block; margin-top: 4px; color: var(--theme-text-muted, #737b6b); }
+.inv-purchase-total b { font-size: 20px; white-space: nowrap; }

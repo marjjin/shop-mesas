@@ -24,7 +24,7 @@ internal sealed class ApiTestHost(WebApplication app, IAsyncDisposable database,
     public IServiceProvider Services => app.Services;
     public IReadOnlyList<Endpoint> Endpoints => app.Services.GetRequiredService<EndpointDataSource>().Endpoints;
 
-    public static async Task<ApiTestHost> StartAsync(string? allowedOrigin = null, TimeProvider? clock = null, string environment = "Testing", string adminPassword = AdminPassword, string? adminUsername = null, Func<RestaurantContext, Task>? prepareDatabase = null)
+    public static async Task<ApiTestHost> StartAsync(string? allowedOrigin = null, TimeProvider? clock = null, string environment = "Testing", string adminPassword = AdminPassword, string? adminUsername = null, Func<RestaurantContext, Task>? prepareDatabase = null, Action<IServiceCollection>? configureServices = null)
     {
         string connectionString;
         IAsyncDisposable database;
@@ -53,14 +53,17 @@ internal sealed class ApiTestHost(WebApplication app, IAsyncDisposable database,
             ["Cors:AllowedOrigins:0"] = allowedOrigin ?? "http://localhost:5173",
             ["Authentication:AdminPassword"] = adminPassword,
             ["Authentication:AdminUsername"] = adminUsername,
-            ["Authentication:AdminUserId"] = null
+            ["Authentication:AdminUserId"] = null,
+            ["Cloudinary:CloudName"] = "", ["Cloudinary:ApiKey"] = "", ["Cloudinary:ApiSecret"] = "", ["CLOUDINARY_URL"] = ""
         });
         builder.Logging.ClearProviders();
         builder.WebHost.ConfigureKestrel(server => server.Listen(IPAddress.Loopback, 0));
         builder.AddRestaurantServices();
+        configureServices?.Invoke(builder.Services);
         if (clock is not null) builder.Services.AddSingleton(clock);
         var worker = builder.Services.Single(service => service.ImplementationType == typeof(CoworkingBillingService));
         builder.Services.Remove(worker); // Billing has dedicated clock-controlled tests.
+        builder.Services.Remove(builder.Services.Single(service => service.ImplementationType == typeof(InvoiceStorageWorker)));
         var app = builder.Build();
         try
         {

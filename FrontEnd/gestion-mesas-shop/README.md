@@ -13,6 +13,14 @@ En desarrollo, el navegador usa `/api` del propio servidor Vite, que reenvía la
 
 ## Vercel
 
+### Acceso desde el celular
+
+La dirección pública es [https://gestion-mesas-shop.vercel.app](https://gestion-mesas-shop.vercel.app). Se puede abrir desde Chrome o Safari usando Wi-Fi o datos móviles. La cámara de Facturas necesita HTTPS y permiso del navegador. `localhost` en el celular apunta al propio teléfono y no al equipo de desarrollo.
+
+El frontend se publica desde `main` en Vercel y consulta la API HTTPS de Render. En el servicio existente de Render debe estar habilitado el despliegue automático desde la misma rama. El health check de la API (`/`) incluye `commit`, tomado de `RENDER_GIT_COMMIT`, para comprobar que ambos servicios publicaron la actualización.
+
+Para guardar escaneos en Cloudinary, sus variables privadas se configuran en Render; editar `.env.example` no configura el servicio publicado. Ver [configuración de Facturas](../../BackEnd/Features/Invoices/README.md). No es necesario crear otra base de datos ni otro servicio para esta actualización.
+
 Configuración del proyecto:
 
 - **Root Directory:** `FrontEnd/gestion-mesas-shop`.

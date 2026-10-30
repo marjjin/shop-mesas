@@ -1,3 +1,4 @@
+import CigaretteCash from './cash/CigaretteCash.jsx'
 import LoadingSkeleton from '../../shared/components/LoadingSkeleton.jsx'
 import InventoryStock from './inventory/InventoryStock.jsx'
 import InventoryPurchases from './inventory/InventoryPurchases.jsx'
@@ -21,8 +22,8 @@ import ClosedShiftSummary from './closing/ClosedShiftSummary.jsx'
 import ClosingIcon from './closing/ClosingIcon.jsx'
 import './closing/Closing.css'
 
-const cigaretteTabs = new Set(['stock', 'purchases', 'close', 'history'])
-const inventoryTabs = [['stock', '▦', 'Stock y precios'], ['purchases', '↓', 'Compras']]
+const cigaretteTabs = new Set(['stock', 'purchases', 'cash', 'close', 'history'])
+const inventoryTabs = [['stock', '▦', 'Stock y precios'], ['purchases', '↓', 'Compras'], ['cash', 'wallet', 'Caja']]
 const closingTabs = [['close', '✓', 'Cerrar turno'], ['history', '◷', 'Calendario y cierres']]
 
 export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
@@ -226,9 +227,9 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
   return <div className={`cigarettes-page${isClosingView ? ' shift-closing-page' : ' cigarettes-inventory-page'}`}>
     <header className="cigarettes-header"><div><p className="eyebrow">{isClosingView ? 'ARQUEO Y REGISTRO' : 'CONTROL DE INVENTARIO'}</p><h1>{isClosingView ? 'Cierre de turno' : 'Cigarrillos'}</h1><p>{isClosingView ? 'Cerrá los turnos, consultá sus registros e imprimí los comprobantes.' : 'Consultá existencias, actualizá precios y registrá compras por turno.'}</p></div><label className="date-picker"><span>Fecha de trabajo</span><input type="date" disabled={busy} value={date} onChange={(event) => { if (event.target.value) { setEditingPurchase(null); setDate(event.target.value); setSupplierAllocations({}) } }} /></label></header>
     <nav className="cigarette-tabs" aria-label={isClosingView ? 'Secciones de cierre de turno' : 'Secciones de cigarrillos'}>
-      {availableTabs.map(([value, icon, label]) => <button key={value} disabled={busy} className={tab === value ? 'active' : ''} aria-pressed={tab === value} onClick={() => setTab(value)}>{isClosingView ? <ClosingIcon name={icon === '✓' ? 'receipt' : 'calendar'} /> : <InventoryIcon name={value === 'stock' ? 'box' : 'purchase'} />}{label}</button>)}
+      {availableTabs.map(([value, icon, label]) => <button key={value} disabled={busy} className={tab === value ? 'active' : ''} aria-pressed={tab === value} onClick={() => setTab(value)}>{isClosingView ? <ClosingIcon name={icon === '✓' ? 'receipt' : 'calendar'} /> : <InventoryIcon name={value === 'stock' ? 'box' : value === 'cash' ? 'wallet' : 'purchase'} />}{label}</button>)}
     </nav>
-    {!isClosingView && <InventoryOverview disabled={busy || Boolean(editing)} products={dashboard.products} inventoryValue={inventoryValue} bestSeller={bestSeller} loadingRanking={loadingRanking} rankingError={rankingError} date={date} onRanking={showMonthlyRanking} lowStockCount={lowStockCount} outOfStockCount={outOfStockCount} onFilter={(filter) => { setStockFilter(filter); setStockSearch(''); setVisibleProductCount(10); setEditing(null); setTab('stock') }} />}
+    {!isClosingView && tab !== 'cash' && <InventoryOverview disabled={busy || Boolean(editing)} products={dashboard.products} inventoryValue={inventoryValue} bestSeller={bestSeller} loadingRanking={loadingRanking} rankingError={rankingError} date={date} onRanking={showMonthlyRanking} lowStockCount={lowStockCount} outOfStockCount={outOfStockCount} onFilter={(filter) => { setStockFilter(filter); setStockSearch(''); setVisibleProductCount(10); setEditing(null); setTab('stock') }} />}
     {message && <p role="status" className={message.includes('correctamente') || message.includes('actualizado') ? 'cigarette-message success' : 'cigarette-message'}>{message}</p>}
     {busy && <p role="status" className="cigarette-message processing">Procesando operación…</p>}
     {closeConfirmation && <div className="shift-warning-backdrop" role="presentation"><section className="shift-warning" role="dialog" aria-modal="true" aria-labelledby="close-confirmation-title"><button type="button" className="shift-alert-dismiss" aria-label="Cerrar confirmación" onClick={() => setCloseConfirmation(null)}>×</button><span className="shift-warning-icon">✓</span><div><h2 id="close-confirmation-title">Confirmar cierre de turno</h2><p>Se cerrará el turno <b>{shifts[closeConfirmation.request.shift].toLowerCase()}</b> del <b>{new Date(`${closeConfirmation.request.businessDate}T12:00:00`).toLocaleDateString('es-AR')}</b> con los stocks y los importes que cargaste.</p></div><footer><button type="button" className="secondary" onClick={() => setCloseConfirmation(null)}>Seguir revisando</button><button type="button" className="primary" disabled={busy} onClick={confirmShiftClose}>Confirmar cierre</button></footer></section></div>}
@@ -238,6 +239,8 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
     {tab === 'close' && editingClose && <section className="cigarette-card close-repair-section"><h2>Reparar o reasignar cierre</h2><p>Elegí dónde corresponde este cierre. La cafetería permanece en su fecha y turno, el stock actual no cambia y el turno de origen queda abierto. Si el destino ya está cerrado, solo se permite unirlo cuando no tiene ventas y sus inventarios coinciden.</p><div className="close-date-edit"><label>Fecha de destino<input type="date" required value={repairDate || previousDateValue(editingClose.businessDate)} onChange={(event) => setRepairDate(event.target.value)} /></label><label>Turno de destino<select value={repairShift} onChange={(event) => setRepairShift(event.target.value)}><option value="morning">Mañana</option><option value="afternoon">Tarde</option></select></label></div><button className="primary" type="button" disabled={busy} onClick={consolidateClose}>Reparar en el turno elegido</button></section>}
 
     {tab === 'stock' && <InventoryStock dashboard={dashboard} stockSearch={stockSearch} setStockSearch={setStockSearch} setVisibleProductCount={setVisibleProductCount} visibleProducts={visibleProducts} editing={editing} saveProduct={saveProduct} setEditing={setEditing} busy={busy} deleteProduct={deleteProduct} filteredProducts={filteredProducts} visibleProductCount={visibleProductCount} addProduct={addProduct} product={product} setProduct={setProduct} stockFilter={stockFilter} setStockFilter={setStockFilter} stockSort={stockSort} setStockSort={setStockSort} message={message} />}
+
+    {tab === 'cash' && <CigaretteCash key={date} api={api} date={date} />}
 
     {tab === 'purchases' && <InventoryPurchases shift={shift} setShift={setShift} addPurchase={addPurchase} purchaseSearch={purchaseSearch} setPurchaseSearch={setPurchaseSearch} setPurchase={setPurchase} purchase={purchase} purchaseResults={purchaseResults} busy={busy} purchasedUnits={purchasedUnits} purchases={purchases} editingPurchase={editingPurchase} savePurchase={savePurchase} selectedClose={selectedClose} setEditingPurchase={setEditingPurchase} deletePurchase={deletePurchase} message={message} date={date} />}
 

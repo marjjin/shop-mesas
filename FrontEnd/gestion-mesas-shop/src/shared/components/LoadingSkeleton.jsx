@@ -8,6 +8,7 @@ const sections = {
   cigarettes: ['INVENTARIO', 'Cigarrillos'],
   'shift-close': ['ARQUEO Y CIERRE DE CAJA', 'Cierre de turno'],
   suppliers: ['CUENTAS CORRIENTES', 'Proveedores'],
+  invoices: ['ARCHIVO DE DOCUMENTOS', 'Facturas'],
   'cash-drops': ['CONTROL DE EFECTIVO', 'Tiradas'],
   history: ['REGISTRO DE CIERRES', 'Historial de mesas'],
   settings: ['SISTEMA', 'Configuraciones'],
@@ -47,7 +48,7 @@ export function SettingsSkeleton() {
 
 export default function LoadingSkeleton({ section = 'salon' }) {
   const [eyebrow, title] = sections[section] || sections.salon
-  const hasSummary = ['pending', 'cafeteria', 'cigarettes', 'suppliers', 'cash-drops'].includes(section)
+  const hasSummary = ['pending', 'cafeteria', 'cigarettes', 'suppliers', 'cash-drops', 'invoices'].includes(section)
   return <div className={`skeleton-loading skeleton-page skeleton-page-${section}`} role="status" aria-busy="true">
     <span className="skeleton-status">Cargando {title.toLocaleLowerCase('es-AR')}</span>
     <div aria-hidden="true">

@@ -5,6 +5,7 @@ export const sectionPaths = Object.freeze({
   cafeteria: '/cafeteria',
   cigarettes: '/cigarrillos',
   suppliers: '/proveedores',
+  invoices: '/facturas',
   'cash-drops': '/tiradas',
   'shift-close': '/cierre-turno',
   history: '/historial',

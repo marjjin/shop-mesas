@@ -25,9 +25,13 @@ public class RestaurantContext(DbContextOptions<RestaurantContext> options) : Db
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<SupplierTransaction> SupplierTransactions => Set<SupplierTransaction>();
     public DbSet<WelcomeMessageSetting> WelcomeMessageSettings => Set<WelcomeMessageSetting>();
+    public DbSet<InvoiceRecord> Invoices => Set<InvoiceRecord>();
+    public DbSet<InvoiceDocument> InvoiceDocuments => Set<InvoiceDocument>();
+    public DbSet<InvoiceFileCleanup> InvoiceFileCleanups => Set<InvoiceFileCleanup>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        InvoiceModel.Configure(modelBuilder);
         modelBuilder.Entity<User>().Property(user => user.Role).HasDefaultValue("Administrator");
         modelBuilder.Entity<UserSession>().HasKey(session => session.TokenHash);
         modelBuilder.Entity<UserSession>().Property(session => session.TokenHash).HasMaxLength(64);
@@ -45,12 +49,15 @@ public class RestaurantContext(DbContextOptions<RestaurantContext> options) : Db
         modelBuilder.Entity<CigaretteProduct>().HasIndex(product => product.Name).IsUnique();
         modelBuilder.Entity<CigaretteProduct>().Property(product => product.Price).HasPrecision(12, 2);
         modelBuilder.Entity<CigarettePurchase>().Property(purchase => purchase.UnitCost).HasPrecision(12, 2);
+        modelBuilder.Entity<CigarettePurchase>().Property(purchase => purchase.TotalCost).HasPrecision(12, 2);
         modelBuilder.Entity<CigaretteShiftClose>().HasIndex(close => new { close.BusinessDate, close.Shift }).IsUnique();
         modelBuilder.Entity<CigaretteShiftClose>().Property(close => close.EndingCashBalance).HasPrecision(12, 2);
         modelBuilder.Entity<CigaretteShiftClose>().Property(close => close.EndingMercadoPagoBalance).HasPrecision(12, 2);
         modelBuilder.Entity<CigaretteShiftClose>().Property(close => close.NextShiftChangeCash).HasPrecision(12, 2);
         modelBuilder.Entity<CigaretteShiftClose>().Property(close => close.ReceivedChangeCash).HasPrecision(12, 2);
         modelBuilder.Entity<CigaretteShiftClose>().Property(close => close.PosnetTotal).HasPrecision(12, 2);
+        modelBuilder.Entity<CigaretteShiftClose>().Property(close => close.CigaretteReservedCash).HasPrecision(12, 2);
+        modelBuilder.Entity<CigaretteShiftClose>().Property(close => close.CigaretteReservedMercadoPago).HasPrecision(12, 2);
         modelBuilder.Entity<CigaretteShiftClose>()
             .HasMany(close => close.Items)
             .WithOne()

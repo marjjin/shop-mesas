@@ -8,6 +8,7 @@ export const navigationGroups = [
     { section: 'cafeteria', label: 'Caja Cafetería', icon: 'M4 8h12v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z M16 8h2a3 3 0 0 1 0 6h-2 M3 22h16 M8 2v2 M12 2v2' },
     { section: 'cigarettes', label: 'Cigarrillos', icon: 'M3 8l9-5 9 5v10l-9 5-9-5z M3 8l9 5 9-5 M12 13v10 M8 5l9 5' },
     { section: 'suppliers', label: 'Proveedores', icon: 'M3 5h12v12H3z M15 9h4l3 4v4h-7 M7 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4 M18 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4' },
+    { section: 'invoices', label: 'Facturas', icon: 'M6 3h8l4 4v14H6V3z M14 3v5h4 M9 12h6 M9 16h6' },
     { section: 'cash-drops', label: 'Tiradas', icon: 'M12 3v12 M7 10l5 5 5-5 M4 16v5h16v-5' },
   ] },
   { label: 'Cierres y control', items: [

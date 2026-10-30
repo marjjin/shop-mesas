@@ -1,3 +1,4 @@
+import CigaretteReservation from './CigaretteReservation.jsx'
 import ClosingIcon from './ClosingIcon.jsx'
 import { getDraftFinancialSummary } from '../domain/closeFinancials.js'
 import { useState } from 'react'
@@ -8,6 +9,7 @@ import { CafeteriaCloseSummary, CashDropsSummary } from './CloseSummary.jsx'
 
 export default function EditShiftCloseForm({ close, suppliers, cafeteria, cashDrops, onSave, onCancel, busy }) {
   const [cafeteriaSaleCount, setCafeteriaSaleCount] = useState(cafeteria?.saleCount || 0)
+  const [cigaretteReservation, setCigaretteReservation] = useState(() => ({ cash: close.cigaretteReservedCash ?? '', mercadoPago: close.cigaretteReservedMercadoPago ?? '' }))
   const [finalStocks, setFinalStocks] = useState(() => Object.fromEntries(close.items.map((item) => [item.cigaretteProductId, item.finalStock])))
   const [allocations, setAllocations] = useState(() => Object.fromEntries(close.supplierAllocations.map((allocation) => [allocation.supplierId, { cashAmount: allocation.cashAmount, mercadoPagoAmount: allocation.mercadoPagoAmount }])))
   const [endingBalances, setEndingBalances] = useState(() => ({ cash: close.endingCashBalance, mercadoPago: close.endingMercadoPagoBalance, posnet: close.posnetTotal, receivedChange: close.receivedChangeCash, change: close.nextShiftChangeCash }))
@@ -24,6 +26,8 @@ export default function EditShiftCloseForm({ close, suppliers, cafeteria, cashDr
   const submit = (event) => {
     event.preventDefault()
     onSave({
+      cigaretteReservedCash: close.cigaretteReservedCash == null && cigaretteReservation.cash === '' ? null : Number(cigaretteReservation.cash || 0),
+      cigaretteReservedMercadoPago: close.cigaretteReservedMercadoPago == null && cigaretteReservation.mercadoPago === '' ? null : Number(cigaretteReservation.mercadoPago || 0),
       items: rows.map((row) => ({ cigaretteProductId: row.cigaretteProductId, finalStock: row.final })),
       cafeteriaSaleCount: Number(cafeteriaSaleCount),
       supplierAllocations: suppliers.map((supplier) => ({ supplierId: supplier.id, cashAmount: Number(allocations[supplier.id]?.cashAmount || 0), mercadoPagoAmount: Number(allocations[supplier.id]?.mercadoPagoAmount || 0) })).filter((allocation) => allocation.cashAmount + allocation.mercadoPagoAmount > 0),
@@ -51,6 +55,7 @@ export default function EditShiftCloseForm({ close, suppliers, cafeteria, cashDr
       <span className="close-metric amount-metric"><small>Importe</small><b>{money.format(row.amount)}</b></span>
     </div>)}
     </section>
+    <CigaretteReservation totalSales={totalSales} reservation={cigaretteReservation} onChange={setCigaretteReservation} legacy={close.cigaretteReservedCash == null || close.cigaretteReservedMercadoPago == null} />
     <div className="close-total"><span className="cash-total-summary"><small>CAJA</small><b>{money.format(cashTotal)}</b><i>Arqueo − proveedores sin caja aparte − cafetería − cigarrillos</i></span><span className="daily-sales-summary"><small>VENTAS DEL DÍA</small><b>{money.format(dailySalesTotal)}</b><i>Arqueo {money.format(archaeologicalResult)}{separateCashBoxTotal > 0 ? ` + cajas aparte ${money.format(separateCashBoxTotal)}` : ''}</i></span><button type="button" className="secondary" onClick={onCancel}>Cancelar</button><button className="primary" disabled={busy || !isValid}><ClosingIcon name="check" />Guardar corrección</button></div>
   </form>
 }

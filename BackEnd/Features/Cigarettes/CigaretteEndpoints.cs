@@ -5,6 +5,11 @@ public static class CigaretteEndpoints
     public static RouteGroupBuilder MapCigaretteEndpoints(this RouteGroupBuilder api)
     {
         var group = api.MapGroup("/cigarettes").WithTags("Cigarrillos");
+        group.MapGet("/cash", async (DateOnly? date, int? page, int? pageSize, CigaretteCashService service, CancellationToken cancellationToken) =>
+        {
+            try { return Results.Ok(await service.GetAsync(date ?? DateOnly.FromDateTime(DateTime.Today), page ?? 1, pageSize ?? 12, cancellationToken)); }
+            catch (CigaretteValidationException exception) { return ValidationProblem(exception.Message); }
+        });
 
         group.MapGet("", GetDashboardAsync)
             .WithSummary("Obtiene productos, compras y cierres de una fecha");

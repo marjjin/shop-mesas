@@ -16,6 +16,8 @@ public class CigarettePurchase
     public int CigaretteProductId { get; set; }
     public int Quantity { get; set; }
     public decimal UnitCost { get; set; }
+    public decimal? TotalCost { get; set; }
+    public string PaymentMethod { get; set; } = "cash";
     public DateOnly BusinessDate { get; set; }
     public string Shift { get; set; } = "morning";
     public DateTime CreatedAt { get; set; }
@@ -31,6 +33,8 @@ public class CigaretteShiftClose
     public decimal NextShiftChangeCash { get; set; }
     public decimal ReceivedChangeCash { get; set; }
     public decimal PosnetTotal { get; set; }
+    public decimal? CigaretteReservedCash { get; set; }
+    public decimal? CigaretteReservedMercadoPago { get; set; }
     public DateTime ClosedAt { get; set; }
     public List<CigaretteShiftCloseItem> Items { get; set; } = [];
 }

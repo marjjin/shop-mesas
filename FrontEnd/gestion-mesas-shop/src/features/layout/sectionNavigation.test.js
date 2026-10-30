@@ -56,6 +56,19 @@ test('direct links and refresh use the URL instead of a different remembered sec
   assert.equal(browser.history.length, 1)
 })
 
+test('invoice links, refresh and history preserve the selected section', () => {
+  const browser = createBrowser('/facturas', 'suppliers')
+  const navigation = createSectionNavigation(browser)
+  assert.equal(navigation.initialize(), 'invoices')
+  const unsubscribe = navigation.subscribe(() => {})
+  navigation.navigate('suppliers')
+  browser.history.back()
+  assert.equal(navigation.getSnapshot(), 'invoices')
+  assert.equal(browser.location.pathname, '/facturas')
+  assert.equal(createSectionNavigation(browser).initialize(), 'invoices')
+  unsubscribe()
+})
+
 test('Back and Forward traverse the visited sections without pushing new entries and notify section cleanup', () => {
   const browser = createBrowser('/mesas')
   const navigation = createSectionNavigation(browser)

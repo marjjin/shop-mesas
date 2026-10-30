@@ -4,6 +4,7 @@ import { getCloseDraft, saveCloseDraft, clearCloseDraft } from '../domain/closeD
 export default function useCloseDraft({ products, date, shift, previousChangeCash, onAllocationsChange }) {
   const [storedDraft] = useState(() => getCloseDraft(date, shift))
   const [finalStocks, setFinalStocks] = useState(() => Object.fromEntries(products.map((product) => [product.id, storedDraft?.finalStocks?.[product.id] ?? product.stock])))
+  const [cigaretteReservation, setCigaretteReservation] = useState(() => storedDraft?.cigaretteReservation || { cash: '', mercadoPago: '' })
   const [hasDraft, setHasDraft] = useState(Boolean(storedDraft))
   const [endingBalances, setEndingBalances] = useState(() => storedDraft?.endingBalances || { cash: '', mercadoPago: '', posnet: '', receivedChange: '', change: '' })
   const [receivedChangeEdited, setReceivedChangeEdited] = useState(() => Object.hasOwn(storedDraft?.endingBalances || {}, 'receivedChange'))
@@ -33,13 +34,19 @@ export default function useCloseDraft({ products, date, shift, previousChangeCas
     saveCloseDraft(date, shift, { supplierAllocations: updated })
     setHasDraft(true)
   }
+  const changeCigaretteReservation = (updated) => {
+    setCigaretteReservation(updated)
+    saveCloseDraft(date, shift, { cigaretteReservation: updated })
+    setHasDraft(true)
+  }
   const discardDraft = () => {
     clearCloseDraft(date, shift)
     setFinalStocks(Object.fromEntries(products.map((product) => [product.id, product.stock])))
     setEndingBalances({ cash: '', mercadoPago: '', posnet: '', receivedChange: '', change: '' })
     onAllocationsChange({})
+    setCigaretteReservation({ cash: '', mercadoPago: '' })
     setHasDraft(false)
   }
 
-  return { finalStocks, hasDraft, endingBalances, setReceivedChangeEdited, changeFinalStock, changeEndingBalances, changeAllocations, discardDraft }
+  return { cigaretteReservation, changeCigaretteReservation, finalStocks, hasDraft, endingBalances, setReceivedChangeEdited, changeFinalStock, changeEndingBalances, changeAllocations, discardDraft }
 }

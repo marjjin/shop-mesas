@@ -1,3 +1,4 @@
+import CigaretteReservation from './CigaretteReservation.jsx'
 import ClosingIcon from './ClosingIcon.jsx'
 import { getDraftFinancialSummary } from '../domain/closeFinancials.js'
 import { useMemo, useState } from 'react'
@@ -15,7 +16,7 @@ export default function ShiftCloseForm({ products, purchases, suppliers, allocat
   const purchasedByProduct = useMemo(() => purchases
     .filter((purchase) => purchase.shift === shift)
     .reduce((totals, purchase) => ({ ...totals, [purchase.cigaretteProductId]: (totals[purchase.cigaretteProductId] || 0) + purchase.quantity }), {}), [purchases, shift])
-  const { finalStocks, hasDraft, endingBalances, setReceivedChangeEdited, changeFinalStock, changeEndingBalances, changeAllocations, discardDraft } = useCloseDraft({ products, date, shift, previousChangeCash, onAllocationsChange })
+  const { cigaretteReservation, changeCigaretteReservation, finalStocks, hasDraft, endingBalances, setReceivedChangeEdited, changeFinalStock, changeEndingBalances, changeAllocations, discardDraft } = useCloseDraft({ products, date, shift, previousChangeCash, onAllocationsChange })
   const rows = products.map((product) => {
     const purchased = purchasedByProduct[product.id] || 0
     const initial = product.stock - purchased
@@ -32,7 +33,7 @@ export default function ShiftCloseForm({ products, purchases, suppliers, allocat
   const submit = (event) => {
     event.preventDefault()
     if (!isValid) return
-    onClose({ businessDate: date, shift, items: rows.map((row) => ({ cigaretteProductId: row.id, finalStock: row.final })), supplierAllocations: suppliers.map((supplier) => ({ supplierId: supplier.id, cashAmount: Number(allocations[supplier.id]?.cashAmount || 0), mercadoPagoAmount: Number(allocations[supplier.id]?.mercadoPagoAmount || 0) })).filter((allocation) => allocation.cashAmount + allocation.mercadoPagoAmount > 0), endingCashBalance: Number(endingBalances.cash || 0), endingMercadoPagoBalance: Number(endingBalances.mercadoPago || 0), posnetTotal: Number(endingBalances.posnet || 0), receivedChangeCash: Number(endingBalances.receivedChange || 0), nextShiftChangeCash: Number(endingBalances.change || 0) })
+    onClose({ cigaretteReservedCash: Number(cigaretteReservation.cash || 0), cigaretteReservedMercadoPago: Number(cigaretteReservation.mercadoPago || 0), businessDate: date, shift, items: rows.map((row) => ({ cigaretteProductId: row.id, finalStock: row.final })), supplierAllocations: suppliers.map((supplier) => ({ supplierId: supplier.id, cashAmount: Number(allocations[supplier.id]?.cashAmount || 0), mercadoPagoAmount: Number(allocations[supplier.id]?.mercadoPagoAmount || 0) })).filter((allocation) => allocation.cashAmount + allocation.mercadoPagoAmount > 0), endingCashBalance: Number(endingBalances.cash || 0), endingMercadoPagoBalance: Number(endingBalances.mercadoPago || 0), posnetTotal: Number(endingBalances.posnet || 0), receivedChangeCash: Number(endingBalances.receivedChange || 0), nextShiftChangeCash: Number(endingBalances.change || 0) })
   }
 
   return <form className="shift-close" onSubmit={submit} onInvalid={(event) => {
@@ -64,6 +65,7 @@ export default function ShiftCloseForm({ products, purchases, suppliers, allocat
     {excessStockRows.length > 0 && <button type="button" className="edit-close-button" onClick={() => setShowStockWarning(true)}>Ver aviso de stock</button>}
     {!products.length && <div className="cigarette-empty">Primero cargá al menos un cigarrillo.</div>}
     </section>
+    <CigaretteReservation totalSales={totalSales} reservation={cigaretteReservation} onChange={changeCigaretteReservation} />
     <div className="close-total"><span className="cash-total-summary"><small>CAJA</small><b>{money.format(cashTotal)}</b><i>Arqueo − proveedores sin caja aparte − cafetería − cigarrillos</i></span><span className="daily-sales-summary"><small>VENTAS DEL DÍA</small><b>{money.format(dailySalesTotal)}</b><i>Arqueo {money.format(archaeologicalResult)}{separateCashBoxTotal > 0 ? ` + cajas aparte ${money.format(separateCashBoxTotal)}` : ''}</i></span><button className="primary" disabled={!isValid}><ClosingIcon name="check" />Cerrar turno {shifts[shift].toLowerCase()}</button></div>
   </form>
 }

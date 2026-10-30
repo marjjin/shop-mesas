@@ -1,0 +1,23 @@
+.cigarette-reservation { margin-top: -1px; padding: 22px; border: 1px solid var(--theme-line, #e1e4d9); border-radius: 0 0 16px 16px; background: var(--theme-surface-muted, #f6f7f2); color: var(--theme-text, #293426); }
+.shift-closing-page .closing-stock-section:has(+ .cigarette-reservation) { border-bottom-right-radius: 0; border-bottom-left-radius: 0; }
+.shift-closing-page .closing-stock-section + .cigarette-reservation { margin-top: -1px; }
+.close-sales-section > .cigarette-reservation, .closed-shift-summary > .cigarette-reservation { margin: 20px 0; border-radius: 12px; }
+.cigarette-reservation header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.cigarette-reservation h3 { margin: 3px 0 0; font-family: inherit; font-size: 16px; font-weight: 600; line-height: 1.4; }
+.cigarette-reservation header small { font-size: 10px; letter-spacing: .08em; color: var(--theme-text-muted, #737b6b); }
+.cigarette-reservation-sales { margin-left: auto; text-align: right; }
+.cigarette-reservation-sales span, .cigarette-reservation footer small { display: block; color: var(--theme-text-muted, #737b6b); font-size: 12px; }
+.cigarette-reservation-sales strong { display: block; margin-top: 3px; font-size: 25px; font-variant-numeric: tabular-nums; }
+.cigarette-reservation-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 20px 0; }
+.cigarette-reservation-fields label { display: grid; gap: 8px; font-size: 12px; font-weight: 600; }
+.cigarette-reservation-fields input { width: 100%; min-width: 0; padding: 12px; border: 1px solid var(--theme-line, #e1e4d9); border-radius: 9px; color: var(--theme-text, #293426); background: var(--theme-surface, #fff); font: inherit; font-size: 16px; }
+.cigarette-reservation-fields input:focus-visible { outline: 2px solid var(--theme-accent-text, #bd5532); outline-offset: 2px; }
+.cigarette-reservation-fields dt { color: var(--theme-text-muted, #737b6b); font-size: 12px; }
+.cigarette-reservation-fields dd { margin: 6px 0 0; font-weight: 600; font-size: 18px; }
+.cigarette-reservation footer { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding-top: 16px; border-top: 1px solid var(--theme-line, #e1e4d9); }
+.cigarette-reservation footer p { max-width: 530px; margin: 0; color: var(--theme-text-muted, #737b6b); font-size: 12px; line-height: 1.7; }
+.cigarette-reservation footer > span { text-align: right; flex-shrink: 0; }
+.cigarette-reservation footer b { display: block; margin-top: 4px; font-size: 20px; }
+.cigarette-reservation-warning { color: var(--theme-warning-text, #996f29); font-size: 12px; }
+.cigarette-reservation-hint { color: var(--theme-text-muted, #737b6b); font-size: 11px; line-height: 1.7; }
+@media (max-width: 600px) { .cigarette-reservation { padding: 16px; } .cigarette-reservation-sales { margin-left: 0; flex-basis: 100%; text-align: left; } .cigarette-reservation-fields { grid-template-columns: 1fr; } .cigarette-reservation footer { align-items: start; flex-direction: column; } .cigarette-reservation footer > span { text-align: left; } }

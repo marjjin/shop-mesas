@@ -9,6 +9,12 @@ services:
     envVars:
       - key: Authentication__AdminPassword
         sync: false
+      - key: Cloudinary__CloudName
+        sync: false
+      - key: Cloudinary__ApiKey
+        sync: false
+      - key: Cloudinary__ApiSecret
+        sync: false
       - key: Cors__AllowedOrigins__0
         value: https://gestion-mesas-shop.vercel.app
       - key: ConnectionStrings__Restaurant

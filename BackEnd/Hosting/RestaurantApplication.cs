@@ -56,6 +56,20 @@ public static class RestaurantApplication
         });
         builder.Services.AddHostedService<CoworkingBillingService>();
         builder.Services.AddScoped<ICigaretteService, CigaretteService>();
+        builder.Services.AddScoped<CigaretteCashService>();
+        builder.Services.AddSingleton(CloudinaryInvoiceOptions.FromConfiguration(builder.Configuration));
+        builder.Services.AddHttpClient<CloudinaryInvoiceClient>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(60);
+            client.MaxResponseContentBufferSize = InvoiceService.MaxFileBytes;
+        })
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false })
+            .RemoveAllLoggers();
+        builder.Services.AddScoped<CloudinaryInvoiceFileStore>();
+        builder.Services.AddScoped<IInvoiceFileStore>(provider => provider.GetRequiredService<CloudinaryInvoiceFileStore>());
+        builder.Services.AddScoped<InvoiceStorageMaintenance>();
+        builder.Services.AddHostedService<InvoiceStorageWorker>();
+        builder.Services.AddScoped<InvoiceService>();
         builder.Services.AddScoped<ICafeteriaService, CafeteriaService>();
         builder.Services.AddScoped<ISupplierService, SupplierService>();
         builder.Services.AddScoped<ICashDropService, CashDropService>();

@@ -1,0 +1,6 @@
+import { preciseMoney as money } from '../../../shared/utils/currency.js'
+import { shifts } from '../domain/businessDate.js'
+
+export default function CashShiftTable({ rows, label }) {
+  return <div className="cig-cash-table-scroll"><table className="cig-cash-table"><caption className="sr-only">{label}</caption><thead><tr><th scope="col">Turno</th><th scope="col">Venta</th><th scope="col">Reserva efectivo</th><th scope="col">Reserva M. Pago</th><th scope="col">Compras</th><th scope="col">Movimiento neto</th></tr></thead><tbody>{rows.map(({ shift, amounts }) => <tr key={shift}><th scope="row"><b>{shifts[shift]}</b><small>{amounts.closedShifts ? 'Cierre registrado' : 'Sin cierre'}</small></th><td>{money.format(amounts.sales)}</td><td>{money.format(amounts.reservedCash)}</td><td>{money.format(amounts.reservedMercadoPago)}</td><td>{money.format(amounts.purchases)}<small>Ef. {money.format(amounts.cashPurchases)} · MP {money.format(amounts.mercadoPagoPurchases)}</small>{amounts.missingPurchaseAmounts > 0 && <small className="cig-cash-warning-text">{amounts.missingPurchaseAmounts} sin importe</small>}</td><td><b className={amounts.balance < 0 ? 'cig-cash-negative' : ''}>{money.format(amounts.balance)}</b>{amounts.missingReservations > 0 && <small className="cig-cash-warning-text">Reserva sin registrar</small>}</td></tr>)}</tbody></table></div>
+}

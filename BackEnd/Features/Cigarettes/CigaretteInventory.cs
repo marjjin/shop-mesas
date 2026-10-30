@@ -63,6 +63,8 @@ internal sealed class CigaretteInventory(RestaurantContext db)
 
     public async Task<CigarettePurchaseResponse> CreatePurchaseAsync(CreateCigarettePurchaseRequest request, CancellationToken cancellationToken)
     {
+        ValidateCashAmount(request.TotalCost);
+        var paymentMethod = NormalizePaymentMethod(request.PaymentMethod);
         var shift = NormalizeShift(request.Shift);
         if (request.Quantity <= 0) throw new CigaretteValidationException("La cantidad comprada debe ser mayor que cero.");
         if (await db.CigaretteShiftCloses.AnyAsync(close => close.BusinessDate == request.BusinessDate && close.Shift == shift, cancellationToken))
@@ -70,7 +72,7 @@ internal sealed class CigaretteInventory(RestaurantContext db)
         var product = await db.CigaretteProducts.FirstOrDefaultAsync(item => item.Id == request.CigaretteProductId && item.IsActive, cancellationToken)
             ?? throw new CigaretteNotFoundException("El cigarrillo indicado no existe.");
 
-        var purchase = new CigarettePurchase { CigaretteProductId = product.Id, Quantity = request.Quantity, UnitCost = 0, BusinessDate = request.BusinessDate, Shift = shift, CreatedAt = DateTime.UtcNow };
+        var purchase = new CigarettePurchase { CigaretteProductId = product.Id, Quantity = request.Quantity, UnitCost = 0, TotalCost = request.TotalCost, PaymentMethod = paymentMethod, BusinessDate = request.BusinessDate, Shift = shift, CreatedAt = DateTime.UtcNow };
         product.Stock += request.Quantity;
         db.CigarettePurchases.Add(purchase);
         await db.SaveChangesAsync(cancellationToken);
@@ -79,6 +81,8 @@ internal sealed class CigaretteInventory(RestaurantContext db)
 
     public async Task<CigarettePurchaseResponse?> UpdatePurchaseAsync(int id, UpdateCigarettePurchaseRequest request, CancellationToken cancellationToken)
     {
+        ValidateCashAmount(request.TotalCost);
+        var paymentMethod = request.PaymentMethod is null ? null : NormalizePaymentMethod(request.PaymentMethod);
         var purchase = await db.CigarettePurchases.FindAsync([id], cancellationToken);
         if (purchase is null) return null;
         if (request.Quantity <= 0) throw new CigaretteValidationException("La cantidad comprada debe ser mayor que cero.");
@@ -93,6 +97,8 @@ internal sealed class CigaretteInventory(RestaurantContext db)
         if (close is not null) AdjustClosedPurchase(close, purchase.CigaretteProductId, quantityDifference);
         else product.Stock = updatedStock;
         purchase.Quantity = request.Quantity;
+        if (request.TotalCost.HasValue) purchase.TotalCost = request.TotalCost;
+        if (paymentMethod is not null) purchase.PaymentMethod = paymentMethod;
         await db.SaveChangesAsync(cancellationToken);
         return ToResponse(purchase, product.Name);
     }
@@ -135,4 +141,5 @@ internal sealed class CigaretteInventory(RestaurantContext db)
         if (price <= 0) throw new CigaretteValidationException("El precio de venta debe ser mayor que cero.");
         return name;
     }
+
 }

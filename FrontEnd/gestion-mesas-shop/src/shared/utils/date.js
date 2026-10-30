@@ -1,5 +1,9 @@
 export const utcDate = (value) => /(?:Z|[+-]\d{2}:\d{2})$/.test(value) ? value : `${value}Z`
 
+export function localDateInput(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
 export function clock(date, now = Date.now()) {
   if (!date) return '00:00:00'
   const seconds = Math.max(0, Math.floor((now - new Date(utcDate(date)).getTime()) / 1000))

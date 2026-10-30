@@ -43,7 +43,7 @@ internal sealed class CigaretteQueries(RestaurantContext db, ICafeteriaService? 
                     join product in db.CigaretteProducts.AsNoTracking() on purchase.CigaretteProductId equals product.Id
                     where purchase.BusinessDate == date
                     orderby purchase.CreatedAt descending
-                    select new CigarettePurchaseResponse(purchase.Id, purchase.CigaretteProductId, product.Name, purchase.Quantity, purchase.BusinessDate, purchase.Shift, new DateTimeOffset(purchase.CreatedAt, TimeSpan.Zero));
+                    select new CigarettePurchaseResponse(purchase.Id, purchase.CigaretteProductId, product.Name, purchase.Quantity, purchase.BusinessDate, purchase.Shift, new DateTimeOffset(purchase.CreatedAt, TimeSpan.Zero), purchase.TotalCost, purchase.PaymentMethod);
         return await query.ToListAsync(cancellationToken);
     }
 
@@ -84,7 +84,7 @@ internal sealed class CigaretteQueries(RestaurantContext db, ICafeteriaService? 
             .OrderBy(drop => drop.CreatedAt)
             .Select(drop => CashDropService.ToResponse(drop))
             .ToListAsync(cancellationToken);
-        return new CigaretteShiftCloseResponse(close.Id, close.BusinessDate, close.Shift, new DateTimeOffset(closedAt), items.Sum(item => item.SoldQuantity), items.Sum(item => item.SalesAmount), items, summary, allocations, close.EndingCashBalance, close.EndingMercadoPagoBalance, close.NextShiftChangeCash, close.ReceivedChangeCash, close.PosnetTotal, cashDrops, cashDrops.Sum(drop => drop.Amount));
+        return new CigaretteShiftCloseResponse(close.Id, close.BusinessDate, close.Shift, new DateTimeOffset(closedAt), items.Sum(item => item.SoldQuantity), items.Sum(item => item.SalesAmount), items, summary, allocations, close.EndingCashBalance, close.EndingMercadoPagoBalance, close.NextShiftChangeCash, close.ReceivedChangeCash, close.PosnetTotal, cashDrops, cashDrops.Sum(drop => drop.Amount), close.CigaretteReservedCash, close.CigaretteReservedMercadoPago);
     }
 
     private static DateTime AsUtc(DateTime value) => value.Kind == DateTimeKind.Utc

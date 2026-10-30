@@ -63,3 +63,8 @@ test('an empty draft treats blank amounts as zero and keeps a cash deficit visib
 test('legacy close records without optional balances still calculate their cash result', () => {
   assert.equal(getCloseFinancialSummary({ totalSales: 300 }, []).cashTotal, -300)
 })
+
+test('cigarette reservations do not deduct the same cigarette sales twice from general cash', () => {
+  const reserved = { ...close, cigaretteReservedCash: 1500.25, cigaretteReservedMercadoPago: 2500.50 }
+  assert.deepEqual(getCloseFinancialSummary(reserved, suppliers), getCloseFinancialSummary(close, suppliers))
+})

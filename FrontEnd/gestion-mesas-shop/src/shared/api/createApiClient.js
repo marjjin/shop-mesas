@@ -1,14 +1,15 @@
 export function createApiClient(baseUrl, request = fetch, { getToken = () => null, onUnauthorized = () => {} } = {}) {
   return async (path, options = {}) => {
+    const { responseType, ...requestOptions } = options
     const headers = new Headers(options.headers)
     const token = getToken()
     if (token) headers.set('Authorization', `Bearer ${token}`)
     // Content-Type: application/json is not a CORS-safelisted header. Only
     // send it for requests that actually contain a JSON body, so GET requests
     // do not trigger an unnecessary preflight on the deployed API.
-    if (options.body != null && !headers.has('Content-Type'))
+    if (options.body != null && !(options.body instanceof FormData) && !headers.has('Content-Type'))
       headers.set('Content-Type', 'application/json')
-    const response = await request(`${baseUrl}${path}`, { ...options, headers })
+    const response = await request(`${baseUrl}${path}`, { ...requestOptions, headers })
     if (!response.ok) {
       if (response.status === 401 && path !== '/login') onUnauthorized(token)
       const problem = await response.json().catch(() => null)
@@ -21,6 +22,6 @@ export function createApiClient(baseUrl, request = fetch, { getToken = () => nul
             : problem?.detail || 'No se pudo completar la operación.'
       throw Object.assign(new Error(message), { status: response.status })
     }
-    return response.status === 204 ? null : response.json()
+    return response.status === 204 ? null : responseType === 'blob' ? response.blob() : response.json()
   }
 }

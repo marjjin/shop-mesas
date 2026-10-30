@@ -10,6 +10,8 @@ public static class DatabaseInitializer
         WelcomeMessageConfiguration.EnsureSchema(db);
         if (db.Database.IsSqlite()) SqliteSchemaUpgrade.Apply(db);
         if (db.Database.IsNpgsql()) PostgresSchemaUpgrade.Apply(db);
+        CigaretteCashSchemaUpgrade.Apply(db);
+        InvoiceSchemaUpgrade.Apply(db);
         AuthenticationSchemaUpgrade.Apply(db);
         DemoDataSeeder.Seed(db);
     }

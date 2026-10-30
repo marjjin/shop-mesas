@@ -1,0 +1,55 @@
+.cig-cash { display: grid; gap: 22px; color: var(--theme-text, #293426); }
+.cig-cash h2 { margin: 0; font-family: inherit; font-size: 18px; font-weight: 650; }
+.cig-cash-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.cig-cash-heading p { margin: 7px 0 0; font-size: 13px; color: var(--theme-text-muted, #737b6b); }
+.cig-cash-notice { display: flex; align-items: start; gap: 10px; padding: 14px 18px; border: 1px solid var(--theme-line, #e1e4d9); border-radius: 12px; background: var(--theme-surface-muted, #f6f7f2); }
+.cig-cash-notice svg { width: 18px; height: 18px; flex-shrink: 0; margin-top: 2px; }
+.cig-cash-notice p { margin: 0; font-size: 12px; line-height: 1.7; }
+.cig-cash-notice b { font-weight: 650; }
+.cig-cash-balance { display: grid; grid-template-columns: minmax(220px, .9fr) 1.4fr; overflow: hidden; border: 1px solid var(--theme-line, #e1e4d9); border-radius: 16px; background: var(--theme-surface, #fff); }
+.cig-cash-main-balance { padding: 26px; background: var(--theme-surface-muted, #f6f7f2); }
+.cig-cash-label { display: flex; gap: 9px; align-items: center; font-size: 13px; font-weight: 600; }
+.cig-cash-label svg { width: 20px; height: 20px; }
+.cig-cash-main-balance > strong { display: block; margin: 18px 0 10px; font-size: clamp(28px, 3vw, 40px); line-height: 1.2; font-variant-numeric: tabular-nums; letter-spacing: -.04em; overflow-wrap: anywhere; }
+.cig-cash-main-balance > small { color: var(--theme-text-muted, #737b6b); font-size: 12px; }
+.cig-cash-balance dl { display: grid; grid-template-columns: 1fr 1fr; align-items: center; margin: 0; padding: 26px; gap: 24px; }
+.cig-cash-balance dl > div + div { padding-left: 24px; border-left: 1px solid var(--theme-line, #e1e4d9); }
+.cig-cash-balance dt, .cig-cash-metrics dt { font-size: 12px; color: var(--theme-text-muted, #737b6b); }
+.cig-cash-balance dd { margin: 10px 0; font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.cig-cash-balance dl span { font-size: 11px; color: var(--theme-text-muted, #737b6b); line-height: 1.7; }
+.cig-cash-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin: 0; }
+.cig-cash-metrics > div { padding: 20px; border: 1px solid var(--theme-line, #e1e4d9); border-radius: 14px; background: var(--theme-surface, #fff); }
+.cig-cash-metrics dd { margin: 12px 0 8px; font-size: 24px; font-weight: 650; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.cig-cash-metrics small { color: var(--theme-text-muted, #737b6b); font-size: 11px; }
+.cig-cash-table-scroll { overflow-x: auto; width: 100%; }
+.cig-cash-table { width: 100%; border-collapse: collapse; text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; }
+.cig-cash-table caption { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.cig-cash-table th, .cig-cash-table td { padding: 16px 10px; border-bottom: 1px solid var(--theme-line, #e1e4d9); white-space: nowrap; }
+.cig-cash-table th:first-child { padding-left: 0; text-align: left; }
+.cig-cash-table th:last-child, .cig-cash-table td:last-child { padding-right: 0; }
+.cig-cash-table thead th { font-size: 10px; font-weight: 500; color: var(--theme-text-muted, #737b6b); }
+.cig-cash-table small { display: block; margin-top: 5px; font-size: 10px; font-weight: 400; color: var(--theme-text-muted, #737b6b); }
+.cig-cash-table tr:last-child th, .cig-cash-table tr:last-child td { border-bottom: 0; }
+.cig-cash-day-net { margin-left: auto; text-align: right; }
+.cig-cash-day-net small { display: block; color: var(--theme-text-muted, #737b6b); font-size: 11px; }
+.cig-cash-day-net b { display: block; margin-top: 6px; font-size: 20px; }
+.cig-cash-footnote { margin: 12px 0 0; color: var(--theme-text-muted, #737b6b); font-size: 11px; line-height: 1.7; }
+.cig-cash-history-day { border-top: 1px solid var(--theme-line, #e1e4d9); }
+.cig-cash-history-day summary { display: grid; grid-template-columns: minmax(180px, 1.5fr) repeat(3, minmax(90px, 1fr)) 18px; align-items: center; gap: 18px; padding: 20px 0; cursor: pointer; list-style: none; font-size: 13px; }
+.cig-cash-history-day summary::-webkit-details-marker { display: none; }
+.cig-cash-history-day summary > span { text-align: right; font-variant-numeric: tabular-nums; }
+.cig-cash-history-day summary small { display: block; color: var(--theme-text-muted, #737b6b); font-size: 10px; margin: 5px 0; }
+.cig-cash-history-day summary svg { width: 18px; height: 18px; transition: transform .15s; }
+.cig-cash-history-day[open] summary svg { transform: rotate(180deg); }
+.cig-cash-history-day summary:focus-visible { outline: 2px solid var(--theme-accent-text, #bd5532); outline-offset: 3px; }
+.cig-cash-pagination { display: flex; gap: 10px; align-items: center; justify-content: end; border-top: 1px solid var(--theme-line, #e1e4d9); padding-top: 18px; font-size: 12px; }
+.cig-cash-pagination > span { margin-right: auto; color: var(--theme-text-muted, #737b6b); }
+.cig-cash .cig-cash-negative, .cig-cash .cig-cash-warning-text { color: var(--theme-danger-text, #b94e37); }
+.cig-cash-loading { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.cig-cash-loading > span { height: 170px; border-radius: 14px; background: var(--theme-surface-muted, #f6f7f2); animation: cig-cash-pulse 1.2s ease-in-out infinite alternate; }
+.cig-cash-loading p { color: var(--theme-text-muted, #737b6b); font-size: 12px; grid-column: 1 / -1; }
+.cig-cash-error > svg { width: 28px; height: 28px; }
+@keyframes cig-cash-pulse { to { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .cig-cash-loading > span { animation: none; } }
+@media (max-width: 1050px) { .cig-cash-balance { grid-template-columns: 1fr; } .cig-cash-main-balance { padding: 22px; } }
+@media (max-width: 650px) { .cig-cash-heading { align-items: start; } .cig-cash-heading p { font-size: 12px; } .cig-cash-heading button { padding: 9px; } .cig-cash-metrics { grid-template-columns: 1fr; gap: 10px; } .cig-cash-metrics > div { padding: 16px; } .cig-cash-metrics dd { font-size: 22px; } .cig-cash-balance dl { gap: 16px; padding: 18px; } .cig-cash-balance dl > div + div { padding-left: 16px; } .cig-cash-balance dd { font-size: 22px; } .cig-cash-history-day summary { grid-template-columns: 1fr auto 18px; gap: 12px; } .cig-cash-history-day summary > span:nth-child(2), .cig-cash-history-day summary > span:nth-child(3) { display: none; } .cig-cash-day .inv-section-heading { flex-wrap: wrap; } .cig-cash-day-net { width: 100%; text-align: left; margin-left: 0; } }

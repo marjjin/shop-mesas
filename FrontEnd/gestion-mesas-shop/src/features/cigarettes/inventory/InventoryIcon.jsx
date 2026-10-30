@@ -1,4 +1,9 @@
 const paths = {
+  wallet: 'M3 6h16v15H3V6Zm0 0V3h13v3M15 11h7v6h-7v-6Zm3 3h.01',
+  refresh: 'M20 7v5h-5M4 17v-5h5M5.1 7a8 8 0 0 1 13.4-1L20 9M4 15l1.5 3A8 8 0 0 0 19 17',
+  calendar: 'M4 5h16v16H4V5Zm0 5h16M8 3v4m8-4v4',
+  history: 'M3 4v5h5M3 9a9 9 0 1 1 0 6M12 7v5l3 2',
+  chevron: 'm6 9 6 6 6-6',
   box: 'm3 7 9-4 9 4v10l-9 4-9-4V7Zm0 0 9 4 9-4M12 11v10M7.5 5l9 4',
   search: 'm21 21-5-5m2-6a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z',
   plus: 'M12 5v14M5 12h14',

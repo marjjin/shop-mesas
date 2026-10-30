@@ -34,6 +34,8 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
 
     public async Task<CigaretteShiftCloseResponse> CloseShiftAsync(CreateCigaretteShiftCloseRequest request, CancellationToken cancellationToken)
     {
+        ValidateCashAmount(request.CigaretteReservedCash);
+        ValidateCashAmount(request.CigaretteReservedMercadoPago);
         var shift = NormalizeShift(request.Shift);
         if (request.Items.Count == 0) throw new CigaretteValidationException("El cierre debe incluir al menos un cigarrillo.");
         if (request.Items.Select(item => item.CigaretteProductId).Distinct().Count() != request.Items.Count)
@@ -66,7 +68,7 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
 
         // Capture the same pending sales shown by the counter before saving the close.
         var cafeteriaSales = await CafeteriaService.GetPendingSales(db).ToListAsync(cancellationToken);
-        var close = new CigaretteShiftClose { BusinessDate = request.BusinessDate, Shift = shift, EndingCashBalance = request.EndingCashBalance, EndingMercadoPagoBalance = request.EndingMercadoPagoBalance, NextShiftChangeCash = request.NextShiftChangeCash, ReceivedChangeCash = request.ReceivedChangeCash, PosnetTotal = request.PosnetTotal, ClosedAt = DateTime.UtcNow };
+        var close = new CigaretteShiftClose { BusinessDate = request.BusinessDate, Shift = shift, EndingCashBalance = request.EndingCashBalance, EndingMercadoPagoBalance = request.EndingMercadoPagoBalance, NextShiftChangeCash = request.NextShiftChangeCash, ReceivedChangeCash = request.ReceivedChangeCash, PosnetTotal = request.PosnetTotal, CigaretteReservedCash = request.CigaretteReservedCash, CigaretteReservedMercadoPago = request.CigaretteReservedMercadoPago, ClosedAt = DateTime.UtcNow };
         foreach (var input in request.Items)
         {
             var product = products[input.CigaretteProductId];
@@ -103,6 +105,8 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
 
     public async Task<CigaretteShiftCloseResponse?> UpdateCloseAsync(int id, UpdateCigaretteShiftCloseRequest request, CancellationToken cancellationToken)
     {
+        ValidateCashAmount(request.CigaretteReservedCash);
+        ValidateCashAmount(request.CigaretteReservedMercadoPago);
         var close = await db.CigaretteShiftCloses.Include(item => item.Items).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (close is null) return null;
         if (request.Items.Count != close.Items.Count || request.Items.Select(item => item.CigaretteProductId).Distinct().Count() != request.Items.Count)
@@ -150,6 +154,8 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
         if (request.NextShiftChangeCash.HasValue) close.NextShiftChangeCash = request.NextShiftChangeCash.Value;
         if (request.ReceivedChangeCash.HasValue) close.ReceivedChangeCash = request.ReceivedChangeCash.Value;
         if (request.PosnetTotal.HasValue) close.PosnetTotal = request.PosnetTotal.Value;
+        if (request.CigaretteReservedCash.HasValue) close.CigaretteReservedCash = request.CigaretteReservedCash.Value;
+        if (request.CigaretteReservedMercadoPago.HasValue) close.CigaretteReservedMercadoPago = request.CigaretteReservedMercadoPago.Value;
         if (request.CafeteriaSaleCount.HasValue)
             await SetCafeteriaSaleCountAsync(close, request.CafeteriaSaleCount.Value, cancellationToken);
 
@@ -273,7 +279,7 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
         if (source.Id == target.Id || (targetDate.HasValue && target.BusinessDate != targetDate.Value)
             || (targetShift is not null && target.Shift != NormalizeShift(targetShift)))
             throw new CigaretteValidationException("El cierre destino no coincide con el turno elegido o es el mismo cierre.");
-        if (source.EndingCashBalance != 0 || source.EndingMercadoPagoBalance != 0 || source.PosnetTotal != 0 || source.NextShiftChangeCash != 0 || source.ReceivedChangeCash != 0
+        if ((source.CigaretteReservedCash ?? 0) != 0 || (source.CigaretteReservedMercadoPago ?? 0) != 0 || source.EndingCashBalance != 0 || source.EndingMercadoPagoBalance != 0 || source.PosnetTotal != 0 || source.NextShiftChangeCash != 0 || source.ReceivedChangeCash != 0
             || await db.CashDrops.AnyAsync(drop => drop.CigaretteShiftCloseId == id || (drop.BusinessDate == source.BusinessDate && drop.Shift == source.Shift), cancellationToken)
             || await db.SupplierTransactions.AnyAsync(item => item.CigaretteShiftCloseId == id, cancellationToken)
             || await db.CigarettePurchases.AnyAsync(item => item.BusinessDate == source.BusinessDate && item.Shift == source.Shift, cancellationToken))

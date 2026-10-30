@@ -3,7 +3,7 @@ import { filterStockProducts, inventoryRetailValue } from '../domain/inventoryVi
 
 export default function useCigaretteInventory({ api, execute, dashboard, date, shift }) {
   const [product, setProduct] = useState({ name: '', price: '', initialStock: '' })
-  const [purchase, setPurchase] = useState({ cigaretteProductId: '', quantity: '' })
+  const [purchase, setPurchase] = useState({ cigaretteProductId: '', quantity: '', totalCost: '', paymentMethod: 'cash' })
   const [stockSearch, setStockSearch] = useState('')
   const [stockFilter, setStockFilter] = useState('all')
   const [stockSort, setStockSort] = useState('name')
@@ -30,16 +30,16 @@ export default function useCigaretteInventory({ api, execute, dashboard, date, s
   const deleteProduct = (item) => execute(() => api(`/cigarettes/products/${item.id}`, { method: 'DELETE' }), 'Producto quitado correctamente.')
   const addPurchase = async (event) => {
     event.preventDefault()
-    const saved = await execute(() => api('/cigarettes/purchases', { method: 'POST', body: JSON.stringify({ cigaretteProductId: Number(purchase.cigaretteProductId), quantity: Number(purchase.quantity), businessDate: date, shift }) }), 'Compra registrada y stock actualizado.')
+    const saved = await execute(() => api('/cigarettes/purchases', { method: 'POST', body: JSON.stringify({ cigaretteProductId: Number(purchase.cigaretteProductId), quantity: Number(purchase.quantity), totalCost: Number(purchase.totalCost), paymentMethod: purchase.paymentMethod, businessDate: date, shift }) }), 'Compra registrada y stock actualizado.')
     if (saved) {
-      setPurchase({ cigaretteProductId: '', quantity: '' })
+      setPurchase({ cigaretteProductId: '', quantity: '', totalCost: '', paymentMethod: 'cash' })
       setPurchaseSearch('')
     }
     return saved
   }
   const savePurchase = async (event) => {
     event.preventDefault()
-    const saved = await execute(() => api(`/cigarettes/purchases/${editingPurchase.id}`, { method: 'PUT', body: JSON.stringify({ quantity: Number(editingPurchase.quantity) }) }), 'Compra actualizada y cierre recalculado.')
+    const saved = await execute(() => api(`/cigarettes/purchases/${editingPurchase.id}`, { method: 'PUT', body: JSON.stringify({ quantity: Number(editingPurchase.quantity), totalCost: editingPurchase.totalCost === '' || editingPurchase.totalCost == null ? null : Number(editingPurchase.totalCost), paymentMethod: editingPurchase.paymentMethod || 'cash' }) }), 'Compra actualizada y cierre recalculado.')
     if (saved) setEditingPurchase(null)
     return saved
   }

@@ -6,7 +6,7 @@ export const closeContextKey = 'mesa-cigarette-close-context'
 export function getCloseDraft(date, shift) {
   try {
     const draft = JSON.parse(localStorage.getItem(closeDraftKey(date, shift)) || 'null')
-    return draft && (typeof draft.finalStocks === 'object' || typeof draft.endingBalances === 'object' || typeof draft.supplierAllocations === 'object') ? draft : null
+    return draft && (typeof draft.cigaretteReservation === 'object' || typeof draft.finalStocks === 'object' || typeof draft.endingBalances === 'object' || typeof draft.supplierAllocations === 'object') ? draft : null
   } catch {
     return null
   }

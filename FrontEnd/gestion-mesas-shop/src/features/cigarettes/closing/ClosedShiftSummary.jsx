@@ -1,3 +1,4 @@
+import CigaretteReservation from './CigaretteReservation.jsx'
 import ClosingIcon from './ClosingIcon.jsx'
 import { money } from '../../../shared/utils/currency.js'
 import { shifts } from '../domain/businessDate.js'
@@ -18,6 +19,7 @@ export default function ClosedShiftSummary({ close, suppliers, onEdit }) {
       <div><dt>Ventas del turno</dt><dd>{money.format(shiftSales)}</dd><span>Total de ventas del cierre</span></div>
       <div><dt>Cambio preparado</dt><dd>{money.format(close.nextShiftChangeCash || 0)}</dd><span>Para el próximo turno</span></div>
     </dl>
+    <CigaretteReservation totalSales={close.totalSales} reservation={{ cash: close.cigaretteReservedCash, mercadoPago: close.cigaretteReservedMercadoPago }} readOnly />
     <footer className="closed-shift-footer"><p>¿Necesitás ajustar algún dato?<span>Podés revisar y corregir este cierre.</span></p><button type="button" onClick={() => onEdit(close)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15z" /></svg>Corregir cierre</button></footer>
   </section>
 }

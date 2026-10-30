@@ -86,7 +86,7 @@ export default function useSalon({ api, data, setData, load, loadHistory, setMes
       setEditingId(null)
       setAssigningPendingOrderId(null)
     }
-    if (nextSection === 'shift-close' || nextSection === 'suppliers' || nextSection === 'cash-drops' || nextSection === 'settings') {
+    if (nextSection === 'shift-close' || nextSection === 'suppliers' || nextSection === 'cash-drops' || nextSection === 'invoices' || nextSection === 'settings') {
       setSelectedId(null)
       setEditingId(null)
       setAssigningPendingOrderId(null)

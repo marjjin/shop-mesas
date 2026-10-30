@@ -2,6 +2,7 @@ import { localTime } from '../../../shared/utils/date.js'
 import { escapeHtml } from '../../../shared/utils/html.js'
 import { money as currency } from '../../../shared/utils/currency.js'
 import { getCloseFinancialSummary } from '../../cigarettes/domain/closeFinancials.js'
+import { cigaretteReservationReceiptMarkup } from './cigaretteReservationReceipt.js'
 
 export function cigaretteShiftReceiptMarkup(close, suppliers) {
   const shiftName = close.shift === 'morning' ? 'MAÑANA' : 'TARDE'
@@ -74,6 +75,7 @@ export function cigaretteShiftReceiptMarkup(close, suppliers) {
   ${items || '<p>Sin ventas registradas</p>'}
   <div class="total"><span>VENTAS CIGARRILLOS</span><span>${currency.format(close.totalSales)}</span></div>
   <div class="units">Unidades vendidas: ${close.totalSold}</div>
+  ${cigaretteReservationReceiptMarkup(close)}
   ${cafeteriaSummary}
   ${supplierSummary}
   ${cashDropsDetail}
