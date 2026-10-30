@@ -17,6 +17,11 @@ export default function ScanCropEditor({ source, busy, onApply, onCancel }) {
   const valid = isValidQuad(corners)
   return <section className="invoice-crop">
     <div className="invoice-section-title"><div><h3>Ajustar el documento</h3><p>Mové las cuatro esquinas hasta los bordes de la factura.</p></div><button type="button" className="invoice-button secondary" disabled={busy} onClick={() => setCorners(defaultCorners())}>Restablecer</button></div>
+    <p className="invoice-progress" role="status">{source.detection === 'automatic'
+      ? 'Bordes detectados. Revisá que el recorte incluya toda la factura.'
+      : source.engine === 'basic'
+        ? 'La detección automática no está disponible. Ajustá las esquinas para continuar con el escaneo.'
+        : 'No se encontraron bordes claros. Marcá las cuatro esquinas de la factura.'}</p>
     <div className="invoice-crop-stage" style={{ aspectRatio: `${source.image.width} / ${source.image.height}`, width: `min(100%, 650px, ${62 * source.image.width / source.image.height}dvh)` }}>
       <img src={source.url} alt="Factura original para ajustar los bordes" draggable="false" />
       <svg ref={svg} viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="Recorte de la factura" onPointerMove={move} onPointerUp={() => { drag.current = null }} onPointerCancel={() => { drag.current = null }}>

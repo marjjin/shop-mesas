@@ -66,8 +66,11 @@ test('automatic paper proposal excludes a contrasting background', () => {
 
 test('long receipts and large photos keep bounded image and PDF dimensions', () => {
   const size = outputSize(rectangle, 4000, 6000)
-  assert.equal(size.height, 1800)
-  assert.ok(size.width <= 1800)
+  assert.equal(size.height, 2400)
+  assert.ok(size.width <= 2400)
+  assert.ok(size.width * size.height < 25000000)
+  const small = outputSize(rectangle, 600, 900)
+  assert.ok(small.width <= 600 && small.height <= 900)
   const [width, height] = pageDimensions({ width: 100, height: 1800 })
   assert.ok(height <= 1200 && width <= 210)
   assert.ok(Math.abs(width / height - 100 / 1800) < 1e-9)

@@ -66,7 +66,7 @@ export function scanImage(image, corners, mode = 'document') {
   return { ...size, data: pixels }
 }
 
-function enhanceDocument(pixels, width, height) {
+export function enhanceDocument(pixels, width, height) {
   const stride = width + 1, integral = new Float64Array((width + 1) * (height + 1))
   for (let y = 0; y < height; y++) {
     let rowSum = 0

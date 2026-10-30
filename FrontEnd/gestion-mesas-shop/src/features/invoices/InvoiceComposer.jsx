@@ -5,6 +5,7 @@ import ScannedPages from './ui/ScannedPages.jsx'
 import CameraCapture from './scanner/CameraCapture.jsx'
 import ScanCropEditor from './scanner/ScanCropEditor.jsx'
 import { readScanSource, createScannedPage } from './scanner/scanClient.js'
+import { createScanWorkerClient } from './scanner/scanWorkerClient.js'
 import { buildInvoicePdf } from './documents/buildInvoicePdf.js'
 import { displayFileSize, uploadInvoice } from './api/invoicesApi.js'
 import { localDateInput } from '../../shared/utils/date.js'
@@ -22,18 +23,21 @@ export default function InvoiceComposer({ api, suppliers, initialSupplierId, onC
   const operation = useRef(null)
   const mounted = useRef(false)
   const lock = useRef(false)
+  const scanner = useRef(null)
   useEffect(() => {
     mounted.current = true
+    const client = createScanWorkerClient()
+    scanner.current = client
     const ownedUrls = urls.current
-    return () => { mounted.current = false; operation.current?.abort(); for (const url of ownedUrls) URL.revokeObjectURL(url); ownedUrls.clear() }
+    return () => { mounted.current = false; operation.current?.abort(); client.dispose(); for (const url of ownedUrls) URL.revokeObjectURL(url); ownedUrls.clear() }
   }, [])
   const release = (url) => { URL.revokeObjectURL(url); urls.current.delete(url) }
   const image = async (file) => {
     if (lock.current) return
-    lock.current = true; setBusy(true); setError(''); setStatus('Detectando bordes del documento…')
+    lock.current = true; setBusy(true); setError(''); setStatus('Preparando escáner y detectando bordes…')
     const controller = new AbortController(); operation.current = controller
     try {
-      const value = await readScanSource(file, controller.signal)
+      const value = await readScanSource(file, controller.signal, scanner.current)
       if (!mounted.current) { URL.revokeObjectURL(value.url); return }
       urls.current.add(value.url); setSource(value)
     } catch (failure) { if (mounted.current && failure.name !== 'AbortError') setError(failure.message) }
@@ -44,7 +48,7 @@ export default function InvoiceComposer({ api, suppliers, initialSupplierId, onC
     lock.current = true; setBusy(true); setError(''); setStatus('Corrigiendo perspectiva y comprimiendo la página…')
     const controller = new AbortController(); operation.current = controller
     try {
-      const page = await createScannedPage(source, corners, mode, controller.signal)
+      const page = await createScannedPage(source, corners, mode, controller.signal, scanner.current)
       if (!mounted.current) { URL.revokeObjectURL(page.url); return }
       urls.current.add(page.url); setPages((current) => [...current, page]); release(source.url); setSource(null); setAdding(false)
     } catch (failure) { if (mounted.current && failure.name !== 'AbortError') setError(failure.message) }

@@ -1,3 +1,5 @@
+import { SCAN_MAX_EDGE } from './scanQuality.js'
+
 export const defaultCorners = () => [{ x: .03, y: .03 }, { x: .97, y: .03 }, { x: .97, y: .97 }, { x: .03, y: .97 }]
 
 export function isValidQuad(points) {
@@ -10,7 +12,7 @@ export function isValidQuad(points) {
   return area > .025 && cross.every((v) => v > .0001)
 }
 
-export function outputSize(points, width, height, maxEdge = 1800) {
+export function outputSize(points, width, height, maxEdge = SCAN_MAX_EDGE) {
   const p = points.map((v) => ({ x: v.x * (width - 1), y: v.y * (height - 1) }))
   const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y)
   const w = Math.max(distance(p[0], p[1]), distance(p[3], p[2]))
