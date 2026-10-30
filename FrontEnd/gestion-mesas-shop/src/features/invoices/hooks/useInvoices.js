@@ -14,6 +14,8 @@ export default function useInvoices(api) {
     return () => { active = false; controller.abort() }
   }, [api, filters, revision])
   const current = result?.filters === filters && result?.revision === revision && result?.api === api
-  return { archive: current ? result.archive : null, suppliers: current ? result.suppliers || [] : [],
-    error: current ? result.error : '', loading: !current, filters, setFilters, reload: () => setRevision((value) => value + 1) }
+  // Keep the last archive on screen while a new filter or page loads.
+  const shown = current || (result?.archive && result.api === api) ? result : null
+  return { archive: shown?.archive ?? null, suppliers: shown?.suppliers || [], error: shown?.error || '', loading: !shown,
+    refreshing: Boolean(shown) && !current, filters, setFilters, reload: () => setRevision((value) => value + 1) }
 }
