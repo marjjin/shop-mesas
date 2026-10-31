@@ -31,7 +31,9 @@ internal sealed class CigaretteQueries(RestaurantContext db, ICafeteriaService? 
             .OrderByDescending(drop => drop.CreatedAt)
             .Select(drop => CashDropService.ToResponse(drop))
             .ToListAsync(cancellationToken);
-        return new CigaretteDashboardResponse(date, orderedProducts, purchases, closes, cashDrops);
+        var purchasePayments = await db.CigarettePurchasePayments.AsNoTracking().Where(payment => payment.BusinessDate == date)
+            .Select(payment => new CigarettePurchasePaymentResponse(payment.BusinessDate, payment.Shift, payment.TotalCost, payment.PaymentMethod)).ToListAsync(cancellationToken);
+        return new CigaretteDashboardResponse(date, orderedProducts, purchases, closes, cashDrops, purchasePayments);
     }
 
     public Task<IReadOnlyList<CigaretteShiftCloseResponse>> GetClosesAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken)

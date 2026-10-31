@@ -25,6 +25,8 @@ public static class CigaretteEndpoints
             .WithSummary("Desactiva un cigarrillo conservando su historial");
         group.MapPost("/purchases", CreatePurchaseAsync)
             .WithSummary("Registra una compra y aumenta el stock");
+        group.MapPut("/purchases/payment", SetPurchasePaymentAsync)
+            .WithSummary("Guarda el total pagado por las compras de un turno");
         group.MapPut("/purchases/{id:int}", UpdatePurchaseAsync)
             .WithSummary("Actualiza la cantidad de una compra y ajusta el stock");
         group.MapDelete("/purchases/{id:int}", DeletePurchaseAsync)
@@ -96,6 +98,16 @@ public static class CigaretteEndpoints
             return purchase is null ? Results.NotFound() : Results.Ok(purchase);
         }
         catch (CigaretteNotFoundException) { return Results.NotFound(); }
+        catch (CigaretteValidationException exception) { return ValidationProblem(exception.Message); }
+    }
+
+    private static async Task<IResult> SetPurchasePaymentAsync(SetCigarettePurchasePaymentRequest request, ICigaretteService service, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var payment = await service.SetPurchasePaymentAsync(request, cancellationToken);
+            return payment is null ? Results.NoContent() : Results.Ok(payment);
+        }
         catch (CigaretteValidationException exception) { return ValidationProblem(exception.Message); }
     }
 

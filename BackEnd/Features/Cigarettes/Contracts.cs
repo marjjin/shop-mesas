@@ -13,6 +13,9 @@ public sealed record CreateCigarettePurchaseRequest(int CigaretteProductId, int 
 /// <summary>Datos editables de una compra de cigarrillos.</summary>
 public sealed record UpdateCigarettePurchaseRequest(int Quantity, decimal? TotalCost = null, string? PaymentMethod = null);
 
+// TotalCost vacío quita el total del turno.
+public sealed record SetCigarettePurchasePaymentRequest(DateOnly BusinessDate, string Shift, decimal? TotalCost = null, string PaymentMethod = "cash");
+
 /// <summary>Stock físico contado al finalizar un turno.</summary>
 public sealed record CigaretteCloseItemRequest(int CigaretteProductId, int FinalStock);
 
@@ -31,9 +34,11 @@ public sealed record CigaretteProductResponse(int Id, string Name, decimal Price
 public sealed record CigarettePurchaseResponse(int Id, int CigaretteProductId, string ProductName, int Quantity, DateOnly BusinessDate, string Shift, DateTimeOffset CreatedAt, decimal? TotalCost = null, string PaymentMethod = "cash");
 
 /// <summary>Detalle de ventas calculado durante un cierre.</summary>
+public sealed record CigarettePurchasePaymentResponse(DateOnly BusinessDate, string Shift, decimal TotalCost, string PaymentMethod);
+
 public sealed record CigaretteShiftCloseItemResponse(int CigaretteProductId, string ProductName, decimal UnitPrice, int InitialStock, int PurchasedQuantity, int FinalStock, int SoldQuantity, decimal SalesAmount);
 
 public sealed record CigaretteShiftCloseResponse(int Id, DateOnly BusinessDate, string Shift, DateTimeOffset ClosedAt, int TotalSold, decimal TotalSales, IReadOnlyList<CigaretteShiftCloseItemResponse> Items, CafeteriaSalesSummaryResponse Cafeteria, IReadOnlyList<SupplierAllocationResponse> SupplierAllocations, decimal EndingCashBalance, decimal EndingMercadoPagoBalance, decimal NextShiftChangeCash, decimal ReceivedChangeCash, decimal PosnetTotal, IReadOnlyList<CashDropResponse> CashDrops, decimal CashDropsTotal, decimal? CigaretteReservedCash = null, decimal? CigaretteReservedMercadoPago = null);
 
 /// <summary>Datos operativos e históricos de cigarrillos para una fecha.</summary>
-public sealed record CigaretteDashboardResponse(DateOnly BusinessDate, IReadOnlyList<CigaretteProductResponse> Products, IReadOnlyList<CigarettePurchaseResponse> Purchases, IReadOnlyList<CigaretteShiftCloseResponse> Closes, IReadOnlyList<CashDropResponse> CashDrops);
+public sealed record CigaretteDashboardResponse(DateOnly BusinessDate, IReadOnlyList<CigaretteProductResponse> Products, IReadOnlyList<CigarettePurchaseResponse> Purchases, IReadOnlyList<CigaretteShiftCloseResponse> Closes, IReadOnlyList<CashDropResponse> CashDrops, IReadOnlyList<CigarettePurchasePaymentResponse> PurchasePayments);

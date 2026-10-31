@@ -125,8 +125,55 @@ internal sealed class CigaretteInventory(RestaurantContext db)
         if (close is not null) AdjustClosedPurchase(close, purchase.CigaretteProductId, -purchase.Quantity);
         else product.Stock -= purchase.Quantity;
         db.CigarettePurchases.Remove(purchase);
+        // Sin compras no queda nada que justifique el gasto del turno.
+        if (!await db.CigarettePurchases.AnyAsync(item => item.Id != id && item.BusinessDate == purchase.BusinessDate && item.Shift == purchase.Shift, cancellationToken))
+            db.CigarettePurchasePayments.RemoveRange(await db.CigarettePurchasePayments.Where(item => item.BusinessDate == purchase.BusinessDate && item.Shift == purchase.Shift).ToListAsync(cancellationToken));
         await db.SaveChangesAsync(cancellationToken);
         return true;
+    }
+
+    // Guarda o quita el total del turno. No cambia el stock, y un turno cerrado también se puede completar.
+    public async Task<CigarettePurchasePaymentResponse?> SetPurchasePaymentAsync(SetCigarettePurchasePaymentRequest request, CancellationToken cancellationToken)
+    {
+        ValidateCashAmount(request.TotalCost);
+        var shift = NormalizeShift(request.Shift);
+        var paymentMethod = NormalizePaymentMethod(request.PaymentMethod);
+        var payment = await db.CigarettePurchasePayments.FirstOrDefaultAsync(item => item.BusinessDate == request.BusinessDate && item.Shift == shift, cancellationToken);
+        if (request.TotalCost is not { } totalCost)
+        {
+            if (payment is not null) db.CigarettePurchasePayments.Remove(payment);
+            await db.SaveChangesAsync(cancellationToken);
+            return null;
+        }
+        if (!await db.CigarettePurchases.AnyAsync(item => item.BusinessDate == request.BusinessDate && item.Shift == shift, cancellationToken))
+            throw new CigaretteValidationException("Registrá una compra antes de cargar el total del turno.");
+        if (payment is null)
+        {
+            payment = new CigarettePurchasePayment { BusinessDate = request.BusinessDate, Shift = shift };
+            db.CigarettePurchasePayments.Add(payment);
+        }
+        payment.TotalCost = totalCost;
+        payment.PaymentMethod = paymentMethod;
+        await db.SaveChangesAsync(cancellationToken);
+        return ToResponse(payment);
+    }
+
+    // Lleva el total junto con las compras al reparar un cierre. No guarda: lo hace quien llama, en su transacción.
+    public async Task MovePurchasePaymentAsync(DateOnly fromDate, string fromShift, DateOnly toDate, string toShift, CancellationToken cancellationToken)
+    {
+        var source = await db.CigarettePurchasePayments.FirstOrDefaultAsync(item => item.BusinessDate == fromDate && item.Shift == fromShift, cancellationToken);
+        if (source is null) return;
+        var target = await db.CigarettePurchasePayments.FirstOrDefaultAsync(item => item.BusinessDate == toDate && item.Shift == toShift, cancellationToken);
+        if (target is null)
+        {
+            source.BusinessDate = toDate;
+            source.Shift = toShift;
+            return;
+        }
+        if (target.PaymentMethod != source.PaymentMethod)
+            throw new CigaretteValidationException("Los dos turnos tienen totales de compras con distinto medio de pago. Corregilos antes de reparar.");
+        target.TotalCost += source.TotalCost;
+        db.CigarettePurchasePayments.Remove(source);
     }
 
     // Recalcula un renglón de cierre: vendido = inicial + compras - final.

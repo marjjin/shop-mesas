@@ -11,6 +11,7 @@ public interface ICigaretteService
     Task<CigarettePurchaseResponse> CreatePurchaseAsync(CreateCigarettePurchaseRequest request, CancellationToken cancellationToken);
     Task<CigarettePurchaseResponse?> UpdatePurchaseAsync(int id, UpdateCigarettePurchaseRequest request, CancellationToken cancellationToken);
     Task<bool> DeletePurchaseAsync(int id, CancellationToken cancellationToken);
+    Task<CigarettePurchasePaymentResponse?> SetPurchasePaymentAsync(SetCigarettePurchasePaymentRequest request, CancellationToken cancellationToken);
     Task<CigaretteShiftCloseResponse> CloseShiftAsync(CreateCigaretteShiftCloseRequest request, CancellationToken cancellationToken);
     Task<CigaretteShiftCloseResponse?> UpdateCloseAsync(int id, UpdateCigaretteShiftCloseRequest request, CancellationToken cancellationToken);
     Task<bool> DeleteCloseAsync(int id, CancellationToken cancellationToken);

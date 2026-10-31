@@ -4,7 +4,7 @@ import { filterStockProducts, inventoryRetailValue } from '../domain/inventoryVi
 
 export default function useCigaretteInventory({ api, execute, dashboard, date, shift }) {
   const [product, setProduct] = useState({ name: '', price: '', initialStock: '' })
-  const [purchase, setPurchase] = useState({ cigaretteProductId: '', quantity: '', totalCost: '', paymentMethod: 'cash' })
+  const [purchase, setPurchase] = useState({ cigaretteProductId: '', quantity: '' })
   const [stockSearch, setStockSearch] = useState('')
   const [stockFilter, setStockFilter] = useState('all')
   const [stockSort, setStockSort] = useState('name')
@@ -31,22 +31,26 @@ export default function useCigaretteInventory({ api, execute, dashboard, date, s
   const deleteProduct = (item) => execute(() => api(`/cigarettes/products/${item.id}`, { method: 'DELETE' }), 'Producto quitado correctamente.')
   const addPurchase = async (event) => {
     event.preventDefault()
-    const saved = await execute(() => api('/cigarettes/purchases', { method: 'POST', body: JSON.stringify({ cigaretteProductId: Number(purchase.cigaretteProductId), quantity: Number(purchase.quantity), totalCost: Number(purchase.totalCost), paymentMethod: purchase.paymentMethod, businessDate: date, shift }) }), 'Compra registrada y stock actualizado.')
+    // El total y el medio de pago se cargan después, uno solo por turno.
+    const saved = await execute(() => api('/cigarettes/purchases', { method: 'POST', body: JSON.stringify({ cigaretteProductId: Number(purchase.cigaretteProductId), quantity: Number(purchase.quantity), businessDate: date, shift }) }), 'Compra registrada y stock actualizado.')
     if (saved) {
-      setPurchase({ cigaretteProductId: '', quantity: '', totalCost: '', paymentMethod: 'cash' })
+      setPurchase({ cigaretteProductId: '', quantity: '' })
       setPurchaseSearch('')
     }
     return saved
   }
   const savePurchase = async (event) => {
     event.preventDefault()
-    const saved = await execute(() => api(`/cigarettes/purchases/${editingPurchase.id}`, { method: 'PUT', body: JSON.stringify({ quantity: Number(editingPurchase.quantity), totalCost: editingPurchase.totalCost === '' || editingPurchase.totalCost == null ? null : Number(editingPurchase.totalCost), paymentMethod: editingPurchase.paymentMethod || 'cash' }) }), 'Compra actualizada y cierre recalculado.')
+    const saved = await execute(() => api(`/cigarettes/purchases/${editingPurchase.id}`, { method: 'PUT', body: JSON.stringify({ quantity: Number(editingPurchase.quantity) }) }), 'Compra actualizada y cierre recalculado.')
     if (saved) setEditingPurchase(null)
     return saved
   }
+  // Sin importe, el turno se queda sin total.
+  const savePurchasePayment = ({ totalCost, paymentMethod }) => execute(() => api('/cigarettes/purchases/payment', { method: 'PUT', body: JSON.stringify({ businessDate: date, shift, totalCost: totalCost === '' ? null : Number(totalCost), paymentMethod }) }), 'Total de compras guardado.')
   const deletePurchase = (item) => execute(() => api(`/cigarettes/purchases/${item.id}`, { method: 'DELETE' }), 'Compra eliminada correctamente y cierre recalculado.')
   // Valores derivados: se recalculan en cada render a partir del dashboard.
   const purchases = dashboard.purchases.filter((item) => item.shift === shift)
+  const purchasePayment = dashboard.purchasePayments.find((item) => item.shift === shift) ?? null
   const purchasedUnits = purchases.reduce((total, item) => total + item.quantity, 0)
   // Muestra resultados solo mientras no haya un producto elegido.
   const purchaseResults = purchaseSearch.trim() && !purchase.cigaretteProductId
@@ -85,7 +89,9 @@ export default function useCigaretteInventory({ api, execute, dashboard, date, s
     addPurchase,
     savePurchase,
     deletePurchase,
+    savePurchasePayment,
     purchases,
+    purchasePayment,
     purchasedUnits,
     purchaseResults,
     filteredProducts,

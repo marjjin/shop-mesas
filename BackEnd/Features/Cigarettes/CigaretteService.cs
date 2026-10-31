@@ -34,6 +34,9 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
     public Task<bool> DeletePurchaseAsync(int id, CancellationToken cancellationToken) =>
         inventory.DeletePurchaseAsync(id, cancellationToken);
 
+    public Task<CigarettePurchasePaymentResponse?> SetPurchasePaymentAsync(SetCigarettePurchasePaymentRequest request, CancellationToken cancellationToken) =>
+        inventory.SetPurchasePaymentAsync(request, cancellationToken);
+
     // Crea el cierre de un turno.
     public async Task<CigaretteShiftCloseResponse> CloseShiftAsync(CreateCigaretteShiftCloseRequest request, CancellationToken cancellationToken)
     {
@@ -286,6 +289,7 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
                 purchase.BusinessDate = destinationDate;
                 purchase.Shift = destinationShift;
             }
+            await inventory.MovePurchasePaymentAsync(source.BusinessDate, source.Shift, destinationDate, destinationShift, cancellationToken);
             foreach (var drop in sourceDrops)
             {
                 drop.BusinessDate = destinationDate;
@@ -361,6 +365,7 @@ public sealed class CigaretteService(RestaurantContext db, ICafeteriaService? ca
             purchase.BusinessDate = targetBusinessDate;
             purchase.Shift = targetShift;
         }
+        await inventory.MovePurchasePaymentAsync(close.BusinessDate, close.Shift, targetBusinessDate, targetShift, cancellationToken);
 
         var cashDrops = await db.CashDrops
             .Where(item => item.CigaretteShiftCloseId == close.Id)

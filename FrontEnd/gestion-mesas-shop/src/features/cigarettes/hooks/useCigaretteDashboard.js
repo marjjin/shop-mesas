@@ -4,7 +4,7 @@ import { monthRange, previousShift } from '../domain/businessDate.js'
 import { normalizeCigaretteDashboard, buildMonthlyRanking } from '../domain/dashboard.js'
 
 export default function useCigaretteDashboard({ api, date, shift, setMessage }) {
-  const [dashboard, setDashboard] = useState({ products: [], purchases: [], closes: [], cashDrops: [] })
+  const [dashboard, setDashboard] = useState({ products: [], purchases: [], purchasePayments: [], closes: [], cashDrops: [] })
   const [loadedDate, setLoadedDate] = useState(null)
   const [suppliers, setSuppliers] = useState([])
   const [cafeteriaSummary, setCafeteriaSummary] = useState(null)

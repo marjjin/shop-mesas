@@ -28,6 +28,8 @@ public sealed class CigaretteCashService(RestaurantContext db)
                 Cash = grouped.Sum(purchase => purchase.PaymentMethod == "cash" ? purchase.TotalCost ?? 0 : 0),
                 MercadoPago = grouped.Sum(purchase => purchase.PaymentMethod == "mercadoPago" ? purchase.TotalCost ?? 0 : 0),
                 Missing = grouped.Count(purchase => purchase.TotalCost == null) }).ToListAsync(cancellationToken);
+        var paymentsByShift = (await db.CigarettePurchasePayments.AsNoTracking().ToListAsync(cancellationToken))
+            .ToDictionary(item => (item.BusinessDate, item.Shift));
         var dates = closes.Select(item => item.BusinessDate).Concat(purchases.Select(item => item.BusinessDate))
             .Distinct().OrderByDescending(value => value).ToList();
         var closesByShift = closes.ToDictionary(item => (item.BusinessDate, item.Shift));
@@ -41,13 +43,15 @@ public sealed class CigaretteCashService(RestaurantContext db)
                 var bought = purchasesByShift.GetValueOrDefault((businessDate, shift));
                 var cash = close?.CigaretteReservedCash ?? 0;
                 var mercadoPago = close?.CigaretteReservedMercadoPago ?? 0;
-                var cashPurchases = bought?.Cash ?? 0;
-                var mercadoPagoPurchases = bought?.MercadoPago ?? 0;
+                // El total del turno se suma a los importes que ya tenían las compras anteriores.
+                var payment = paymentsByShift.GetValueOrDefault((businessDate, shift));
+                var cashPurchases = (bought?.Cash ?? 0) + (payment?.PaymentMethod == "cash" ? payment.TotalCost : 0);
+                var mercadoPagoPurchases = (bought?.MercadoPago ?? 0) + (payment?.PaymentMethod == "mercadoPago" ? payment.TotalCost : 0);
                 // Marca cierres antiguos sin reserva para avisar que el saldo es parcial.
                 var missing = close is not null && (close.CigaretteReservedCash == null || close.CigaretteReservedMercadoPago == null) ? 1 : 0;
                 return new CigaretteCashShiftResponse(shift, new(close?.Sales ?? 0, cashPurchases + mercadoPagoPurchases, cash, mercadoPago,
                     cashPurchases, mercadoPagoPurchases, cash - cashPurchases, mercadoPago - mercadoPagoPurchases,
-                    cash + mercadoPago - cashPurchases - mercadoPagoPurchases, bought?.Missing ?? 0, missing, close is null ? 0 : 1));
+                    cash + mercadoPago - cashPurchases - mercadoPagoPurchases, payment is null ? bought?.Missing ?? 0 : 0, missing, close is null ? 0 : 1));
             }).ToList();
             return new(businessDate, Sum(shifts.Select(item => item.Amounts)), shifts);
         }

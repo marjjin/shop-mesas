@@ -101,7 +101,9 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
     addPurchase,
     savePurchase,
     deletePurchase,
+    savePurchasePayment,
     purchases,
+    purchasePayment,
     purchasedUnits,
     purchaseResults,
     filteredProducts,
@@ -261,7 +263,7 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
 
     {tab === 'cash' && <CigaretteCash key={date} api={api} date={date} />}
 
-    {tab === 'purchases' && <InventoryPurchases shift={shift} setShift={setShift} addPurchase={addPurchase} purchaseSearch={purchaseSearch} setPurchaseSearch={setPurchaseSearch} setPurchase={setPurchase} purchase={purchase} purchaseResults={purchaseResults} busy={busy} purchasedUnits={purchasedUnits} purchases={purchases} editingPurchase={editingPurchase} savePurchase={savePurchase} selectedClose={selectedClose} setEditingPurchase={setEditingPurchase} deletePurchase={deletePurchase} message={message} date={date} />}
+    {tab === 'purchases' && <InventoryPurchases shift={shift} setShift={setShift} addPurchase={addPurchase} purchaseSearch={purchaseSearch} setPurchaseSearch={setPurchaseSearch} setPurchase={setPurchase} purchase={purchase} purchaseResults={purchaseResults} busy={busy} purchasedUnits={purchasedUnits} purchases={purchases} purchasePayment={purchasePayment} savePurchasePayment={savePurchasePayment} editingPurchase={editingPurchase} savePurchase={savePurchase} selectedClose={selectedClose} setEditingPurchase={setEditingPurchase} deletePurchase={deletePurchase} message={message} date={date} />}
 
     {tab === 'close' && <><section className="cigarette-card close-section"><div className="section-heading"><span className="closing-block-icon"><ClosingIcon name="receipt" /></span><div><small>ARQUEO Y CIERRE DE CAJA</small><h2>{editingClose ? 'Corregir cierre' : 'Cierre de turno'}</h2></div><div className="shift-switch">{Object.entries(shifts).map(([value, label]) => <button key={value} className={shift === value ? 'active' : ''} onClick={() => { setShift(value); setSupplierAllocations({}); setEditingClose(null) }}>{label}</button>)}</div></div><p className="close-help">{editingClose ? 'Corregí el stock físico final. Las ventas y el stock actual se ajustarán automáticamente.' : selectedClose ? 'Consultá los importes registrados al finalizar el turno o corregí el cierre si hace falta.' : 'Registrá los saldos de caja, las reservas para proveedores y el stock final para completar el cierre.'}</p>{editingClose && selectedClose?.id === editingClose.id ? <EditShiftCloseForm key={editingClose.id} close={editingClose} suppliers={suppliers} cafeteria={editingClose.cafeteria} cashDrops={editingClose.cashDrops || []} onSave={saveCloseCorrection} onCancel={() => setEditingClose(null)} busy={busy} /> : selectedClose ? <ClosedShiftSummary close={selectedClose} suppliers={suppliers} onEdit={setEditingClose} /> : <ShiftCloseForm key={`${date}-${shift}-${dashboard.products.map((item) => item.stock).join('-')}`} products={dashboard.products} purchases={dashboard.purchases} cashDrops={cashDrops} suppliers={suppliers} allocations={supplierAllocations} onAllocationsChange={setSupplierAllocations} cafeteriaSummary={cafeteriaSummary} cafeteriaError={cafeteriaError} shift={shift} date={date} previousChangeCash={previousChangeCash} onClose={closeShift} />}</section></>}
 

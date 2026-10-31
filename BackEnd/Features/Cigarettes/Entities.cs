@@ -27,6 +27,16 @@ public class CigarettePurchase
     public DateTime CreatedAt { get; set; }
 }
 
+// Total pagado por todas las compras de un turno. Hay uno por fecha y turno.
+public class CigarettePurchasePayment
+{
+    public int Id { get; set; }
+    public DateOnly BusinessDate { get; set; }
+    public string Shift { get; set; } = "morning";
+    public decimal TotalCost { get; set; }
+    public string PaymentMethod { get; set; } = "cash";
+}
+
 // Cierre de turno: foto del arqueo y del stock al terminar mañana o tarde.
 public class CigaretteShiftClose
 {

@@ -234,3 +234,8 @@
 .inv-purchase-total { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px; margin-bottom: 14px; border: 1px solid var(--theme-line, #dfe3d6); border-radius: 10px; background: var(--theme-surface-muted, #f6f7f2); font-size: 12px; }
 .inv-purchase-total small { display: block; margin-top: 4px; color: var(--theme-text-muted, #737b6b); }
 .inv-purchase-total b { font-size: 20px; white-space: nowrap; }
+.inv-purchase-payment { margin-bottom: 14px; padding-bottom: 16px; border-bottom: 1px solid var(--theme-line, #e7ebdf); }
+.inv-purchase-payment .inv-purchase-cost-fields { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin: 0 0 12px; }
+.inv-purchase-payment label { color: var(--theme-text, #4d5d40); font-size: 11px; font-weight: 600; }
+.inv-purchase-payment input { width: 100%; min-width: 0; min-height: 44px; padding: 11px 12px; border: 1px solid var(--theme-line, #dfe3d6); border-radius: 9px; background: var(--theme-surface, #fff); color: var(--theme-text, #303c29); font: inherit; font-size: 12px; outline: 0; }
+.inv-purchase-payment > .inv-primary { margin-left: auto; }

@@ -427,6 +427,7 @@ Categories ·· Products ·· Orders ·· Tables
 ClosedTableHistories ·· ClosedTableHistoryItems
 
 CigaretteProducts ·· CigarettePurchases
+CigarettePurchasePayments (total por fecha y turno, sin clave foránea)
 CigaretteProducts ·· CigaretteShiftCloseItems >─ CigaretteShiftCloses
 CashDrops (opcional) >─ CigaretteShiftCloses
 SupplierTransactions (opcional) ·· CigaretteShiftCloses

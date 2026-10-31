@@ -5,6 +5,7 @@ export function normalizeCigaretteDashboard(value) {
     ...dashboard,
     products: Array.isArray(dashboard.products) ? dashboard.products : [],
     purchases: Array.isArray(dashboard.purchases) ? dashboard.purchases : [],
+    purchasePayments: Array.isArray(dashboard.purchasePayments) ? dashboard.purchasePayments : [],
     closes: Array.isArray(dashboard.closes) ? dashboard.closes.map((close) => ({
       ...close,
       items: Array.isArray(close.items) ? close.items : [],

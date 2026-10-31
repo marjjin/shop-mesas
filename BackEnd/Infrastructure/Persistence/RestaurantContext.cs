@@ -19,6 +19,7 @@ public class RestaurantContext(DbContextOptions<RestaurantContext> options) : Db
     public DbSet<ClosedTableHistoryItem> ClosedTableHistoryItems => Set<ClosedTableHistoryItem>();
     public DbSet<CigaretteProduct> CigaretteProducts => Set<CigaretteProduct>();
     public DbSet<CigarettePurchase> CigarettePurchases => Set<CigarettePurchase>();
+    public DbSet<CigarettePurchasePayment> CigarettePurchasePayments => Set<CigarettePurchasePayment>();
     public DbSet<CigaretteShiftClose> CigaretteShiftCloses => Set<CigaretteShiftClose>();
     public DbSet<CigaretteShiftCloseItem> CigaretteShiftCloseItems => Set<CigaretteShiftCloseItem>();
     public DbSet<CashDrop> CashDrops => Set<CashDrop>();
@@ -59,6 +60,8 @@ public class RestaurantContext(DbContextOptions<RestaurantContext> options) : Db
         modelBuilder.Entity<CigaretteProduct>().Property(product => product.Price).HasPrecision(12, 2);
         modelBuilder.Entity<CigarettePurchase>().Property(purchase => purchase.UnitCost).HasPrecision(12, 2);
         modelBuilder.Entity<CigarettePurchase>().Property(purchase => purchase.TotalCost).HasPrecision(12, 2);
+        modelBuilder.Entity<CigarettePurchasePayment>().Property(payment => payment.TotalCost).HasPrecision(12, 2);
+        modelBuilder.Entity<CigarettePurchasePayment>().HasIndex(payment => new { payment.BusinessDate, payment.Shift }).IsUnique();
         // Regla central: un solo cierre por combinación de fecha y turno.
         modelBuilder.Entity<CigaretteShiftClose>().HasIndex(close => new { close.BusinessDate, close.Shift }).IsUnique();
         modelBuilder.Entity<CigaretteShiftClose>().Property(close => close.EndingCashBalance).HasPrecision(12, 2);

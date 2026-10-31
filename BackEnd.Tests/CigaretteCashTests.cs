@@ -56,6 +56,72 @@ public sealed class CigaretteCashTests
     }
 
     [Fact]
+    public async Task ShiftTotalIsDeductedOnceWithoutChangingStock()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        await fixture.Service.CreatePurchaseAsync(new(fixture.ProductId, 2, Date, "morning"), default);
+        await fixture.Service.CreatePurchaseAsync(new(fixture.ProductId, 3, Date, "morning"), default);
+        var missing = await fixture.Cash.GetAsync(Date, 1, 12, default);
+        Assert.Equal(2, missing.Totals.MissingPurchaseAmounts);
+        var stock = (await fixture.Service.GetDashboardAsync(Date, default)).Products.Single().Stock;
+
+        await fixture.Service.SetPurchasePaymentAsync(new(Date, "morning", 500m, "mercadoPago"), default);
+        await fixture.Service.SetPurchasePaymentAsync(new(Date, "morning", 600m, "mercadoPago"), default);
+
+        var cash = await fixture.Cash.GetAsync(Date, 1, 12, default);
+        Assert.Equal(600m, cash.Totals.Purchases);
+        Assert.Equal(-600m, cash.Totals.MercadoPagoBalance);
+        Assert.Equal(0, cash.Totals.CashBalance);
+        Assert.Equal(0, cash.Totals.MissingPurchaseAmounts);
+        var dashboard = await fixture.Service.GetDashboardAsync(Date, default);
+        Assert.Equal(stock, dashboard.Products.Single().Stock);
+        Assert.Equal(600m, Assert.Single(dashboard.PurchasePayments).TotalCost);
+
+        Assert.Null(await fixture.Service.SetPurchasePaymentAsync(new(Date, "morning"), default));
+        Assert.Equal(0, (await fixture.Cash.GetAsync(Date, 1, 12, default)).Totals.Purchases);
+    }
+
+    [Fact]
+    public async Task ShiftTotalAddsToAmountsOfEarlierPurchases()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        await fixture.Service.CreatePurchaseAsync(new(fixture.ProductId, 1, Date, "morning", 100m, "cash"), default);
+        await fixture.Service.SetPurchasePaymentAsync(new(Date, "morning", 50m, "cash"), default);
+        Assert.Equal(-150m, (await fixture.Cash.GetAsync(Date, 1, 12, default)).Totals.CashBalance);
+    }
+
+    [Fact]
+    public async Task ShiftTotalNeedsAPurchaseAndLeavesWithTheLastOne()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        await Assert.ThrowsAsync<CigaretteValidationException>(() => fixture.Service.SetPurchasePaymentAsync(new(Date, "morning", 10m, "cash"), default));
+        var first = await fixture.Service.CreatePurchaseAsync(new(fixture.ProductId, 1, Date, "morning"), default);
+        var second = await fixture.Service.CreatePurchaseAsync(new(fixture.ProductId, 1, Date, "morning"), default);
+        await fixture.Service.SetPurchasePaymentAsync(new(Date, "morning", 10m, "cash"), default);
+
+        await fixture.Service.DeletePurchaseAsync(first.Id, default);
+        Assert.Equal(10m, (await fixture.Cash.GetAsync(Date, 1, 12, default)).Totals.Purchases);
+        await fixture.Service.DeletePurchaseAsync(second.Id, default);
+        Assert.Equal(0, (await fixture.Cash.GetAsync(Date, 1, 12, default)).Totals.Purchases);
+        Assert.Empty((await fixture.Service.GetDashboardAsync(Date, default)).PurchasePayments);
+    }
+
+    [Fact]
+    public async Task ShiftTotalMovesWithTheCloseWhenItIsRepaired()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        await fixture.Service.CreatePurchaseAsync(new(fixture.ProductId, 1, Date, "morning"), default);
+        await fixture.Service.SetPurchasePaymentAsync(new(Date, "morning", 75m, "cash"), default);
+        var close = await fixture.Service.CloseShiftAsync(new(Date, "morning", [new(fixture.ProductId, 10)]), default);
+
+        await fixture.Service.ConsolidateCloseAsync(close.Id, null, default, Date.AddDays(-1), "afternoon");
+
+        Assert.Empty((await fixture.Service.GetDashboardAsync(Date, default)).PurchasePayments);
+        var moved = Assert.Single((await fixture.Service.GetDashboardAsync(Date.AddDays(-1), default)).PurchasePayments);
+        Assert.Equal("afternoon", moved.Shift);
+    }
+
+    [Fact]
     public async Task LegacyAmountsRemainUnknownAndCanBeCompletedWithoutInventingFunds()
     {
         await using var fixture = await Fixture.CreateAsync();
