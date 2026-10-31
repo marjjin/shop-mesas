@@ -1,8 +1,10 @@
+// Pantalla de configuraciones: apariencia y ticket de bienvenida.
 import AppearanceSettings from '../appearance/AppearanceSettings.jsx'
 import Icon from './components/SettingsIcon.jsx'
 import WelcomeTicketEditor from './components/WelcomeTicketEditor.jsx'
 import WelcomeTicketPreview from './components/WelcomeTicketPreview.jsx'
 import WelcomeTicketActions from './components/WelcomeTicketActions.jsx'
+import ShiftTicketSettings from './components/ShiftTicketSettings.jsx'
 import useWelcomeTicketEditor from './hooks/useWelcomeTicketEditor.js'
 import { SettingsSkeleton } from '../../shared/components/LoadingSkeleton.jsx'
 import './Settings.css'
@@ -28,5 +30,6 @@ export default function Settings({ api, welcomeSettings, loadError, onWelcomeSet
         <WelcomeTicketActions editor={editor} />
       </>}
     </section>
+    <ShiftTicketSettings api={api} />
   </div>
 }

@@ -1,3 +1,4 @@
+// Contenedor de dos pantallas: Cigarrillos (inventario) y Cierre de turno. Las distingue la prop mode.
 import CigaretteCash from './cash/CigaretteCash.jsx'
 import LoadingSkeleton from '../../shared/components/LoadingSkeleton.jsx'
 import InventoryStock from './inventory/InventoryStock.jsx'
@@ -10,7 +11,7 @@ import InventoryIcon from './inventory/InventoryIcon.jsx'
 import { useEffect, useRef, useState } from 'react'
 import useCigaretteDashboard from './hooks/useCigaretteDashboard.js'
 import useCigaretteInventory from './hooks/useCigaretteInventory.js'
-import { printCigaretteDailyReceipt } from '../printing/receipt.js'
+import { openReceiptPrintWindow, printCigaretteDailyReceipt, printShiftTicket } from '../printing/receipt.js'
 import { money } from '../../shared/utils/currency.js'
 import { shifts, localDateValue, previousDateValue, previousShift } from './domain/businessDate.js'
 import { getCloseDraft, clearCloseDraft, getCloseContext, closeContextKey } from './domain/closeDrafts.js'
@@ -26,6 +27,7 @@ const cigaretteTabs = new Set(['stock', 'purchases', 'cash', 'close', 'history']
 const inventoryTabs = [['stock', '▦', 'Stock y precios'], ['purchases', '↓', 'Compras'], ['cash', 'wallet', 'Caja']]
 const closingTabs = [['close', '✓', 'Cerrar turno'], ['history', '◷', 'Calendario y cierres']]
 
+// Reúne fecha, turno y flujos de confirmación; el resto se delega a subcomponentes.
 export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
   const isClosingView = mode === 'shift-close'
   const availableTabs = isClosingView ? closingTabs : inventoryTabs
@@ -61,6 +63,7 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setSupplierAllocations(getCloseDraft(date, shift)?.supplierAllocations || {}) }, [date, shift])
 
+  // Envoltorio común: evita operaciones dobles, ejecuta, recarga los datos y muestra el resultado.
   const execute = async (operation, successMessage, reload = true) => {
     if (actionRef.current) return false
     actionRef.current = true
@@ -114,6 +117,7 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
     setStockSort
   } = useCigaretteInventory({ api, execute, dashboard, date, shift })
 
+  // Envía el cierre y limpia los borradores usados.
   const saveShiftClose = async (request, sourceDraft = request) => {
     let close
     const saved = await execute(async () => { close = await api('/cigarettes/closes', { method: 'POST', body: JSON.stringify(request) }) }, 'Turno cerrado correctamente.')
@@ -127,6 +131,7 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
       onShiftClosed?.(close)
     }
   }
+  // Antes de cerrar, comprueba que el turno anterior no haya quedado sin cerrar.
   const closeShift = async (request) => {
     const previous = previousShift(request.businessDate, request.shift)
     setMessage('Comprobando el turno anterior…')
@@ -149,6 +154,7 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
     setCloseWarning(null)
     if (request) setCloseConfirmation({ request })
   }
+  // Reutiliza lo cargado para cerrar el turno pendiente, sin volver a tipear.
   const closeInPendingShift = async () => {
     if (!closeWarning) return
     const { request, previous } = closeWarning
@@ -162,6 +168,7 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
     setCloseConfirmation(null)
     await saveShiftClose(request, sourceDraft)
   }
+  // Corrección de un cierre existente.
   const saveCloseCorrection = async (request) => {
     const targetDate = request.businessDate || date
     const targetShift = request.shift || editingClose.shift
@@ -178,6 +185,17 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
     setEditingClose(close)
     setTab('close')
   }
+  // Imprime con el diseño guardado en Configuraciones.
+  const printClose = async (close) => {
+    const printWindow = openReceiptPrintWindow()
+    try {
+      if (!await printShiftTicket(close, suppliers, api, printWindow)) setMessage('No se pudo abrir el ticket. Habilitá las ventanas emergentes del navegador.')
+    } catch {
+      printWindow?.close()
+      setMessage('No se pudo preparar el ticket de cierre. Revisá la conexión y volvé a intentar.')
+    }
+  }
+  // Elimina un cierre, y el backend revierte stock y reservas.
   const deleteClose = async (close) => {
     if (!window.confirm(`¿Eliminar el cierre ${shifts[close.shift]} del ${new Date(`${close.businessDate}T12:00:00`).toLocaleDateString('es-AR')}? Se reabrirá el turno, se restaurará el stock vendido y se liberarán las reservas de proveedores. Las ventas de cafetería y las tiradas se conservarán.`)) return
     const deleted = await execute(() => api(`/cigarettes/closes/${close.id}`, { method: 'DELETE' }), 'Cierre eliminado y turno reabierto.')
@@ -187,6 +205,7 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
       setTab('close')
     }
   }
+  // Reparación de un cierre hecho en el turno equivocado.
   const consolidateClose = async () => {
     if (busy || !editingClose) return
     const source = editingClose
@@ -246,6 +265,6 @@ export default function Cigarettes({ api, mode = 'inventory', onShiftClosed }) {
 
     {tab === 'close' && <><section className="cigarette-card close-section"><div className="section-heading"><span className="closing-block-icon"><ClosingIcon name="receipt" /></span><div><small>ARQUEO Y CIERRE DE CAJA</small><h2>{editingClose ? 'Corregir cierre' : 'Cierre de turno'}</h2></div><div className="shift-switch">{Object.entries(shifts).map(([value, label]) => <button key={value} className={shift === value ? 'active' : ''} onClick={() => { setShift(value); setSupplierAllocations({}); setEditingClose(null) }}>{label}</button>)}</div></div><p className="close-help">{editingClose ? 'Corregí el stock físico final. Las ventas y el stock actual se ajustarán automáticamente.' : selectedClose ? 'Consultá los importes registrados al finalizar el turno o corregí el cierre si hace falta.' : 'Registrá los saldos de caja, las reservas para proveedores y el stock final para completar el cierre.'}</p>{editingClose && selectedClose?.id === editingClose.id ? <EditShiftCloseForm key={editingClose.id} close={editingClose} suppliers={suppliers} cafeteria={editingClose.cafeteria} cashDrops={editingClose.cashDrops || []} onSave={saveCloseCorrection} onCancel={() => setEditingClose(null)} busy={busy} /> : selectedClose ? <ClosedShiftSummary close={selectedClose} suppliers={suppliers} onEdit={setEditingClose} /> : <ShiftCloseForm key={`${date}-${shift}-${dashboard.products.map((item) => item.stock).join('-')}`} products={dashboard.products} purchases={dashboard.purchases} cashDrops={cashDrops} suppliers={suppliers} allocations={supplierAllocations} onAllocationsChange={setSupplierAllocations} cafeteriaSummary={cafeteriaSummary} cafeteriaError={cafeteriaError} shift={shift} date={date} previousChangeCash={previousChangeCash} onClose={closeShift} />}</section></>}
 
-    {tab === 'history' && <section className="cigarette-card history-section"><div className="calendar-hero"><div className="closing-calendar-title"><span className="closing-block-icon"><ClosingIcon name="calendar" /></span><div><small>CALENDARIO</small><h2>Cierres del {new Date(`${date}T12:00:00`).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}</h2><p>{dashboard.closes.length} {dashboard.closes.length === 1 ? 'turno cerrado' : 'turnos cerrados'}. Tocá un turno para ver Caja, Arqueo de caja y el detalle de la venta.</p></div></div><div className="daily-total"><small>VENTAS DEL DÍA</small><b>{money.format(dailyShiftSalesTotal)}</b><span>Suma de las ventas por turno</span><button type="button" onClick={() => printCigaretteDailyReceipt(dashboard.closes, suppliers, date)} disabled={!dashboard.closes.length}><ClosingIcon name="print" />Imprimir resumen</button></div></div><div className="closes-list">{dashboard.closes.map((close) => <CloseCard key={close.id} close={close} suppliers={suppliers} onEdit={startEditingClose} onDelete={deleteClose} />)}{!dashboard.closes.length && <div className="cigarette-empty large">No hay cierres registrados en esta fecha.</div>}</div></section>}
+    {tab === 'history' && <section className="cigarette-card history-section"><div className="calendar-hero"><div className="closing-calendar-title"><span className="closing-block-icon"><ClosingIcon name="calendar" /></span><div><small>CALENDARIO</small><h2>Cierres del {new Date(`${date}T12:00:00`).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}</h2><p>{dashboard.closes.length} {dashboard.closes.length === 1 ? 'turno cerrado' : 'turnos cerrados'}. Tocá un turno para ver Caja, Arqueo de caja y el detalle de la venta.</p></div></div><div className="daily-total"><small>VENTAS DEL DÍA</small><b>{money.format(dailyShiftSalesTotal)}</b><span>Suma de las ventas por turno</span><button type="button" onClick={() => printCigaretteDailyReceipt(dashboard.closes, suppliers, date)} disabled={!dashboard.closes.length}><ClosingIcon name="print" />Imprimir resumen</button></div></div><div className="closes-list">{dashboard.closes.map((close) => <CloseCard key={close.id} close={close} suppliers={suppliers} onEdit={startEditingClose} onDelete={deleteClose} onPrint={printClose} />)}{!dashboard.closes.length && <div className="cigarette-empty large">No hay cierres registrados en esta fecha.</div>}</div></section>}
   </div>
 }

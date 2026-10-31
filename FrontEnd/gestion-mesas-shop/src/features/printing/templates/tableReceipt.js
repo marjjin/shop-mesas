@@ -1,7 +1,9 @@
+// Ticket de cierre de mesa para papel de 80 mm.
 import { localDate, localTime } from '../../../shared/utils/date.js'
 import { escapeHtml } from '../../../shared/utils/html.js'
 
 export function receiptMarkup(history) {
+  // Todo dato del usuario pasa por escapeHtml antes de entrar al HTML.
   const items = history.items.length
     ? history.items.map((item) => `<div class="item"><span><b>${item.quantity}x</b> ${escapeHtml(item.productName)}</span><time>${localTime(item.createdAt)}</time></div>`).join('')
     : '<p>Sin artículos cargados</p>'

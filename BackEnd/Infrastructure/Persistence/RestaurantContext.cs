@@ -1,9 +1,12 @@
+// Contexto de Entity Framework Core: la puerta de entrada a la base de datos.
+// Cada DbSet representa una tabla y cada clase de entidad una fila.
 using Microsoft.EntityFrameworkCore;
 
 namespace GestionMesas.Api;
 
 public class RestaurantContext(DbContextOptions<RestaurantContext> options) : DbContext(options)
 {
+    // Con estos DbSet se consulta en C# (db.Tables.Where(...)) y EF lo traduce a SQL.
     public DbSet<User> Users => Set<User>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<RestaurantTable> Tables => Set<RestaurantTable>();
@@ -25,19 +28,23 @@ public class RestaurantContext(DbContextOptions<RestaurantContext> options) : Db
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<SupplierTransaction> SupplierTransactions => Set<SupplierTransaction>();
     public DbSet<WelcomeMessageSetting> WelcomeMessageSettings => Set<WelcomeMessageSetting>();
+    public DbSet<ShiftTicketSetting> ShiftTicketSettings => Set<ShiftTicketSetting>();
     public DbSet<InvoiceRecord> Invoices => Set<InvoiceRecord>();
     public DbSet<InvoiceDocument> InvoiceDocuments => Set<InvoiceDocument>();
     public DbSet<InvoiceFileCleanup> InvoiceFileCleanups => Set<InvoiceFileCleanup>();
 
+    // Reglas de la base que no se deducen de las clases: claves, índices únicos, relaciones y precisión.
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         InvoiceModel.Configure(modelBuilder);
         modelBuilder.Entity<User>().Property(user => user.Role).HasDefaultValue("Administrator");
+        // La clave de la sesión es el hash del token: el token real nunca se guarda.
         modelBuilder.Entity<UserSession>().HasKey(session => session.TokenHash);
         modelBuilder.Entity<UserSession>().Property(session => session.TokenHash).HasMaxLength(64);
         modelBuilder.Entity<UserSession>().Property(session => session.CredentialStamp).HasMaxLength(64);
         modelBuilder.Entity<UserSession>().HasIndex(session => session.UserId);
         modelBuilder.Entity<UserSession>().HasIndex(session => session.ExpiresAt);
+        // Al borrar un usuario se borran sus sesiones (Cascade).
         modelBuilder.Entity<UserSession>().HasOne(session => session.User).WithMany()
             .HasForeignKey(session => session.UserId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<PendingOrder>()
@@ -46,10 +53,13 @@ public class RestaurantContext(DbContextOptions<RestaurantContext> options) : Db
             .HasForeignKey(item => item.PendingOrderId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // No puede haber dos cigarrillos con el mismo nombre, aunque uno esté desactivado.
         modelBuilder.Entity<CigaretteProduct>().HasIndex(product => product.Name).IsUnique();
+        // HasPrecision(12, 2): hasta 12 dígitos, 2 decimales. Es lo correcto para dinero.
         modelBuilder.Entity<CigaretteProduct>().Property(product => product.Price).HasPrecision(12, 2);
         modelBuilder.Entity<CigarettePurchase>().Property(purchase => purchase.UnitCost).HasPrecision(12, 2);
         modelBuilder.Entity<CigarettePurchase>().Property(purchase => purchase.TotalCost).HasPrecision(12, 2);
+        // Regla central: un solo cierre por combinación de fecha y turno.
         modelBuilder.Entity<CigaretteShiftClose>().HasIndex(close => new { close.BusinessDate, close.Shift }).IsUnique();
         modelBuilder.Entity<CigaretteShiftClose>().Property(close => close.EndingCashBalance).HasPrecision(12, 2);
         modelBuilder.Entity<CigaretteShiftClose>().Property(close => close.EndingMercadoPagoBalance).HasPrecision(12, 2);
@@ -66,6 +76,7 @@ public class RestaurantContext(DbContextOptions<RestaurantContext> options) : Db
         modelBuilder.Entity<CigaretteShiftCloseItem>().Property(item => item.UnitPrice).HasPrecision(12, 2);
         modelBuilder.Entity<CigaretteShiftCloseItem>().Property(item => item.SalesAmount).HasPrecision(12, 2);
         modelBuilder.Entity<CashDrop>().Property(drop => drop.Amount).HasPrecision(12, 2);
+        // Si se borra un cierre, la tirada sobrevive y vuelve a quedar sin cierre asociado (SetNull).
         modelBuilder.Entity<CashDrop>()
             .HasOne<CigaretteShiftClose>()
             .WithMany()
@@ -88,6 +99,7 @@ public class RestaurantContext(DbContextOptions<RestaurantContext> options) : Db
         modelBuilder.Entity<SupplierTransaction>().Property(transaction => transaction.Amount).HasPrecision(12, 2);
         modelBuilder.Entity<SupplierTransaction>().Property(transaction => transaction.CashAmount).HasPrecision(12, 2);
         modelBuilder.Entity<SupplierTransaction>().Property(transaction => transaction.MercadoPagoAmount).HasPrecision(12, 2);
+        // Un proveedor tiene como máximo una reserva por cierre.
         modelBuilder.Entity<SupplierTransaction>().HasIndex(transaction => new { transaction.SupplierId, transaction.CigaretteShiftCloseId }).IsUnique();
         modelBuilder.Entity<WelcomeMessageSetting>().Property(setting => setting.Amount).HasPrecision(12, 2);
     }

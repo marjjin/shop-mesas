@@ -1,3 +1,4 @@
+// Ticket de bienvenida, armado con la configuración guardada.
 import { welcomeMessageContent } from '../../../shared/utils/welcomeMessage.js'
 import { escapeHtml } from '../../../shared/utils/html.js'
 

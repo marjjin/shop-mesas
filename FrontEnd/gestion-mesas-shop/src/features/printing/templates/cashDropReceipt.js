@@ -1,3 +1,4 @@
+// Ticket de tirada. Tiene altura fija para envolver el efectivo.
 import { localTime } from '../../../shared/utils/date.js'
 import { money as currency } from '../../../shared/utils/currency.js'
 

@@ -1,7 +1,10 @@
+// Genera el comprobante de mesa como PDF de 80 mm de ancho.
 import { localDate, localTime } from '../../shared/utils/date.js'
 
 export async function downloadReceipt(history) {
+  // jsPDF se importa solo al usarlo, para no agrandar la carga inicial.
   const { jsPDF } = await import('jspdf')
+  // Calcula la altura según los artículos: el papel térmico es continuo.
   const itemHeights = history.items.map((item) => Math.max(8, Math.ceil(`${item.quantity}x ${item.productName}`.length / 32) * 4 + 3))
   const height = Math.max(75, 67 + itemHeights.reduce((sum, value) => sum + value, 0))
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [80, height] })

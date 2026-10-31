@@ -1,3 +1,4 @@
+// Resumen diario con todos los turnos cerrados y sus totales.
 import { cigaretteReservationReceiptMarkup } from './cigaretteReservationReceipt.js'
 import { localTime } from '../../../shared/utils/date.js'
 import { escapeHtml } from '../../../shared/utils/html.js'

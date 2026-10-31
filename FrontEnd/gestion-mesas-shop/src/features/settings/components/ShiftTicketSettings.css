@@ -1,0 +1,27 @@
+.shift-ticket-card { margin-top: 22px; }
+.shift-ticket-margins { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 24px; }
+.shift-ticket-margins label { display: grid; gap: 6px; color: var(--theme-text-muted, #7c8073); font-size: 11px; }
+.shift-ticket-margins input, .shift-ticket-rows input[type="text"] { width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid var(--theme-line, #dedfd4); border-radius: 8px; background: var(--theme-surface, #fff); color: var(--theme-text, #3a4034); font: 13px 'DM Sans', sans-serif; }
+.shift-ticket-blocks-heading { margin-bottom: 12px; }
+.shift-ticket-add { display: flex; gap: 6px; }
+.shift-ticket-add button, .shift-ticket-remove { padding: 7px 10px; border: 1px solid var(--theme-line, #e3e4d8); border-radius: 8px; background: var(--theme-surface, #fffdfa); color: var(--theme-text, #3a4034); font-size: 12px; font-weight: 600; }
+.shift-ticket-block-header { display: flex; align-items: center; gap: 10px; padding: 8px 10px; }
+.shift-ticket-block-toggle { display: flex; align-items: center; justify-content: space-between; flex: 1; gap: 10px; min-width: 0; min-height: 34px; padding: 4px; border: 0; background: transparent; color: var(--theme-text, #41463b); font-size: 12px; text-align: left; }
+.shift-ticket-block-toggle strong { font-weight: 600; }
+.shift-ticket-block-toggle span { flex: none; color: var(--theme-text-muted, #8b8f81); font-size: 10px; }
+.shift-ticket-hidden .shift-ticket-block-toggle strong { color: var(--theme-text-muted, #8b8f81); text-decoration: line-through; }
+.shift-ticket-move { display: inline-flex; flex: none; gap: 3px; }
+.shift-ticket-move button { width: 30px; height: 30px; padding: 0; border: 1px solid var(--theme-line, #e3e4d8); border-radius: 7px; background: var(--theme-surface, #fffdfa); color: var(--theme-text, #3a4034); font-size: 13px; }
+.shift-ticket-move button:disabled { opacity: .35; cursor: not-allowed; }
+.shift-ticket-block-content { display: grid; gap: 11px; padding: 4px 12px 13px; }
+.shift-ticket-block-content .settings-text-field { display: grid; gap: 6px; color: var(--theme-text-muted, #7c8073); font-size: 11px; }
+.shift-ticket-rows { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.shift-ticket-rows li { display: flex; align-items: center; gap: 8px; }
+.shift-ticket-rows li.is-hidden input[type="text"] { opacity: .55; text-decoration: line-through; }
+.shift-ticket-remove { justify-self: start; color: var(--theme-danger-text, #a34d3e); }
+/* El papel se mantiene blanco en el modo oscuro. */
+.shift-ticket-paper { box-sizing: border-box; width: 100%; max-height: min(560px, 70vh); margin-top: 18px; padding: 12px; overflow: auto; border: 1px solid var(--theme-line, #e8e8de); border-radius: 10px; }
+.shift-ticket-sheet { width: calc((80mm + 2px) * var(--preview-scale)); margin: 0 auto; overflow: hidden; }
+/* transform no cambia el lugar que ocupa el iframe: por eso .shift-ticket-sheet lleva el tamaño reducido. */
+.shift-ticket-paper iframe { display: block; box-sizing: content-box; width: 80mm; border: 1px solid #e4e5da; background: #fff; transform: scale(var(--preview-scale)); transform-origin: 0 0; pointer-events: none; }
+@media (max-width: 520px) { .shift-ticket-margins { grid-template-columns: repeat(2, minmax(0, 1fr)); } .shift-ticket-margins input, .shift-ticket-rows input[type="text"] { font-size: 16px; } .shift-ticket-card .settings-form-actions { grid-template-columns: 1fr 1fr; } .shift-ticket-card .settings-save { grid-column: 1 / -1; } }
