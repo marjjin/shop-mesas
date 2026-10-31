@@ -1,3 +1,4 @@
+// Router propio: relaciona cada sección con una URL sin usar una librería externa.
 export const sectionPaths = Object.freeze({
   salon: '/mesas',
   pending: '/pedidos',
@@ -12,13 +13,17 @@ export const sectionPaths = Object.freeze({
   settings: '/configuracion',
 })
 
+// Mapa inverso: de ruta a sección.
 const sectionsByPath = new Map(Object.entries(sectionPaths).map(([section, path]) => [path, section]))
 const sectionKey = 'mesa-section'
 
+// Recibe browser por parámetro para poder probarlo con un navegador simulado.
 export function createSectionNavigation(browser) {
   const listeners = new Set()
+  // Decide la sección actual leyendo la URL.
   const getSnapshot = () => {
     const pathname = browser.location.pathname.replace(/\/+$/, '') || '/'
+    // En la raíz recupera la última sección de la sesión.
     if (pathname === '/') {
       try {
         const stored = browser.sessionStorage.getItem(sectionKey)
@@ -30,6 +35,7 @@ export function createSectionNavigation(browser) {
   const remember = (section) => {
     try { browser.sessionStorage.setItem(sectionKey, section) } catch { /* The URL remains the source of truth. */ }
   }
+  // Corrige la URL si no coincide con la sección, sin sumar una entrada al historial.
   const normalizeLocation = () => {
     const section = getSnapshot()
     const pathname = sectionPaths[section]
@@ -42,6 +48,7 @@ export function createSectionNavigation(browser) {
     const section = getSnapshot()
     for (const listener of listeners) listener(section)
   }
+  // Se dispara con los botones atrás y adelante del navegador.
   const handlePopState = () => {
     normalizeLocation()
     notify()
@@ -57,6 +64,7 @@ export function createSectionNavigation(browser) {
         if (listeners.size === 0) browser.removeEventListener('popstate', handlePopState)
       }
     },
+    // pushState cambia la URL sin recargar la página.
     navigate: (section) => {
       if (!Object.hasOwn(sectionPaths, section)) return
       const path = sectionPaths[section]

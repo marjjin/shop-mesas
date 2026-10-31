@@ -1,3 +1,4 @@
+// Formas del JSON de pedidos pendientes.
 namespace GestionMesas.Api;
 
 public sealed record CreatePendingOrderRequest(string CustomerName);

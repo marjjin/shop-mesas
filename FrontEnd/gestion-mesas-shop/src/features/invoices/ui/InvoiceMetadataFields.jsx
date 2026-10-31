@@ -1,3 +1,4 @@
+// Campos de la factura, compartidos por el alta y la edición.
 export default function InvoiceMetadataFields({ value, onChange, suppliers, disabled = false }) {
   return <fieldset className="invoice-metadata" disabled={disabled}><legend>Datos de la factura</legend>
     <label>Proveedor <span aria-hidden="true">*</span><select required value={value.supplierId} onChange={(event) => onChange({ ...value, supplierId: event.target.value })}><option value="">Seleccionar proveedor</option>{suppliers.filter((s) => s.isActive || s.id === Number(value.supplierId)).map((s) => <option key={s.id} value={s.id}>{s.name}{s.isActive ? '' : ' (inactivo)'}</option>)}</select></label>

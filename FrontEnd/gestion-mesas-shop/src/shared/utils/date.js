@@ -1,9 +1,12 @@
+// Utilidades de fecha. El backend guarda UTC, y utcDate asegura que se interprete así si falta la zona.
 export const utcDate = (value) => /(?:Z|[+-]\d{2}:\d{2})$/.test(value) ? value : `${value}Z`
 
+// Fecha local en formato YYYY-MM-DD, el que usan los input date y la API.
 export function localDateInput(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
+// Reloj HH:MM:SS transcurrido desde una fecha hasta ahora.
 export function clock(date, now = Date.now()) {
   if (!date) return '00:00:00'
   const seconds = Math.max(0, Math.floor((now - new Date(utcDate(date)).getTime()) / 1000))
@@ -16,6 +19,7 @@ export function time(date) {
   return new Intl.DateTimeFormat('es-AR', { hour: '2-digit', minute: '2-digit' }).format(new Date(utcDate(date)))
 }
 
+// Convierte al formato de un input datetime-local, que trabaja en hora local.
 export function datetimeLocal(date) {
   if (!date) return ''
   const value = new Date(typeof date === 'number' ? date : utcDate(date))

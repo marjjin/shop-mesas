@@ -1,3 +1,4 @@
+// Tabla de un día, con una fila por turno.
 import { preciseMoney as money } from '../../../shared/utils/currency.js'
 import { shifts } from '../domain/businessDate.js'
 

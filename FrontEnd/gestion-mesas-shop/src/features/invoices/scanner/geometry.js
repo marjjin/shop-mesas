@@ -1,7 +1,9 @@
+// Geometría del recorte. Las esquinas se guardan normalizadas, de 0 a 1 respecto de la imagen.
 import { SCAN_MAX_EDGE } from './scanQuality.js'
 
 export const defaultCorners = () => [{ x: .03, y: .03 }, { x: .97, y: .03 }, { x: .97, y: .97 }, { x: .03, y: .97 }]
 
+// Exige un cuadrilátero convexo: los productos cruzados indican el sentido de giro en cada esquina.
 export function isValidQuad(points) {
   if (points.length !== 4 || points.some(({ x, y }) => !Number.isFinite(x) || !Number.isFinite(y) || x < 0 || x > 1 || y < 0 || y > 1)) return false
   const cross = points.map((p, i) => {
@@ -12,6 +14,7 @@ export function isValidQuad(points) {
   return area > .025 && cross.every((v) => v > .0001)
 }
 
+// Tamaño de salida: usa los lados más largos para no perder detalle.
 export function outputSize(points, width, height, maxEdge = SCAN_MAX_EDGE) {
   const p = points.map((v) => ({ x: v.x * (width - 1), y: v.y * (height - 1) }))
   const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y)

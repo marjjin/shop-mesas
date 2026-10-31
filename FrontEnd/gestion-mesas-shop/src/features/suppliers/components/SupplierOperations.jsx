@@ -1,3 +1,4 @@
+// Panel de compras, pagos y transferencias del proveedor.
 import SupplierIcon from './SupplierIcon.jsx'
 import { money } from '../../../shared/utils/currency.js'
 import { sumPaymentAmounts } from '../domain/transactions.js'

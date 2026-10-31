@@ -1,3 +1,4 @@
+// Reglas de facturas. Registrar una no modifica compras ni saldos del proveedor.
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,10 +9,12 @@ public sealed class InvoiceService(RestaurantContext db, IInvoiceFileStore files
     public const int MaxFileBytes = 8 * 1024 * 1024;
     public const int MaxPages = 10;
 
+    // Proyecta a la respuesta sin leer el PDF.
     private static IQueryable<InvoiceResponse> Responses(IQueryable<InvoiceRecord> query) => query.Select(invoice =>
         new InvoiceResponse(invoice.Id, invoice.SupplierId, invoice.Supplier.Name, invoice.Reference, invoice.Note,
             invoice.IssueDate, invoice.CreatedAt, invoice.PageCount, invoice.SizeBytes, invoice.OriginalBytes));
 
+    // Listado paginado con búsqueda opcional.
     public async Task<InvoiceListResponse> ListAsync(string? search, int? supplierId, int page, int pageSize, CancellationToken ct)
     {
         if (page is < 1 or > 1000000 || pageSize is < 1 or > 50 || search?.Length > 100 || supplierId is <= 0)
@@ -36,15 +39,18 @@ public sealed class InvoiceService(RestaurantContext db, IInvoiceFileStore files
         .Where(s => s.IsActive || db.Invoices.Any(i => i.SupplierId == s.Id)).OrderBy(s => s.Name)
         .Select(s => new InvoiceSupplierResponse(s.Id, s.Name, s.IsActive)).ToListAsync(ct);
 
+    // Valida, sube el PDF y confirma los datos en la base.
     public async Task<InvoiceResponse> CreateAsync(InvoiceMetadataRequest input, byte[] content, int pageCount, long originalBytes, CancellationToken ct)
     {
         ValidateMetadata(input);
         if (pageCount is < 1 or > MaxPages || originalBytes is < 0 or > 209715200)
             throw new InvoiceValidationException("La factura admite entre 1 y 10 páginas.");
+        // Comprueba que sea realmente un PDF por su contenido, no por lo que declara el cliente.
         if (content.Length is < 20 or > MaxFileBytes || !content.AsSpan(0, 5).SequenceEqual("%PDF-"u8)
             || !Encoding.ASCII.GetString(content, Math.Max(0, content.Length - 1024), Math.Min(1024, content.Length)).Contains("%%EOF", StringComparison.Ordinal))
             throw new InvoiceValidationException("El archivo debe ser un PDF válido de hasta 8 MB.");
         await RequireSupplierAsync(input.SupplierId, null, ct);
+        // La subida externa queda fuera de la transacción: no conviene tenerla abierta durante una llamada de red.
         var staged = await files.StageAsync(content, ct);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         var invoice = new InvoiceRecord { SupplierId = input.SupplierId, IssueDate = input.IssueDate,
@@ -54,6 +60,7 @@ public sealed class InvoiceService(RestaurantContext db, IInvoiceFileStore files
         await db.SaveChangesAsync(ct);
         staged.Document.InvoiceId = invoice.Id;
         db.InvoiceDocuments.Add(staged.Document);
+        // Con la factura confirmada, ya no hace falta la tarea de limpieza.
         if (staged.Cleanup is not null) db.InvoiceFileCleanups.Remove(staged.Cleanup);
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
@@ -74,6 +81,7 @@ public sealed class InvoiceService(RestaurantContext db, IInvoiceFileStore files
         return await Responses(db.Invoices.AsNoTracking().Where(x => x.Id == id)).SingleAsync(ct);
     }
 
+    // La tarea de borrado remoto se guarda junto con la baja: si falla la baja, no se borra el PDF.
     public async Task<bool> DeleteAsync(int id, CancellationToken ct)
     {
         var invoice = await db.Invoices.FindAsync([id], ct);

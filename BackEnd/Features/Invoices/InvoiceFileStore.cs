@@ -1,3 +1,4 @@
+// Abstracción del almacenamiento: el servicio guarda documentos sin saber dónde quedan.
 using Microsoft.EntityFrameworkCore;
 
 namespace GestionMesas.Api;

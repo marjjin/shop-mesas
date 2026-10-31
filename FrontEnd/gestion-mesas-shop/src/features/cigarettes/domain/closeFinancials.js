@@ -1,3 +1,7 @@
+// Fórmulas del cierre. Hay una versión para cierres guardados y otra para el formulario en curso.
+// Arqueo = efectivo + tiradas + Mercado Pago + Posnet + cambio dejado - cambio recibido.
+// Caja = arqueo - proveedores normales - cigarrillos - cafetería.
+// Ventas del turno = arqueo + proveedores con caja aparte.
 export function getCloseFinancialSummary(close, suppliers) {
   const cashDropsTotal = close.cashDropsTotal ?? (close.cashDrops || []).reduce((total, drop) => total + drop.amount, 0)
   const archaeologicalResult = (close.endingCashBalance || 0) + cashDropsTotal + (close.endingMercadoPagoBalance || 0) + (close.posnetTotal || 0) + (close.nextShiftChangeCash || 0) - (close.receivedChangeCash || 0)
@@ -18,6 +22,7 @@ export function getCloseFinancialSummary(close, suppliers) {
 }
 
 // Both new and corrected closes use the same editable balances and reservations.
+// Misma cuenta con los valores de texto del formulario, que hay que convertir a número.
 export function getDraftFinancialSummary({ endingBalances, cashDrops, suppliers, allocations, cafeteriaTotal, totalSales }) {
   const cashDropsTotal = cashDrops.reduce((total, drop) => total + drop.amount, 0)
   const archaeologicalResult = Number(endingBalances.cash || 0) + cashDropsTotal + Number(endingBalances.mercadoPago || 0) + Number(endingBalances.posnet || 0) + Number(endingBalances.change || 0) - Number(endingBalances.receivedChange || 0)

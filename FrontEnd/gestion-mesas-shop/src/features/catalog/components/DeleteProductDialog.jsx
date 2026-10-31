@@ -1,3 +1,4 @@
+// Confirmación de borrado. El foco arranca en Cancelar para evitar borrados accidentales.
 import { useEffect, useRef } from 'react'
 import CatalogIcon from './CatalogIcon.jsx'
 

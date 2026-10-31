@@ -1,3 +1,4 @@
+// Tabla de ventas por turno para una fecha.
 import useCafeteriaHistory from '../hooks/useCafeteriaHistory.js'
 import { SkeletonRows } from '../../../shared/components/LoadingSkeleton.jsx'
 import { preciseMoney as money } from '../../../shared/utils/currency.js'

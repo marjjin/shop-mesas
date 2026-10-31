@@ -1,3 +1,4 @@
+// Rutas de facturas. El PDF se entrega a través de la API, nunca con un enlace directo a Cloudinary.
 using System.Globalization;
 using Microsoft.AspNetCore.Http.Features;
 
@@ -15,6 +16,7 @@ public static class InvoiceEndpoints
         });
         group.MapGet("/suppliers", async (InvoiceService service, CancellationToken ct) => Results.Ok(await service.SuppliersAsync(ct)));
         group.MapPost("", UploadAsync);
+        // Pasa por la sesión de la API: solo usuarios autorizados pueden ver el documento.
         group.MapGet("/{id:int}/document", async (int id, IInvoiceFileStore files, CancellationToken ct) =>
         {
             try
@@ -34,12 +36,14 @@ public static class InvoiceEndpoints
         return group;
     }
 
+    // Recibe el formulario multipart con el PDF y sus datos, aplicando límites antes de leerlo.
     private static async Task<IResult> UploadAsync(HttpRequest request, InvoiceService service, CancellationToken ct)
     {
         const long maxBody = InvoiceService.MaxFileBytes + 65536;
         if (request.ContentLength > maxBody) return TooLarge();
         if (request.ContentType?.StartsWith("multipart/form-data", StringComparison.OrdinalIgnoreCase) != true)
             return Invalid("Enviá el documento escaneado junto con sus datos.");
+        // Sube el límite global de tamaño solo para este pedido.
         var limit = request.HttpContext.Features.Get<IHttpMaxRequestBodySizeFeature>();
         if (limit is { IsReadOnly: false }) limit.MaxRequestBodySize = maxBody;
         request.HttpContext.Features.Set<IFormFeature>(new FormFeature(request, new FormOptions

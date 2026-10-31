@@ -1,3 +1,4 @@
+// Estructura del menú lateral. Icon es el trazado SVG del ícono.
 export const navigationGroups = [
   { label: 'Operación', items: [
     { section: 'salon', label: 'Plano de mesas', icon: 'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z' },
@@ -20,4 +21,5 @@ export const navigationGroups = [
   ] },
 ]
 
+// Mapa sección -> etiqueta, derivado de la lista para no repetir textos.
 export const sectionLabels = Object.fromEntries(navigationGroups.flatMap((group) => group.items.map((item) => [item.section, item.label])))

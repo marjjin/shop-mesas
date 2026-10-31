@@ -1,3 +1,4 @@
+// Corrección de un cierre ya guardado.
 import CigaretteReservation from './CigaretteReservation.jsx'
 import ClosingIcon from './ClosingIcon.jsx'
 import { getDraftFinancialSummary } from '../domain/closeFinancials.js'
@@ -23,6 +24,7 @@ export default function EditShiftCloseForm({ close, suppliers, cafeteria, cashDr
   const { archaeologicalResult, cashTotal, separateCashBoxTotal, dailySalesTotal } = getDraftFinancialSummary({ endingBalances, cashDrops, suppliers, allocations, cafeteriaTotal: cafeteria?.totalSales || 0, totalSales })
   const isValid = rows.every((row) => row.final >= 0 && row.final <= row.available)
 
+  // Null conserva el estado sin reserva de cierres antiguos si el campo queda vacío.
   const submit = (event) => {
     event.preventDefault()
     onSave({

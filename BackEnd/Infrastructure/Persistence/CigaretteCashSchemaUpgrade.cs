@@ -1,3 +1,4 @@
+// Columnas necesarias para la Caja de cigarrillos: costo y medio de pago de cada compra, y reservas por cierre.
 using Microsoft.EntityFrameworkCore;
 
 namespace GestionMesas.Api;
@@ -14,6 +15,7 @@ public static class CigaretteCashSchemaUpgrade
 
     // Definitions belong to this upgrade and never contain request data.
 #pragma warning disable EF1002 // Static identifiers/types only; DDL cannot parameterize SQL identifiers.
+    // Agrega una columna solo si falta, con el tipo adecuado para cada motor.
     private static void AddColumn(RestaurantContext db, string table, string column, string postgresType, string sqliteType)
     {
         if (db.Database.IsNpgsql())

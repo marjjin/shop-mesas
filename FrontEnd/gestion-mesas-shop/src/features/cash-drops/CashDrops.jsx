@@ -1,3 +1,4 @@
+// Pantalla de tiradas de efectivo.
 import LoadingSkeleton from '../../shared/components/LoadingSkeleton.jsx'
 import useCashDrops from './hooks/useCashDrops.js'
 import CashDropForm from './components/CashDropForm.jsx'

@@ -1,3 +1,4 @@
+// Agrega a una base existente el rol de usuario y la tabla de sesiones.
 using Microsoft.EntityFrameworkCore;
 
 namespace GestionMesas.Api;
@@ -6,6 +7,7 @@ public static class AuthenticationSchemaUpgrade
 {
     public static void Apply(RestaurantContext db)
     {
+        // SQLite no admite ADD COLUMN IF NOT EXISTS: hay que consultar primero si la columna existe.
         if (db.Database.IsSqlite())
         {
             var connection = db.Database.GetDbConnection();
@@ -32,6 +34,7 @@ public static class AuthenticationSchemaUpgrade
                 );
                 """);
         }
+        // PostgreSQL sí lo admite, por eso esta rama es más corta.
         else if (db.Database.IsNpgsql())
         {
             db.Database.ExecuteSqlRaw("""ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "Role" text NOT NULL DEFAULT 'Administrator';""");

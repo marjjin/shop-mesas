@@ -1,3 +1,4 @@
+// Formas del JSON de cigarrillos: stock, compras y cierres de turno.
 namespace GestionMesas.Api;
 
 /// <summary>Datos para dar de alta una presentación de cigarrillos.</summary>

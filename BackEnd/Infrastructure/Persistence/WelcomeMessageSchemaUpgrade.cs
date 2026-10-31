@@ -1,3 +1,4 @@
+// Crea la tabla del ticket de bienvenida y una columna por cada texto editable.
 using Microsoft.EntityFrameworkCore;
 
 namespace GestionMesas.Api;

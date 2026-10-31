@@ -1,3 +1,4 @@
+// Formas del JSON de las rutas de consumos.
 namespace GestionMesas.Api;
 
 public record OrderRequest(int TableId, int ProductId, int Quantity);

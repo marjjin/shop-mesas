@@ -1,3 +1,4 @@
+// Entrega de una sola vez los datos que necesita el salón. El frontend la consulta cada 10 segundos.
 using Microsoft.EntityFrameworkCore;
 
 namespace GestionMesas.Api;
@@ -10,6 +11,7 @@ public static class BootstrapEndpoints
         return api;
     }
 
+    // No hay relaciones anidadas: el frontend cruza tablas, productos y pedidos por ID.
     private static async Task<IResult> GetAsync(RestaurantContext db) =>
         Results.Ok(new
 {

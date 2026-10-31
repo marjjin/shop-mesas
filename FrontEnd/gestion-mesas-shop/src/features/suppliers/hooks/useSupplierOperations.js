@@ -1,3 +1,4 @@
+// Compras, pagos y transferencias. Validan antes de enviar para dar respuesta inmediata; la validación definitiva es del backend.
 import { useState } from 'react'
 import { sumPaymentAmounts } from '../domain/transactions.js'
 

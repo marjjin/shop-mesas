@@ -1,13 +1,16 @@
+// Interpreta la cadena de conexión configurada para decidir el motor y normalizar su formato.
 namespace GestionMesas.Api;
 
 public static class DatabaseConnection
 {
+    // Reconoce tanto el formato URL (postgres://...) como el clásico (Host=...).
     public static bool IsPostgreSqlConnectionString(string connectionString) =>
         connectionString.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase)
         || connectionString.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase)
         || connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase)
         || connectionString.Contains("Server=", StringComparison.OrdinalIgnoreCase);
 
+    // Render entrega una URL; Npgsql espera el formato clave=valor. Esta función convierte una en la otra.
     public static string ToNpgsqlConnectionString(string configuredConnectionString)
     {
         if (!Uri.TryCreate(configuredConnectionString, UriKind.Absolute, out var databaseUrl)
@@ -16,6 +19,7 @@ public static class DatabaseConnection
             return configuredConnectionString;
         }
 
+        // UserInfo llega como usuario:contraseña, y ambos pueden estar codificados para URL.
         var credentials = databaseUrl.UserInfo.Split(':', 2);
         var connectionString = new Npgsql.NpgsqlConnectionStringBuilder
         {
@@ -26,6 +30,7 @@ public static class DatabaseConnection
             Password = credentials.Length > 1 ? Uri.UnescapeDataString(credentials[1]) : string.Empty
         };
 
+        // De los parámetros de la URL solo interesa sslmode.
         foreach (var parameter in databaseUrl.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
         {
             var parts = parameter.Split('=', 2);

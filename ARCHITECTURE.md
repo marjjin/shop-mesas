@@ -1,5 +1,7 @@
 # Organización del proyecto
 
+Para una explicación detallada del funcionamiento interno, ver la [guía del sistema](GUIA_DEL_SISTEMA.md).
+
 ## Frontend
 
 `FrontEnd/gestion-mesas-shop/src/App.jsx` compone navegación y pantallas. `app/useRestaurantData.js` mantiene la carga y actualización de los datos compartidos del salón.

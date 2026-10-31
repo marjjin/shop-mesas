@@ -1,3 +1,4 @@
+// Pantalla de proveedores con dos vistas: listado general y detalle de uno.
 import LoadingSkeleton from '../../shared/components/LoadingSkeleton.jsx'
 import SupplierOperations from './components/SupplierOperations.jsx'
 import SupplierHistory from './components/SupplierHistory.jsx'
@@ -62,6 +63,7 @@ export default function Suppliers({ api }) {
   const activeSuppliers = suppliers.filter((supplier) => supplier.isActive)
   const totalReservedCash = activeSuppliers.reduce((total, supplier) => total + supplier.reservedCashBalance, 0)
   const totalReservedMercadoPago = activeSuppliers.reduce((total, supplier) => total + supplier.reservedMercadoPagoBalance, 0)
+  // Búsqueda sin distinguir acentos ni mayúsculas.
   const normalizedSupplierSearch = supplierSearch.trim().toLocaleLowerCase('es-AR').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   const visibleSuppliers = normalizedSupplierSearch
     ? activeSuppliers.filter((supplier) => supplier.name.toLocaleLowerCase('es-AR').normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(normalizedSupplierSearch))
@@ -69,6 +71,7 @@ export default function Suppliers({ api }) {
 
   if (loading) return <LoadingSkeleton section="suppliers" />
 
+  // Con un proveedor elegido se muestra su detalle en lugar del listado.
   if (selectedSupplier) {
     const paidTotal = selectedSupplier.transactions
       .filter((transaction) => transaction.type === 'payment')

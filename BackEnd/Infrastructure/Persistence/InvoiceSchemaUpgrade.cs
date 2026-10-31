@@ -1,3 +1,4 @@
+// Crea las tablas de facturas y agrega las columnas que guardan la referencia a Cloudinary.
 using Microsoft.EntityFrameworkCore;
 
 namespace GestionMesas.Api;

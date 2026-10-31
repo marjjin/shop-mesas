@@ -1,3 +1,4 @@
+// Estado del editor del ticket. Todo se deriva de draft, la copia sin guardar.
 import { useEffect, useState } from 'react'
 import { requireWelcomeMessageSettings, welcomeMessageContent, welcomeMessageDefaults, welcomeTextFields } from '../../../shared/utils/welcomeMessage.js'
 import { preciseMoney as money } from '../../../shared/utils/currency.js'
@@ -10,10 +11,12 @@ export default function useWelcomeTicketEditor({ api, welcomeSettings, loadError
   const [activeField, setActiveField] = useState('greetingText')
   const [focusRequest, setFocusRequest] = useState(null)
   const saved = { ...welcomeMessageDefaults, ...welcomeSettings }
+  // Sin borrador se muestran los valores guardados.
   const values = draft ?? { ...saved, amount: welcomeSettings ? String(saved.amount) : '' }
   const amount = String(values.amount)
   const parsedAmount = Number(amount)
   const loading = !welcomeSettings && !loadError
+  // Valida en vivo, en cada render.
   const fieldError = amount.trim() === '' ? 'Ingresá un importe. Podés usar 0 si no hay consumo mínimo.'
     : !Number.isFinite(parsedAmount) || parsedAmount < 0 || parsedAmount > 999999999.99 ? 'Ingresá un importe entre $0 y $999.999.999,99.'
       : Math.abs(parsedAmount * 100 - Math.round(parsedAmount * 100)) > 0.00001 ? 'Usá hasta dos decimales.' : ''
@@ -23,6 +26,7 @@ export default function useWelcomeTicketEditor({ api, welcomeSettings, loadError
   ]))
   const hasTextErrors = Object.values(textErrors).some(Boolean)
   const amountDirty = draft !== null && (!!fieldError || parsedAmount !== saved.amount)
+  // Lista los campos que difieren de lo guardado.
   const changedFields = draft ? welcomeTextFields.filter(({ key }) => values[key] !== saved[key]) : []
   const textDirty = changedFields.length > 0
   const changeCount = changedFields.length + (amountDirty ? 1 : 0)
@@ -49,6 +53,7 @@ export default function useWelcomeTicketEditor({ api, welcomeSettings, loadError
     setFocusRequest({ key })
   }
 
+  // Guarda en la API. El servidor vuelve a validar los mismos datos.
   const save = async (event) => {
     event.preventDefault()
     if (unavailable || !dirty || invalid) return
@@ -80,6 +85,7 @@ export default function useWelcomeTicketEditor({ api, welcomeSettings, loadError
     }
   }
 
+  // Permite moverse entre pestañas con el teclado.
   const moveTab = (event) => {
     if (unavailable || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
     event.preventDefault()

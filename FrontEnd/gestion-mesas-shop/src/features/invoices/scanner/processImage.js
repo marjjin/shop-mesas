@@ -1,5 +1,7 @@
+// Procesamiento de imagen en JavaScript puro: alternativa si OpenCV no carga.
 import { defaultCorners, isValidQuad, outputSize, quadProjection } from './geometry.js'
 
+// Detección simple: la zona clara conectada más grande se toma como el papel.
 export function detectDocument(image) {
   const { data, width, height } = image
   const step = Math.max(1, Math.ceil(Math.max(width, height) / 500))
@@ -45,6 +47,7 @@ export function detectDocument(image) {
   return isValidQuad(corners) ? corners : defaultCorners()
 }
 
+// Corrige la perspectiva píxel a píxel con interpolación bilineal.
 export function scanImage(image, corners, mode = 'document') {
   if (!isValidQuad(corners)) throw new Error('Ajustá las esquinas para que no se crucen y abarquen el documento.')
   const size = outputSize(corners, image.width, image.height)
@@ -66,6 +69,8 @@ export function scanImage(image, corners, mode = 'document') {
   return { ...size, data: pixels }
 }
 
+// Mejora de documento: convierte a gris y compara cada píxel con el promedio de su zona.
+// La imagen integral permite calcular ese promedio muy rápido, y así se quitan las sombras.
 export function enhanceDocument(pixels, width, height) {
   const stride = width + 1, integral = new Float64Array((width + 1) * (height + 1))
   for (let y = 0; y < height; y++) {

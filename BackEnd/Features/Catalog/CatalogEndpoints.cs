@@ -1,3 +1,4 @@
+// Rutas del catálogo. Los servicios de coworking quedan protegidos contra borrado y creación manual.
 using Microsoft.EntityFrameworkCore;
 
 namespace GestionMesas.Api;
@@ -24,6 +25,7 @@ public static class CatalogEndpoints
         return Results.Created($"/api/categories/{category.Id}", category);
     }
 
+    // Borra la categoría y, en cascada manual, sus productos y los consumos activos que los usan.
     private static async Task<IResult> DeleteCategoryAsync(int id, RestaurantContext db)
     {
         var category = await db.Categories.FindAsync(id);
@@ -38,6 +40,7 @@ public static class CatalogEndpoints
         return Results.NoContent();
     }
 
+    // Los artículos nuevos caen en la categoría Artículos, que se crea si falta.
     private static async Task<IResult> CreateProductAsync(ProductRequest request, RestaurantContext db)
     {
         if (string.IsNullOrWhiteSpace(request.Name) || request.Name is CoworkingBilling.HalfHourProductName or CoworkingBilling.HourProductName) return Results.BadRequest();
@@ -57,6 +60,7 @@ public static class CatalogEndpoints
         return Results.Created($"/api/products/{product.Id}", product);
     }
 
+    // Borra todo el catálogo excepto los servicios automáticos.
     private static async Task<IResult> DeleteProductsAsync(RestaurantContext db)
     {
         var productIds = await db.Products.Where(product => product.Name != CoworkingBilling.HalfHourProductName && product.Name != CoworkingBilling.HourProductName).Select(product => product.Id).ToListAsync();

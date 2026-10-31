@@ -1,3 +1,4 @@
+// Consultas de solo lectura. AsNoTracking evita el costo de seguir cambios que no van a ocurrir.
 using Microsoft.EntityFrameworkCore;
 using static GestionMesas.Api.CigaretteMapping;
 
@@ -5,6 +6,7 @@ namespace GestionMesas.Api;
 
 internal sealed class CigaretteQueries(RestaurantContext db, ICafeteriaService? cafeteria = null)
 {
+    // Orden fijo que replica la planilla usada en el local. Los productos no listados van al final.
     private static readonly IReadOnlyDictionary<string, int> SpreadsheetOrder = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
     {
         ["PHILIP BOX 20"] = 0, ["PHILIP KS 20"] = 1, ["PHILIP RED 20 KS"] = 2, ["PHILIP BLUE 20 KS"] = 3, ["PHILIP CAP 20"] = 4, ["PHILIP 12"] = 5, ["PHILIP CAP 12"] = 6,
@@ -15,6 +17,7 @@ internal sealed class CigaretteQueries(RestaurantContext db, ICafeteriaService? 
         ["LUCKIES KS 20"] = 34, ["LUCKY KS 20"] = 35, ["LUCKY MENT KS 20"] = 36, ["LUCKY ORIGEN KS 20"] = 37, ["LUCKY ORIGEN MENT KS 20"] = 38, ["LUCKY DOBLE PLUS XL 20"] = 39, ["LUCKY MENT XL 20"] = 40, ["LUCKY MENT 12"] = 41
     };
 
+    // Todo lo que muestra la pantalla para una fecha.
     public async Task<CigaretteDashboardResponse> GetDashboardAsync(DateOnly date, CancellationToken cancellationToken)
     {
         var products = await db.CigaretteProducts.AsNoTracking().Where(product => product.IsActive)
@@ -59,6 +62,7 @@ internal sealed class CigaretteQueries(RestaurantContext db, ICafeteriaService? 
 
     private static int GetSpreadsheetOrder(string name) => SpreadsheetOrder.GetValueOrDefault(string.Join(' ', name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)), int.MaxValue);
 
+    // Arma la respuesta de un cierre juntando cafetería, reservas de proveedores y tiradas.
     public async Task<CigaretteShiftCloseResponse> ToResponseAsync(CigaretteShiftClose close, CancellationToken cancellationToken)
     {
         var items = close.Items.OrderBy(item => GetSpreadsheetOrder(item.ProductName)).ThenBy(item => item.Id).Select(item => new CigaretteShiftCloseItemResponse(item.CigaretteProductId, item.ProductName, item.UnitPrice, item.InitialStock, item.PurchasedQuantity, item.FinalStock, item.SoldQuantity, item.SalesAmount)).ToList();
@@ -87,6 +91,7 @@ internal sealed class CigaretteQueries(RestaurantContext db, ICafeteriaService? 
         return new CigaretteShiftCloseResponse(close.Id, close.BusinessDate, close.Shift, new DateTimeOffset(closedAt), items.Sum(item => item.SoldQuantity), items.Sum(item => item.SalesAmount), items, summary, allocations, close.EndingCashBalance, close.EndingMercadoPagoBalance, close.NextShiftChangeCash, close.ReceivedChangeCash, close.PosnetTotal, cashDrops, cashDrops.Sum(drop => drop.Amount), close.CigaretteReservedCash, close.CigaretteReservedMercadoPago);
     }
 
+    // Algunos motores devuelven fechas sin zona: se aclara que son UTC.
     private static DateTime AsUtc(DateTime value) => value.Kind == DateTimeKind.Utc
         ? value
         : DateTime.SpecifyKind(value, DateTimeKind.Utc);

@@ -1,3 +1,4 @@
+// Vista que reemplaza al formulario cuando el turno ya está cerrado.
 import CigaretteReservation from './CigaretteReservation.jsx'
 import ClosingIcon from './ClosingIcon.jsx'
 import { money } from '../../../shared/utils/currency.js'

@@ -1,3 +1,4 @@
+// Caja de cigarrillos: lo reservado en los cierres menos lo gastado en compras.
 using Microsoft.EntityFrameworkCore;
 
 namespace GestionMesas.Api;
@@ -12,6 +13,7 @@ public sealed record CigaretteCashResponse(CigaretteCashAmountsResponse Totals, 
 
 public sealed class CigaretteCashService(RestaurantContext db)
 {
+    // Nada se guarda como saldo: todo se calcula en cada consulta.
     public async Task<CigaretteCashResponse> GetAsync(DateOnly date, int page, int pageSize, CancellationToken cancellationToken)
     {
         if (page is < 1 or > 1000000 || pageSize is < 1 or > 50)
@@ -30,6 +32,7 @@ public sealed class CigaretteCashService(RestaurantContext db)
             .Distinct().OrderByDescending(value => value).ToList();
         var closesByShift = closes.ToDictionary(item => (item.BusinessDate, item.Shift));
         var purchasesByShift = purchases.ToDictionary(item => (item.BusinessDate, item.Shift));
+        // Función local: arma el resumen de un día con sus dos turnos.
         CigaretteCashDayResponse Day(DateOnly businessDate)
         {
             var shifts = new[] { "morning", "afternoon" }.Select(shift =>
@@ -40,6 +43,7 @@ public sealed class CigaretteCashService(RestaurantContext db)
                 var mercadoPago = close?.CigaretteReservedMercadoPago ?? 0;
                 var cashPurchases = bought?.Cash ?? 0;
                 var mercadoPagoPurchases = bought?.MercadoPago ?? 0;
+                // Marca cierres antiguos sin reserva para avisar que el saldo es parcial.
                 var missing = close is not null && (close.CigaretteReservedCash == null || close.CigaretteReservedMercadoPago == null) ? 1 : 0;
                 return new CigaretteCashShiftResponse(shift, new(close?.Sales ?? 0, cashPurchases + mercadoPagoPurchases, cash, mercadoPago,
                     cashPurchases, mercadoPagoPurchases, cash - cashPurchases, mercadoPago - mercadoPagoPurchases,
@@ -48,11 +52,13 @@ public sealed class CigaretteCashService(RestaurantContext db)
             return new(businessDate, Sum(shifts.Select(item => item.Amounts)), shifts);
         }
         var days = dates.Select(Day).ToList();
+        // Limita la página al último valor posible.
         var lastPage = Math.Max(1, (days.Count + pageSize - 1) / pageSize);
         page = Math.Min(page, lastPage);
         return new(Sum(days.Select(day => day.Amounts)), Day(date), days.Skip((page - 1) * pageSize).Take(pageSize).ToList(), days.Count, page, pageSize);
     }
 
+    // Suma campo por campo una lista de resúmenes.
     private static CigaretteCashAmountsResponse Sum(IEnumerable<CigaretteCashAmountsResponse> values)
     {
         var list = values.ToList();

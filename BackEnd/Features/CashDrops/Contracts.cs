@@ -1,3 +1,4 @@
+// Formas del JSON de las tiradas.
 namespace GestionMesas.Api;
 
 /// <summary>Retiro físico de efectivo registrado durante un turno abierto.</summary>

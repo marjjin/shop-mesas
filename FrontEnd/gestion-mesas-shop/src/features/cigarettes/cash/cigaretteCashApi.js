@@ -1,3 +1,4 @@
+// Consulta de la Caja de cigarrillos, con validación estricta de la respuesta.
 const amounts = ['sales', 'purchases', 'reservedCash', 'reservedMercadoPago', 'cashPurchases',
   'mercadoPagoPurchases', 'cashBalance', 'mercadoPagoBalance', 'balance']
 const counts = ['missingPurchaseAmounts', 'missingReservations', 'closedShifts']
@@ -8,6 +9,7 @@ const isDay = (day) => day != null && /^\d{4}-\d{2}-\d{2}$/.test(day.businessDat
   && hasAmounts(day.amounts) && Array.isArray(day.shifts) && day.shifts.length === 2
   && ['morning', 'afternoon'].every((shift) => day.shifts.some((item) => item?.shift === shift && hasAmounts(item.amounts)))
 
+// Si la forma no coincide, avisa en lugar de mostrar saldos incorrectos.
 export function requireCigaretteCash(data) {
   if (!hasAmounts(data?.totals) || !isDay(data?.selectedDay) || !Array.isArray(data?.days)
     || !data.days.every(isDay) || !isCount(data?.totalDays) || !isCount(data?.page)

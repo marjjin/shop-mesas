@@ -1,3 +1,4 @@
+// Rutas para agregar, reubicar en el tiempo y quitar consumos de una mesa.
 using Microsoft.EntityFrameworkCore;
 
 namespace GestionMesas.Api;
@@ -12,6 +13,7 @@ public static class OrdersEndpoints
         return api;
     }
 
+    // Agrega un consumo. Si la mesa estaba libre, la abre automáticamente.
     private static async Task<IResult> CreateAsync(OrderRequest request, RestaurantContext db)
     {
         var table = await db.Tables.FindAsync(request.TableId);
@@ -22,6 +24,7 @@ public static class OrdersEndpoints
             table.CoworkingDisabled = false;
             table.OpenedAt = now;
         }
+        // Cada consumo reinicia el reloj de sin consumir.
         table.LastConsumptionAt = now;
         var order = new Order {
             TableId = request.TableId, ProductId = request.ProductId, Quantity = Math.Max(1, request.Quantity), CreatedAt = now
@@ -33,6 +36,7 @@ public static class OrdersEndpoints
         });
     }
 
+    // Permite corregir la hora de un consumo.
     private static async Task<IResult> UpdateAsync(int id, UpdateOrderRequest request, RestaurantContext db)
     {
         var order = await db.Orders.FindAsync(id);
@@ -41,13 +45,16 @@ public static class OrdersEndpoints
         if (table is null || table.Status != "occupied" || table.OpenedAt is null) return Results.BadRequest();
 
         var isCoworkingCharge = await OrderConsumption.IsCoworkingChargeAsync(db, order.ProductId);
+        // Un cargo de coworking no se reubica: su hora la calcula el sistema.
         if (isCoworkingCharge) return Results.Conflict();
 
         var createdAt = request.CreatedAt.UtcDateTime;
+        // La hora debe estar entre la apertura de la mesa y el momento actual.
         if (createdAt < table.OpenedAt.Value || createdAt > DateTime.UtcNow) return Results.BadRequest();
 
         order.CreatedAt = createdAt;
         var lastOtherConsumptionAt = await OrderConsumption.LatestOtherConsumptionAsync(db, order.TableId, id);
+        // LastConsumptionAt debe seguir siendo el consumo más reciente.
         table.LastConsumptionAt = lastOtherConsumptionAt.HasValue && lastOtherConsumptionAt.Value > createdAt
             ? lastOtherConsumptionAt.Value
             : createdAt;
@@ -55,6 +62,7 @@ public static class OrdersEndpoints
         return Results.Ok(new { order, table });
     }
 
+    // Quita un consumo. Si era un cargo de coworking, pausa los siguientes en esa mesa.
     private static async Task<IResult> DeleteAsync(int id, RestaurantContext db)
     {
         var order = await db.Orders.FindAsync(id);
@@ -67,6 +75,7 @@ public static class OrdersEndpoints
         {
             if (isCoworkingCharge) table.CoworkingDisabled = true;
             var lastRemainingOrderAt = await OrderConsumption.LatestOtherConsumptionAsync(db, order.TableId, id);
+            // Sin otros consumos, el reloj vuelve a contar desde la apertura.
             table.LastConsumptionAt = lastRemainingOrderAt ?? table.OpenedAt;
         }
 

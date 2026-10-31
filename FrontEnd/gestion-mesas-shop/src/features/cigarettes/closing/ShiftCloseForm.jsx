@@ -1,3 +1,4 @@
+// Formulario para cerrar un turno.
 import CigaretteReservation from './CigaretteReservation.jsx'
 import ClosingIcon from './ClosingIcon.jsx'
 import { getDraftFinancialSummary } from '../domain/closeFinancials.js'
@@ -13,12 +14,15 @@ import StockWarning from './StockWarning.jsx'
 export default function ShiftCloseForm({ products, purchases, suppliers, allocations, onAllocationsChange, cafeteriaSummary, cafeteriaError, cashDrops, shift, date, previousChangeCash, onClose }) {
   const [validationMessage, setValidationMessage] = useState('')
   const [showStockWarning, setShowStockWarning] = useState(false)
+  // Unidades compradas en este turno por producto.
   const purchasedByProduct = useMemo(() => purchases
     .filter((purchase) => purchase.shift === shift)
     .reduce((totals, purchase) => ({ ...totals, [purchase.cigaretteProductId]: (totals[purchase.cigaretteProductId] || 0) + purchase.quantity }), {}), [purchases, shift])
   const { cigaretteReservation, changeCigaretteReservation, finalStocks, hasDraft, endingBalances, setReceivedChangeEdited, changeFinalStock, changeEndingBalances, changeAllocations, discardDraft } = useCloseDraft({ products, date, shift, previousChangeCash, onAllocationsChange })
+  // Replica en pantalla el cálculo del servidor, para ver el resultado antes de confirmar.
   const rows = products.map((product) => {
     const purchased = purchasedByProduct[product.id] || 0
+    // Inicial = stock actual - compras del turno. Negativo indica un stock mal cargado.
     const initial = product.stock - purchased
     const invalidInitial = initial < 0
     const final = Number(finalStocks[product.id] ?? product.stock)
@@ -30,6 +34,7 @@ export default function ShiftCloseForm({ products, purchases, suppliers, allocat
   const isValid = rows.length > 0 && rows.every((row) => !row.invalidInitial && row.final >= 0 && row.final <= row.initial + row.purchased)
   const excessStockRows = rows.filter((row) => !row.invalidInitial && row.final > row.initial + row.purchased)
 
+  // Arma la solicitud convirtiendo los textos de los inputs a números.
   const submit = (event) => {
     event.preventDefault()
     if (!isValid) return

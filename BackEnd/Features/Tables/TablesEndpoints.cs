@@ -1,3 +1,4 @@
+// Rutas de mesas: alta, baja, edición del plano, apertura y cierre.
 using Microsoft.EntityFrameworkCore;
 
 namespace GestionMesas.Api;
@@ -14,6 +15,7 @@ public static class TablesEndpoints
         return api;
     }
 
+    // Sin nombre, propone Mesa N.
     private static async Task<IResult> CreateAsync(TableRequest request, RestaurantContext db)
     {
         var table = new RestaurantTable {
@@ -24,6 +26,7 @@ public static class TablesEndpoints
         return Results.Created($"/api/tables/{table.Id}", table);
     }
 
+    // Borra la mesa junto con sus consumos actuales. El historial de cierres no se toca.
     private static async Task<IResult> DeleteAsync(int id, RestaurantContext db, CancellationToken cancellationToken)
     {
         var table = await db.Tables.FindAsync([id], cancellationToken);
@@ -38,11 +41,13 @@ public static class TablesEndpoints
         return Results.NoContent();
     }
 
+    // PATCH parcial: se usa para mover la mesa en el plano y para corregir la hora de apertura.
     private static async Task<IResult> UpdateAsync(int id, TablePatch patch, RestaurantContext db)
     {
         var table = await db.Tables.FindAsync(id);
         if (table is null) return Results.NotFound();
 
+        // La apertura no puede quedar en el futuro ni después del primer consumo.
         if (patch.OpenedAt.HasValue)
         {
             if (table.Status != "occupied") return Results.BadRequest();
@@ -56,6 +61,7 @@ public static class TablesEndpoints
             if (!firstOrderAt.HasValue) table.LastConsumptionAt = openedAt;
         }
 
+        // El operador ?? conserva el valor actual si el campo no vino.
         table.Name = patch.Name ?? table.Name;
         table.Seats = patch.Seats ?? table.Seats;
         table.X = patch.X ?? table.X;
@@ -66,6 +72,7 @@ public static class TablesEndpoints
         return Results.Ok(table);
     }
 
+    // Abre la mesa a nombre de un cliente y arranca sus relojes.
     private static async Task<IResult> OpenAsync(int id, OpenTableRequest request, RestaurantContext db)
     {
         var customerName = request.CustomerName.Trim();
@@ -80,6 +87,7 @@ public static class TablesEndpoints
         return Results.Ok(table);
     }
 
+    // Cierra la mesa: archiva los consumos en el historial mediante TableClosing.
     private static async Task<IResult> CloseAsync(int id, RestaurantContext db)
     {
         var table = await db.Tables.FindAsync(id);

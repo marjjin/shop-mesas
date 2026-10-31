@@ -1,3 +1,4 @@
+// Consulta de mesas cerradas con su detalle.
 using Microsoft.EntityFrameworkCore;
 
 namespace GestionMesas.Api;
@@ -10,6 +11,7 @@ public static class HistoryEndpoints
         return api;
     }
 
+    // Carga encabezados y detalle por separado y los une en memoria.
     private static async Task<IResult> GetAsync(RestaurantContext db)
     {
         var histories = await db.ClosedTableHistories.OrderByDescending(item => item.ClosedAt).ToListAsync();

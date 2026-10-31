@@ -1,3 +1,5 @@
+// Fábrica del cliente HTTP. Recibe sus dependencias por parámetro para poder probarla sin red.
+// Devuelve una función api(ruta, opciones) que agrega el token y normaliza los errores.
 export function createApiClient(baseUrl, request = fetch, { getToken = () => null, onUnauthorized = () => {} } = {}) {
   return async (path, options = {}) => {
     const { responseType, ...requestOptions } = options
@@ -11,10 +13,12 @@ export function createApiClient(baseUrl, request = fetch, { getToken = () => nul
       headers.set('Content-Type', 'application/json')
     const response = await request(`${baseUrl}${path}`, { ...requestOptions, headers })
     if (!response.ok) {
+      // Un 401 fuera del login significa sesión vencida: la app vuelve a la pantalla de ingreso.
       if (response.status === 401 && path !== '/login') onUnauthorized(token)
       const problem = await response.json().catch(() => null)
       if (response.status === 404 && path === '/settings/welcome-message')
         throw new Error('La API no tiene disponible la configuración de bienvenida. Reiniciá el backend actualizado en local o desplegá su nueva versión en Render.')
+      // Convierte el código HTTP en un mensaje listo para mostrar.
       const message = response.status === 401
         ? path === '/login' ? 'Usuario o contraseña incorrectos.' : 'La sesión venció. Volvé a ingresar.'
         : response.status === 403 ? 'No tenés permiso para realizar esta operación.'
@@ -22,6 +26,7 @@ export function createApiClient(baseUrl, request = fetch, { getToken = () => nul
             : problem?.detail || 'No se pudo completar la operación.'
       throw Object.assign(new Error(message), { status: response.status })
     }
+    // 204 no trae cuerpo; los PDF se piden como blob; el resto es JSON.
     return response.status === 204 ? null : responseType === 'blob' ? response.blob() : response.json()
   }
 }

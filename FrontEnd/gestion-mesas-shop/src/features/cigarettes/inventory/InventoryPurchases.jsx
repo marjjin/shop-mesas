@@ -1,3 +1,4 @@
+// Registro de compras, con buscador navegable por teclado.
 import { useEffect, useRef, useState } from 'react'
 import PurchaseCostFields from './PurchaseCostFields.jsx'
 import { preciseMoney as money } from '../../../shared/utils/currency.js'
@@ -40,6 +41,7 @@ export default function InventoryPurchases({ shift, setShift, addPurchase, purch
     if (await deletePurchase(removing)) setRemoving(null)
     else setRemoveFailed(true)
   }
+  // Teclado del buscador: flechas para moverse, Enter para elegir, Escape para cerrar.
   const handleSearchKey = (event) => {
     if (event.key === 'Escape') { setSearchOpen(false); event.preventDefault(); return }
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {

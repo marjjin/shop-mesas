@@ -1,3 +1,4 @@
+// Carga con cancelación: AbortController corta el pedido si cambia la fecha o la página.
 import { useEffect, useState } from 'react'
 import { loadCigaretteCash } from './cigaretteCashApi.js'
 
@@ -5,6 +6,7 @@ export default function useCigaretteCash(api, date) {
   const [page, setPage] = useState(1)
   const [revision, setRevision] = useState(0)
   const [result, setResult] = useState(null)
+  // La clave identifica la consulta: un resultado con otra clave se considera viejo.
   const key = `${date}:${page}:${revision}`
   useEffect(() => {
     const controller = new AbortController()

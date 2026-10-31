@@ -1,3 +1,4 @@
+// Carga la configuración del ticket. La sección participa en las dependencias para refrescarla al navegar.
 import { useEffect, useState } from 'react'
 import { requireWelcomeMessageSettings } from '../../../shared/utils/welcomeMessage.js'
 

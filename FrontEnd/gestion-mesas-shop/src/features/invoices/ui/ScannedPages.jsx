@@ -1,3 +1,4 @@
+// Revisión de páginas: vista previa, orden y eliminación.
 import { useState } from 'react'
 import InvoiceIcon from './InvoiceIcon.jsx'
 import { displayFileSize } from '../api/invoicesApi.js'

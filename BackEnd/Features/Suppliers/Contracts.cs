@@ -1,3 +1,4 @@
+// Formas del JSON de proveedores. Amount se calcula como efectivo + Mercado Pago para que ambos no puedan discrepar.
 namespace GestionMesas.Api;
 
 /// <summary>Datos para crear un proveedor.</summary>

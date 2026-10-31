@@ -1,3 +1,4 @@
+// Contenido del ticket de bienvenida: textos por defecto, campos editables y sus reglas.
 export const welcomeMessageDefaults = Object.freeze({
   businessName: 'SHOP FAMILY',
   greetingText: 'Hola {nombre}, bienvenido/a a Shop Family.',
@@ -16,11 +17,13 @@ export const welcomeTextFields = [
   { key: 'footerText', label: 'Mensaje final', maxLength: 300, rows: 2, help: 'Texto al pie del ticket. Dejalo vacío para ocultarlo.' },
 ]
 
+// Combina la configuración con los valores por defecto y reemplaza {nombre} por el cliente.
 export function welcomeMessageContent(settings, customerName) {
   const content = Object.fromEntries(welcomeTextFields.map(({ key }) => [key, settings?.[key] ?? welcomeMessageDefaults[key]]))
   return { ...content, greetingText: content.greetingText.replaceAll('{nombre}', () => customerName) }
 }
 
+// Detecta un backend viejo que no devuelve todos los campos.
 export function requireWelcomeMessageSettings(settings) {
   if (!settings || !Number.isFinite(settings.amount) || welcomeTextFields.some(({ key }) => typeof settings[key] !== 'string'))
     throw new Error('La API necesita actualizarse para editar los textos del ticket. Reiniciá el backend actualizado o desplegá su nueva versión.')

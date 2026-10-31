@@ -1,7 +1,9 @@
+// Formas del JSON que entra y sale en las rutas de mesas.
 namespace GestionMesas.Api;
 
 public record TableRequest(string? Name, int? Seats);
 
+// Todo es opcional: los campos que llegan null no se modifican.
 public record TablePatch(string? Name, int? Seats, int? X, int? Y, int? Width, int? Height, DateTimeOffset? OpenedAt);
 
 public record OpenTableRequest(string CustomerName);

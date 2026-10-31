@@ -1,3 +1,4 @@
+// Convierte un pedido pendiente en una mesa ocupada con sus consumos.
 using Microsoft.EntityFrameworkCore;
 
 namespace GestionMesas.Api;
@@ -13,6 +14,7 @@ public sealed record PendingOrderAssignmentResult(PendingOrderAssignmentStatus S
 
 public static class PendingOrderWorkflow
 {
+    // Al salir sin Commit, la transacción se revierte sola. Por eso los return tempranos son seguros.
     public static async Task<PendingOrderAssignmentResult> AssignAsync(
         RestaurantContext db,
         int pendingOrderId,
@@ -29,6 +31,8 @@ public static class PendingOrderWorkflow
             .Where(item => item.PendingOrderId == pendingOrderId)
             .ToListAsync(cancellationToken);
 
+        // Actualización condicional: solo afecta a la mesa si sigue libre.
+        // Si dos personas eligen la misma mesa a la vez, solo una gana; la otra recibe 0 filas.
         var updatedTables = await db.Tables
             .Where(table => table.Id == tableId && table.Status == "free")
             .ExecuteUpdateAsync(setters => setters
@@ -42,7 +46,9 @@ public static class PendingOrderWorkflow
 
         var table = await db.Tables.FindAsync([tableId], cancellationToken)
             ?? throw new InvalidOperationException("La mesa reservada dejó de existir.");
+        // ExecuteUpdate escribe directo en la base: hay que recargar la entidad para ver los valores nuevos.
         await db.Entry(table).ReloadAsync(cancellationToken);
+        // Copia los artículos a la mesa y elimina el pedido en la misma transacción.
         db.Orders.AddRange(items.Select(item => new Order
         {
             TableId = table.Id,

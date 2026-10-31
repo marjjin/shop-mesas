@@ -1,3 +1,4 @@
+// Edición de los datos de una factura. El PDF no cambia.
 import { useRef, useState } from 'react'
 import InvoiceDialog from './InvoiceDialog.jsx'
 import InvoiceMetadataFields from './InvoiceMetadataFields.jsx'

@@ -1,3 +1,4 @@
+// Rutas de cigarrillos. Solo traducen HTTP: las reglas están en CigaretteService.
 namespace GestionMesas.Api;
 
 public static class CigaretteEndpoints
@@ -5,6 +6,7 @@ public static class CigaretteEndpoints
     public static RouteGroupBuilder MapCigaretteEndpoints(this RouteGroupBuilder api)
     {
         var group = api.MapGroup("/cigarettes").WithTags("Cigarrillos");
+        // Caja de cigarrillos: saldos derivados de reservas y compras.
         group.MapGet("/cash", async (DateOnly? date, int? page, int? pageSize, CigaretteCashService service, CancellationToken cancellationToken) =>
         {
             try { return Results.Ok(await service.GetAsync(date ?? DateOnly.FromDateTime(DateTime.Today), page ?? 1, pageSize ?? 12, cancellationToken)); }
@@ -39,6 +41,7 @@ public static class CigaretteEndpoints
         return group;
     }
 
+    // Datos de una fecha. Sin fecha usa la del servidor, por eso el frontend siempre la envía.
     private static async Task<IResult> GetDashboardAsync(DateOnly? date, ICigaretteService service, CancellationToken cancellationToken)
     {
         var selectedDate = date ?? DateOnly.FromDateTime(DateTime.Today);
@@ -141,6 +144,7 @@ public static class CigaretteEndpoints
         catch (CigaretteValidationException exception) { return ValidationProblem(exception.Message); }
     }
 
+    // Respuesta 400 con formato ProblemDetails; el frontend muestra su campo detail.
     private static IResult ValidationProblem(string message) => Results.Problem(
         statusCode: StatusCodes.Status400BadRequest,
         title: "Datos de cigarrillos inválidos",

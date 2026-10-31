@@ -1,3 +1,4 @@
+// Formulario para crear un pedido a nombre de un cliente.
 import { useState } from 'react'
 import PendingIcon from './PendingIcon.jsx'
 

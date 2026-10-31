@@ -1,3 +1,4 @@
+// Editor de recorte: arrastrar las cuatro esquinas, o moverlas con las flechas del teclado.
 import { useRef, useState } from 'react'
 import { defaultCorners, isValidQuad } from './geometry.js'
 
@@ -8,7 +9,9 @@ export default function ScanCropEditor({ source, busy, onApply, onCancel }) {
   const [mode, setMode] = useState('document')
   const svg = useRef(null)
   const drag = useRef(null)
+  // Mantiene cada esquina dentro de la imagen.
   const changePoint = (index, x, y) => setCorners((current) => current.map((p, i) => i === index ? { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) } : p))
+  // Convierte la posición del puntero en coordenadas de 0 a 1.
   const move = (event) => {
     if (drag.current == null || busy) return
     const rect = svg.current.getBoundingClientRect()

@@ -1,7 +1,9 @@
+// Tablas de facturas: los datos, el documento y las tareas de limpieza pendientes.
 using Microsoft.EntityFrameworkCore;
 
 namespace GestionMesas.Api;
 
+// Datos de la factura. Se separa del documento para que los listados no carguen el PDF.
 public sealed class InvoiceRecord
 {
     public int Id { get; set; }
@@ -16,6 +18,7 @@ public sealed class InvoiceRecord
     public long OriginalBytes { get; set; }
 }
 
+// Ubicación del PDF. Content solo tiene bytes en documentos antiguos sin migrar a Cloudinary.
 public sealed class InvoiceDocument
 {
     public int InvoiceId { get; set; }
@@ -25,6 +28,7 @@ public sealed class InvoiceDocument
     public string CloudinaryCloudName { get; set; } = "";
 }
 
+// Tarea pendiente: revisar y borrar un archivo remoto a partir de NotBefore.
 public sealed class InvoiceFileCleanup
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");

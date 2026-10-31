@@ -1,3 +1,4 @@
+// Convierte entidades de base de datos en objetos de respuesta HTTP.
 namespace GestionMesas.Api;
 
 internal static class CigaretteMapping

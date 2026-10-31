@@ -1,3 +1,4 @@
+// Diálogo de detalle: ranking mensual o productos con poco stock.
 import { useEffect, useRef } from 'react'
 import { preciseMoney as money } from '../../../shared/utils/currency.js'
 import { SkeletonRows } from '../../../shared/components/LoadingSkeleton.jsx'

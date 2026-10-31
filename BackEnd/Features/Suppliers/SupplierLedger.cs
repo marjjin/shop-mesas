@@ -1,7 +1,9 @@
+// Reglas de saldos: cómo afecta cada tipo de movimiento a un proveedor.
 namespace GestionMesas.Api;
 
 internal static class SupplierLedger
 {
+    // Único lugar que modifica lo reservado: mantiene el total igual a la suma de sus partes.
     internal static void ApplyReserved(Supplier supplier, decimal cashDifference, decimal mercadoPagoDifference)
     {
         supplier.ReservedCashBalance += cashDifference;
@@ -9,6 +11,7 @@ internal static class SupplierLedger
         supplier.ReservedBalance = supplier.ReservedCashBalance + supplier.ReservedMercadoPagoBalance;
     }
 
+    // Impide gastar más de lo disponible en cada medio de pago.
     internal static void EnsureAvailable(Supplier supplier, decimal cashAmount, decimal mercadoPagoAmount, string message)
     {
         if (cashAmount > supplier.ReservedCashBalance || mercadoPagoAmount > supplier.ReservedMercadoPagoBalance) throw new SupplierValidationException(message);
@@ -25,6 +28,7 @@ internal static class SupplierLedger
         if (cashAmount + mercadoPagoAmount <= 0) throw new SupplierValidationException(message);
     }
 
+    // Lo generado por un cierre o una transferencia solo se corrige desde su operación de origen.
     internal static void EnsureEditableTransaction(SupplierTransaction transaction)
     {
         if (transaction.CigaretteShiftCloseId is not null || transaction.Type is "allocation" or "reserved_transfer_in" or "reserved_transfer_out")
@@ -33,6 +37,7 @@ internal static class SupplierLedger
             throw new SupplierValidationException("Este tipo de movimiento no se puede editar ni eliminar.");
     }
 
+    // Valida la edición según el tipo y devuelve un movimiento temporal con los valores nuevos.
     internal static SupplierTransaction ValidateReplacement(string type, UpdateSupplierTransactionRequest request)
     {
         var note = NormalizeNote(request.Note);
@@ -71,6 +76,7 @@ internal static class SupplierLedger
         }
     }
 
+    // Comprueba que el movimiento se pueda aplicar sin dejar saldos negativos.
     internal static void EnsureCanApply(Supplier supplier, SupplierTransaction transaction)
     {
         if (transaction.Type is "reserved_purchase" or "payment")
@@ -97,6 +103,9 @@ internal static class SupplierLedger
             throw new SupplierValidationException("La operación dejaría un saldo negativo.");
     }
 
+    // Aplica un movimiento (direction = 1) o lo revierte (direction = -1).
+    // ATENCIÓN: no hay caso para reserved_exchange, aunque ese tipo se puede editar y eliminar.
+    // Editar o borrar ese movimiento hoy cambia el historial sin mover los saldos.
     internal static void ApplyTransactionEffect(Supplier supplier, SupplierTransaction transaction, decimal direction)
     {
         switch (transaction.Type)
@@ -120,6 +129,7 @@ internal static class SupplierLedger
         }
     }
 
+    // Foto de los saldos, para restaurarlos si una edición falla a mitad de camino.
     internal sealed class Balances(decimal reservedCash, decimal reservedMercadoPago, decimal reserved, decimal currentAccount)
     {
         private readonly decimal reservedCash = reservedCash;
@@ -136,8 +146,10 @@ internal static class SupplierLedger
         }
     }
 
+    // Fábrica de movimientos: el único lugar que los construye.
     internal static SupplierTransaction Transaction(int supplierId, string type, decimal amount, decimal cashAmount, decimal mercadoPagoAmount, DateTime now, string? note = null, int? closeId = null, DateOnly? businessDate = null) =>
         new() { SupplierId = supplierId, CigaretteShiftCloseId = closeId, Type = type, Amount = amount, CashAmount = cashAmount, MercadoPagoAmount = mercadoPagoAmount, BusinessDate = businessDate ?? DateOnly.FromDateTime(now), Note = note, CreatedAt = now };
 
+    // Normaliza la nota: vacía se guarda como null, y se corta en 250 caracteres.
     internal static string? NormalizeNote(string? note) => string.IsNullOrWhiteSpace(note) ? null : note.Trim()[..Math.Min(note.Trim().Length, 250)];
 }

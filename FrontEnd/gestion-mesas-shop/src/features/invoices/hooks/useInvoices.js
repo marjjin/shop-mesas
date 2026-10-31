@@ -1,3 +1,4 @@
+// Carga el archivo de facturas según los filtros, cancelando consultas viejas.
 import { useEffect, useState } from 'react'
 import { loadInvoiceArchive } from '../api/invoicesApi.js'
 

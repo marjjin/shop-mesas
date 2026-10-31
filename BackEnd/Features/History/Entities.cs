@@ -1,3 +1,4 @@
+// Registro permanente de una mesa cerrada. Guarda textos, no referencias, para no depender de datos que pueden borrarse.
 namespace GestionMesas.Api;
 
 public class ClosedTableHistory

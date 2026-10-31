@@ -1,3 +1,4 @@
+// Captura de foto, con cámara integrada, cámara del teléfono o archivo.
 import { useEffect, useRef, useState } from 'react'
 import { canvasBlob } from './scanClient.js'
 import InvoiceIcon from '../ui/InvoiceIcon.jsx'
@@ -13,6 +14,7 @@ export default function CameraCapture({ onImage, busy }) {
   const nativeCamera = useRef(null)
   const currentStream = useRef(null)
   const mounted = useRef(false)
+  // Apaga la cámara: sin esto, el indicador del dispositivo sigue encendido.
   const stop = () => { currentStream.current?.getTracks().forEach((track) => track.stop()); currentStream.current = null; setStream(null); setReady(false) }
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; currentStream.current?.getTracks().forEach((track) => track.stop()) } }, [])
   useEffect(() => { if (video.current && stream) video.current.srcObject = stream }, [stream])

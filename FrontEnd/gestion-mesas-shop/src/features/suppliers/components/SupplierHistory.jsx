@@ -1,3 +1,4 @@
+// Historial de movimientos, con filtro por tipo.
 import SupplierIcon from './SupplierIcon.jsx'
 import { money } from '../../../shared/utils/currency.js'
 import { editableTransactionTypes, transactionLabel } from '../domain/transactions.js'

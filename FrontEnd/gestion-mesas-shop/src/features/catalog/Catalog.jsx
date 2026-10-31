@@ -1,3 +1,4 @@
+// Pantalla de artículos que se cargan en las mesas.
 import { useRef, useState } from 'react'
 import { isCoworkingService } from '../../shared/utils/products.js'
 import { filterCatalogProducts } from './domain/catalogProducts.js'
@@ -51,6 +52,7 @@ export default function Catalog({ data, api, load }) {
     setDeleting(item)
   }
 
+  // deleting.all distingue borrar todos los artículos de borrar uno solo.
   const deleteProducts = async () => {
     if (action || !deleting) return
     setAction('delete')

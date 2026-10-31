@@ -1,3 +1,4 @@
+// Diálogo genérico de confirmación del inventario.
 import { useEffect, useRef } from 'react'
 import InventoryIcon from './InventoryIcon.jsx'
 

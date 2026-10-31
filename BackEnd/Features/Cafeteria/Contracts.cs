@@ -1,3 +1,4 @@
+// Formas del JSON de Caja Cafetería.
 namespace GestionMesas.Api;
 
 /// <summary>Artículo configurable para las ventas rápidas de cafetería.</summary>

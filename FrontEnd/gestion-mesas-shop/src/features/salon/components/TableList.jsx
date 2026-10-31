@@ -1,3 +1,4 @@
+// Vista de lista del salón, pensada para celulares.
 import useNow from '../../../shared/hooks/useNow.js'
 import { clock } from '../../../shared/utils/date.js'
 import SalonIcon from './SalonIcon.jsx'

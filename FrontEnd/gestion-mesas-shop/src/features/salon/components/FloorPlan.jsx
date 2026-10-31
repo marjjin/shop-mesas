@@ -1,3 +1,4 @@
+// Plano interactivo. React-moveable permite arrastrar y redimensionar la mesa en edición.
 import { useEffect, useId, useRef, useState } from 'react'
 import Moveable from 'react-moveable'
 import { clock } from '../../../shared/utils/date.js'
@@ -16,8 +17,10 @@ export default function FloorPlan({ tables, visibleTableIds, coworkingTableIds, 
   const clickTimer = useRef(null)
   const editing = tables.find((table) => table.id === editingId)
   const { width: canvasWidth, height: canvasHeight } = getFloorBounds(tables)
+  // Editar siempre es al 100% para que las coordenadas coincidan con las reales.
   const scale = editingMode ? 1 : zoom === 'fit' ? fitFloorToWidth(viewportWidth, canvasWidth) : zoom
 
+  // ResizeObserver avisa cuando cambia el ancho disponible, para recalcular el zoom.
   useEffect(() => {
     const observer = new ResizeObserver(([entry]) => setViewportWidth(entry.contentRect.width))
     observer.observe(viewportRef.current)
@@ -25,6 +28,7 @@ export default function FloorPlan({ tables, visibleTableIds, coworkingTableIds, 
   }, [])
   useEffect(() => () => clearTimeout(clickTimer.current), [editingMode])
 
+  // Clic en una mesa. Espera 220 ms: un segundo clic rápido cancela el anterior.
   const selectTable = (event, table) => {
     event.stopPropagation()
     clearTimeout(clickTimer.current)
@@ -34,14 +38,17 @@ export default function FloorPlan({ tables, visibleTableIds, coworkingTableIds, 
     }
     clickTimer.current = setTimeout(() => (editingMode ? onEdit(table.id) : onSelect(table.id)), 220)
   }
+  // Guarda la posición inicial del arrastre.
   const begin = (set) => {
     origin.current = { x: editing?.x ?? 0, y: editing?.y ?? 0 }
     set?.([0, 0])
   }
+  // Durante el arrastre toca el DOM directamente: es fluido y no re-renderiza en cada píxel.
   const move = (element, delta) => {
     element.style.left = `${origin.current.x + delta[0]}px`
     element.style.top = `${origin.current.y + delta[1]}px`
   }
+  // Al soltar guarda posición y tamaño en la API.
   const finish = (width, height) => {
     if (!target || !editing) return
     saveTable(editing.id, {

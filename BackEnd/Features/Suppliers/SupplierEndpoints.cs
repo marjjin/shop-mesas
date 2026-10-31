@@ -1,3 +1,4 @@
+// Rutas de proveedores. Cada una traduce las excepciones del servicio a códigos HTTP.
 namespace GestionMesas.Api;
 
 public static class SupplierEndpoints

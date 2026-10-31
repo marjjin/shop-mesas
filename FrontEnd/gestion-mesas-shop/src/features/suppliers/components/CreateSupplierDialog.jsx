@@ -1,3 +1,4 @@
+// Diálogo de alta de proveedor.
 import SupplierIcon from './SupplierIcon.jsx'
 
 export default function CreateSupplierDialog({ setCreatingSupplier, create, name, setName }) {

@@ -1,3 +1,4 @@
+// Reimprime la bienvenida con la configuración actual, leída del servidor.
 import { printWelcomeReceipt } from '../../printing/receipt.js'
 
 export async function reprintWelcome(table, api, printWindow) {

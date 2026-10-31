@@ -1,3 +1,4 @@
+// Categorías y artículos que se cargan en las mesas.
 namespace GestionMesas.Api;
 
 public class Category

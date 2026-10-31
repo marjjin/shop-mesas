@@ -1,3 +1,4 @@
+// Notificación flotante del salón.
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import SalonIcon from './SalonIcon.jsx'
@@ -8,12 +9,14 @@ export default function SalonToast({ message, onDismiss }) {
   const [focused, setFocused] = useState(false)
   const saleRegistered = message === 'Venta de cafetería registrada.'
 
+  // Se cierra sola a los 5 segundos, salvo si el usuario la está mirando o usando.
   useEffect(() => {
     if (!saleRegistered || hovered || focused) return
     const timer = setTimeout(() => onDismiss(message), 5000)
     return () => clearTimeout(timer)
   }, [message, saleRegistered, hovered, focused, onDismiss])
 
+  // createPortal la dibuja en <body>: así no la recorta ningún contenedor.
   return createPortal(<div className="salon-toast" onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)} onFocusCapture={() => setFocused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false) }}>
     <span className="salon-toast-icon"><SalonIcon name={saleRegistered ? 'check' : 'info'} /></span>
     <span className="salon-toast-message" role="status" aria-atomic="true">{message}</span>

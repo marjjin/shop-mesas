@@ -1,3 +1,4 @@
+// Formulario del ticket, dividido en pestañas de importe y textos.
 import { welcomeTextFields } from '../../../shared/utils/welcomeMessage.js'
 import Icon from './SettingsIcon.jsx'
 

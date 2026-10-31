@@ -1,9 +1,11 @@
+// Reglas del ticket de bienvenida: combinación de cambios, validación y lista de campos.
 namespace GestionMesas.Api;
 
 public static class WelcomeMessageConfiguration
 {
     public static void EnsureSchema(RestaurantContext db) => WelcomeMessageSchemaUpgrade.Apply(db);
 
+    // Combina lo recibido con lo guardado: un campo null conserva el valor anterior.
     public static WelcomeMessageSetting Merge(UpdateWelcomeMessageSettingRequest request, WelcomeMessageSetting? current)
     {
         current ??= new();
@@ -19,6 +21,7 @@ public static class WelcomeMessageConfiguration
         };
     }
 
+    // Devuelve el mensaje de error, o null si todo es válido.
     public static string? Validate(WelcomeMessageSetting setting)
     {
         if (setting.Amount < 0 || setting.Amount > 999999999.99m || decimal.Round(setting.Amount, 2) != setting.Amount)
@@ -31,6 +34,7 @@ public static class WelcomeMessageConfiguration
         return null;
     }
 
+    // Lista única de campos: la usan la validación y la creación de columnas.
     internal static (string Column, string Value, string Label, int MaxLength, bool Required)[] TextFields(WelcomeMessageSetting setting) =>
     [
         ("BusinessName", setting.BusinessName, "nombre del local", 100, true),

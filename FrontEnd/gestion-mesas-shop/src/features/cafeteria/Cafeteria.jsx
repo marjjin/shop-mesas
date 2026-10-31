@@ -1,3 +1,4 @@
+// Pantalla de Caja Cafetería: resumen, artículos e historial.
 import { useState } from 'react'
 import LoadingSkeleton from '../../shared/components/LoadingSkeleton.jsx'
 import useCafeteria from './hooks/useCafeteria.js'

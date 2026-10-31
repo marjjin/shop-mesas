@@ -1,3 +1,4 @@
+// Menú de escritorio. Incluye también la navegación móvil, y el CSS muestra una u otra.
 import ThemeToggle from '../appearance/ThemeToggle.jsx'
 import NavigationMenu from './NavigationMenu.jsx'
 import MobileNavigation from './MobileNavigation.jsx'

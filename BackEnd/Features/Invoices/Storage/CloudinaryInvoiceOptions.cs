@@ -1,3 +1,4 @@
+// Credenciales de Cloudinary, tomadas de variables separadas o de CLOUDINARY_URL.
 using System.Text.RegularExpressions;
 
 namespace GestionMesas.Api;
@@ -8,6 +9,7 @@ public sealed class CloudinaryInvoiceOptions
     public string ApiKey { get; init; } = "";
     public string ApiSecret { get; init; } = "";
     public string Folder { get; init; } = "shop-family/facturas";
+    // Valida también el formato: estos valores se usan para armar URLs y rutas.
     public bool IsConfigured => Regex.IsMatch(CloudName, "^[a-zA-Z0-9_-]{1,100}$")
         && !string.IsNullOrWhiteSpace(ApiKey) && !string.IsNullOrWhiteSpace(ApiSecret)
         && !ApiSecret.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase)
@@ -28,6 +30,7 @@ public sealed class CloudinaryInvoiceOptions
         return new() { CloudName = name, ApiKey = key, ApiSecret = secret, Folder = folder };
     }
 
+    // Lanza un error claro si falta configuración o el documento es de otra cuenta.
     public void RequireConfigured(string? cloudName = null)
     {
         if (!IsConfigured) throw new InvoiceStorageException("Falta configurar Cloudinary en el servidor para guardar o consultar estos documentos.");

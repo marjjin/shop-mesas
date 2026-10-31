@@ -1,3 +1,4 @@
+// Une las páginas escaneadas en un PDF. Cada página mide 210 mm de ancho como máximo.
 export function pageDimensions(page) {
   const scale = Math.min(210 / page.width, 1200 / page.height)
   return [page.width * scale, page.height * scale]
@@ -13,6 +14,7 @@ export async function buildInvoicePdf(pages) {
     if (!doc) doc = new jsPDF(options)
     else doc.addPage([width, height], options.orientation)
     const bytes = new Uint8Array(await page.blob.arrayBuffer())
+    // NONE evita recomprimir: las imágenes ya llegan en JPEG optimizado.
     doc.addImage(bytes, 'JPEG', 0, 0, width, height, undefined, 'NONE')
   }
   doc.setProperties({ title: 'Factura escaneada', creator: 'SHOP FAMILY' })

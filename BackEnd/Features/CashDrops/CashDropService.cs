@@ -1,3 +1,4 @@
+// Registro de tiradas de efectivo. El cierre del turno las suma al arqueo.
 using Microsoft.EntityFrameworkCore;
 
 namespace GestionMesas.Api;
@@ -13,6 +14,7 @@ public interface ICashDropService
 
 public sealed class CashDropService(RestaurantContext db) : ICashDropService
 {
+    // Busca el primer turno sin cierre de la fecha, o null si ambos están cerrados.
     public async Task<OpenCashDropsResponse> GetOpenAsync(DateOnly businessDate, CancellationToken cancellationToken)
     {
         var closedShifts = await db.CigaretteShiftCloses.AsNoTracking()
@@ -44,6 +46,7 @@ public sealed class CashDropService(RestaurantContext db) : ICashDropService
             .ToListAsync(cancellationToken);
     }
 
+    // Solo se registran tiradas en un turno abierto.
     public async Task<CashDropResponse> CreateAsync(CreateCashDropRequest request, CancellationToken cancellationToken)
     {
         ValidateAmount(request.Amount);
@@ -61,6 +64,7 @@ public sealed class CashDropService(RestaurantContext db) : ICashDropService
         return ToResponse(drop);
     }
 
+    // La edición y el borrado no comprueban el cierre: permiten corregir tiradas de turnos cerrados.
     public async Task<CashDropResponse?> UpdateAsync(int id, UpdateCashDropRequest request, CancellationToken cancellationToken)
     {
         ValidateAmount(request.Amount);

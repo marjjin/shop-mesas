@@ -1,3 +1,4 @@
+// Componente raíz: une sesión, navegación y datos, y decide qué pantalla mostrar.
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import Catalog from './features/catalog/Catalog.jsx'
 import Cafeteria from './features/cafeteria/Cafeteria.jsx'
@@ -28,11 +29,15 @@ import './features/salon/styles/FloorPlan.css'
 import './features/cafeteria/CoffeeSales.css'
 import './styles/Theme.css'
 
+// lazy: Facturas se descarga recién al abrirla, porque incluye el escáner y es pesada.
 const Invoices = lazy(() => import('./features/invoices/Invoices.jsx'))
 
+// Los hooks de arriba guardan el estado global y las pantallas lo reciben por props.
+// No hay Redux ni Context: todo fluye desde este componente hacia abajo.
 export default function App() {
   const { preference, resolvedTheme, changeTheme } = useTheme()
   const [message, setMessage] = useState('')
+  // Quita un mensaje solo si sigue siendo el mismo: un mensaje nuevo no se borra por error.
   const dismissMessage = useCallback((expected) => setMessage((current) => current === expected ? '' : current), [])
   const session = useSession(api, setMessage)
   const { user, login, setLogin, loginSubmit } = session
@@ -45,19 +50,24 @@ export default function App() {
   const { selected, orders, setSelectedId, chooseTableForPendingOrder, closeTable, updateOpenedAt, changeSection: changeSalonSection } = salon
   const now = useNow()
 
+  // Reacciona a cada cambio de sección, incluidos los botones atrás y adelante del navegador.
   useEffect(() => subscribeToSectionChanges((nextSection) => {
     changeSalonSection(nextSection)
     if (user && nextSection === 'salon') loadCoffeeSummary().catch(() => {})
   }), [subscribeToSectionChanges, changeSalonSection, user, loadCoffeeSummary])
   const signOut = async () => { if (await session.signOut()) salon.reset() }
 
+  // Mientras se valida un token guardado se muestra un esqueleto, no el login.
   if (session.restoring) return <SessionSkeleton section={section} />
 
+  // Sin usuario autenticado, la única pantalla posible es el login.
   if (!user) return <LoginForm login={login} error={message} onLoginChange={setLogin} onSubmit={loginSubmit} resolvedTheme={resolvedTheme} onThemeChange={changeTheme} busy={session.busy} restoring={session.restoring} />
 
+  // Las secciones que usan datos compartidos muestran un esqueleto hasta la primera carga.
   const sectionLoading = section === 'history' ? loadingHistory : ['salon', 'pending', 'catalog'].includes(section) && loading
   const sectionError = section === 'history' ? historyError : ['pending', 'catalog'].includes(section) ? dataError : ''
 
+  // El panel de mesa se dibuja fuera de <section>: puede quedar abierto sobre el resto.
   return <main className="layout">
     <Sidebar user={user} section={section} pendingOrdersCount={data.pendingOrders?.length} onSectionChange={setSection} onSignOut={signOut} resolvedTheme={resolvedTheme} onThemeChange={changeTheme} />
     <section className="page">

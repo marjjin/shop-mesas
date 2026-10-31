@@ -1,3 +1,4 @@
+// Filtrado y orden del catálogo.
 import { isCoworkingService } from '../../../shared/utils/products.js'
 
 const normalize = (value) => value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es-AR')
@@ -7,6 +8,7 @@ export function filterCatalogProducts(products, { search = '', filter = 'all', s
   return products.filter((item) => {
     const automatic = isCoworkingService(item)
     return (filter === 'all' || (filter === 'automatic' ? automatic : !automatic)) && normalize(item.name).includes(query)
+  // Por defecto, los más recientes primero: el id más alto es el último creado.
   }).sort((first, second) => sort === 'name'
     ? first.name.localeCompare(second.name, 'es-AR', { sensitivity: 'base', numeric: true })
     : second.id - first.id)

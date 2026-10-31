@@ -1,3 +1,4 @@
+// Listado de mesas cerradas, con reimpresión del comprobante.
 import { useState } from 'react'
 import HistoryIcon from './HistoryIcon.jsx'
 import './History.css'
@@ -6,6 +7,7 @@ import { openReceiptPrintWindow, printReceipt, localDate, localTime } from '../p
 export default function History({ histories }) {
   const [visibleCount, setVisibleCount] = useState(10)
   const [printError, setPrintError] = useState('')
+  // Muestra de a 10 para no dibujar todo el historial de una vez.
   const visibleHistories = histories.slice(0, visibleCount)
 
   const printHistory = (history) => {

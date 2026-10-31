@@ -1,3 +1,4 @@
+// Vista previa del ticket. Cada parte es un botón que lleva a su campo.
 import Icon from './SettingsIcon.jsx'
 
 export default function WelcomeTicketPreview({ editor }) {

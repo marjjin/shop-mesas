@@ -1,3 +1,4 @@
+// Formas del JSON de facturas.
 namespace GestionMesas.Api;
 
 public sealed record InvoiceMetadataRequest(int SupplierId, DateOnly IssueDate, string? Reference = null, string? Note = null);

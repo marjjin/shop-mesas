@@ -1,3 +1,4 @@
+// Productos y compras. Toda compra cambia el stock.
 using Microsoft.EntityFrameworkCore;
 using static GestionMesas.Api.CigaretteMapping;
 using static GestionMesas.Api.CigaretteRules;
@@ -6,6 +7,7 @@ namespace GestionMesas.Api;
 
 internal sealed class CigaretteInventory(RestaurantContext db)
 {
+    // Si existe un producto desactivado con ese nombre, se reactiva: el nombre es único en la tabla.
     public async Task<CigaretteProductResponse> CreateProductAsync(CreateCigaretteProductRequest request, CancellationToken cancellationToken)
     {
         var name = ValidateProduct(request.Name, request.Price);
@@ -30,6 +32,7 @@ internal sealed class CigaretteInventory(RestaurantContext db)
         return ToResponse(product);
     }
 
+    // Edita nombre, precio y stock.
     public async Task<CigaretteProductResponse?> UpdateProductAsync(int id, UpdateCigaretteProductRequest request, CancellationToken cancellationToken)
     {
         var product = await db.CigaretteProducts.FirstOrDefaultAsync(item => item.Id == id && item.IsActive, cancellationToken);
@@ -38,6 +41,7 @@ internal sealed class CigaretteInventory(RestaurantContext db)
         if (request.Stock < 0) throw new CigaretteValidationException("El stock no puede ser negativo.");
         if (await db.CigaretteProducts.AnyAsync(item => item.Id != id && item.Name.ToLower() == name.ToLower(), cancellationToken))
             throw new CigaretteValidationException("Ya existe un cigarrillo con ese nombre.");
+        // El stock no puede bajar de las compras de turnos abiertos, porque el cierre las necesita para calcular el inicial.
         var purchases = await db.CigarettePurchases.Where(purchase => purchase.CigaretteProductId == id)
             .Select(purchase => new { purchase.BusinessDate, purchase.Shift, purchase.Quantity }).ToListAsync(cancellationToken);
         var closedShifts = await db.CigaretteShiftCloses.Select(close => new { close.BusinessDate, close.Shift }).ToListAsync(cancellationToken);
@@ -52,6 +56,7 @@ internal sealed class CigaretteInventory(RestaurantContext db)
         return ToResponse(product);
     }
 
+    // Baja lógica: el historial de cierres sigue apuntando a este producto.
     public async Task<bool> DeleteProductAsync(int id, CancellationToken cancellationToken)
     {
         var product = await db.CigaretteProducts.FirstOrDefaultAsync(item => item.Id == id && item.IsActive, cancellationToken);
@@ -61,6 +66,7 @@ internal sealed class CigaretteInventory(RestaurantContext db)
         return true;
     }
 
+    // Registra una compra y suma unidades al stock. Solo se permite en un turno abierto.
     public async Task<CigarettePurchaseResponse> CreatePurchaseAsync(CreateCigarettePurchaseRequest request, CancellationToken cancellationToken)
     {
         ValidateCashAmount(request.TotalCost);
@@ -79,6 +85,7 @@ internal sealed class CigaretteInventory(RestaurantContext db)
         return ToResponse(purchase, product.Name);
     }
 
+    // Edita una compra. Un turno abierto mueve el stock; uno cerrado recalcula el cierre.
     public async Task<CigarettePurchaseResponse?> UpdatePurchaseAsync(int id, UpdateCigarettePurchaseRequest request, CancellationToken cancellationToken)
     {
         ValidateCashAmount(request.TotalCost);
@@ -94,6 +101,7 @@ internal sealed class CigaretteInventory(RestaurantContext db)
         var updatedStock = product.Stock + quantityDifference;
         if (close is null && updatedStock < 0) throw new CigaretteValidationException("El stock no puede quedar negativo.");
 
+        // Con turno cerrado, el stock actual ya es definitivo: cambia lo vendido, no lo que hay.
         if (close is not null) AdjustClosedPurchase(close, purchase.CigaretteProductId, quantityDifference);
         else product.Stock = updatedStock;
         purchase.Quantity = request.Quantity;
@@ -103,6 +111,7 @@ internal sealed class CigaretteInventory(RestaurantContext db)
         return ToResponse(purchase, product.Name);
     }
 
+    // Misma lógica que la edición, restando la compra completa.
     public async Task<bool> DeletePurchaseAsync(int id, CancellationToken cancellationToken)
     {
         var purchase = await db.CigarettePurchases.FindAsync([id], cancellationToken);
@@ -120,6 +129,7 @@ internal sealed class CigaretteInventory(RestaurantContext db)
         return true;
     }
 
+    // Recalcula un renglón de cierre: vendido = inicial + compras - final.
     private static void AdjustClosedPurchase(CigaretteShiftClose close, int productId, int quantityDifference)
     {
         var closeItem = close.Items.SingleOrDefault(item => item.CigaretteProductId == productId)

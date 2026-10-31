@@ -1,3 +1,4 @@
+// Tema claro, oscuro o del sistema, guardado en localStorage.
 import { useCallback, useEffect, useState } from 'react'
 
 const storageKey = 'mesa-theme'
@@ -19,11 +20,13 @@ function resolveTheme(preference) {
     : preference
 }
 
+// El CSS reacciona al atributo data-theme de la etiqueta html.
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme
   document.documentElement.style.colorScheme = theme
 }
 
+// preference es lo elegido; resolvedTheme, lo que realmente se aplica.
 export default function useTheme() {
   const [preference, setPreference] = useState(readPreference)
   const [systemDark, setSystemDark] = useState(() => window.matchMedia(systemQuery).matches)
@@ -40,6 +43,7 @@ export default function useTheme() {
     applyTheme(resolvedTheme)
   }, [resolvedTheme])
 
+  // Sigue los cambios del sistema operativo y de otras pestañas.
   useEffect(() => {
     const media = window.matchMedia(systemQuery)
     const onSystemChange = (event) => setSystemDark(event.matches)

@@ -1,3 +1,4 @@
+// Operaciones de proveedores. Cada una cambia saldos y deja un movimiento en el historial.
 using Microsoft.EntityFrameworkCore;
 using static GestionMesas.Api.SupplierLedger;
 
@@ -13,6 +14,7 @@ public sealed class SupplierService(RestaurantContext db) : ISupplierService
         return suppliers.Select(supplier => ToResponse(supplier, transactions.Where(transaction => transaction.SupplierId == supplier.Id), closes)).ToList();
     }
 
+    // Si existe un proveedor desactivado con ese nombre, se reactiva con su historial.
     public async Task<SupplierResponse> CreateAsync(CreateSupplierRequest request, CancellationToken cancellationToken)
     {
         var name = ValidateName(request.Name);
@@ -45,6 +47,7 @@ public sealed class SupplierService(RestaurantContext db) : ISupplierService
         return await ResponseForAsync(supplier, cancellationToken);
     }
 
+    // Baja lógica: conserva los movimientos.
     public async Task<bool> DeactivateAsync(int id, CancellationToken cancellationToken)
     {
         var supplier = await db.Suppliers.FirstOrDefaultAsync(item => item.Id == id && item.IsActive, cancellationToken);
@@ -54,6 +57,7 @@ public sealed class SupplierService(RestaurantContext db) : ISupplierService
         return true;
     }
 
+    // Corrección manual de saldos. Registra la diferencia como ajuste para que quede rastro.
     public async Task<SupplierResponse?> UpdateBalancesAsync(int id, UpdateSupplierBalancesRequest request, CancellationToken cancellationToken)
     {
         ValidateSplit(request.ReservedCashBalance, request.ReservedMercadoPagoBalance);
@@ -79,6 +83,7 @@ public sealed class SupplierService(RestaurantContext db) : ISupplierService
         return await ResponseForAsync(supplier, cancellationToken);
     }
 
+    // Pasa fondos reservados de un proveedor a otro: genera un movimiento en cada uno.
     public async Task TransferReservedFundsAsync(CreateSupplierReservedFundsTransferRequest request, CancellationToken cancellationToken)
     {
         if (request.SourceSupplierId == request.TargetSupplierId) throw new SupplierValidationException("Elegí proveedores distintos para la transferencia.");
@@ -100,6 +105,7 @@ public sealed class SupplierService(RestaurantContext db) : ISupplierService
         await db.SaveChangesAsync(cancellationToken);
     }
 
+    // Mueve dinero entre efectivo y Mercado Pago sin cambiar el total reservado.
     public async Task<SupplierResponse> ExchangeReservedFundsAsync(int id, CreateSupplierReservedFundsExchangeRequest request, CancellationToken cancellationToken)
     {
         if (request.Amount <= 0) throw new SupplierValidationException("El importe a mover debe ser mayor que cero.");
@@ -120,6 +126,7 @@ public sealed class SupplierService(RestaurantContext db) : ISupplierService
         return await ResponseForAsync(supplier, cancellationToken);
     }
 
+    // Compra: con fondos reservados los consume; a cuenta corriente aumenta la deuda.
     public async Task<SupplierResponse> RecordPurchaseAsync(int id, CreateSupplierPurchaseRequest request, CancellationToken cancellationToken)
     {
         var supplier = await ActiveSupplierAsync(id, cancellationToken);
@@ -144,6 +151,7 @@ public sealed class SupplierService(RestaurantContext db) : ISupplierService
         return await ResponseForAsync(supplier, cancellationToken);
     }
 
+    // Pago de deuda: baja la cuenta corriente y descuenta de los fondos reservados.
     public async Task<SupplierResponse> RecordPaymentAsync(int id, CreateSupplierPaymentRequest request, CancellationToken cancellationToken)
     {
         var supplier = await ActiveSupplierAsync(id, cancellationToken);
@@ -158,6 +166,7 @@ public sealed class SupplierService(RestaurantContext db) : ISupplierService
         return await ResponseForAsync(supplier, cancellationToken);
     }
 
+    // Edita un movimiento: revierte el viejo, valida y aplica el nuevo.
     public async Task<SupplierResponse?> UpdateTransactionAsync(int supplierId, int transactionId, UpdateSupplierTransactionRequest request, CancellationToken cancellationToken)
     {
         var supplier = await db.Suppliers.FirstOrDefaultAsync(item => item.Id == supplierId && item.IsActive, cancellationToken);
@@ -166,6 +175,7 @@ public sealed class SupplierService(RestaurantContext db) : ISupplierService
         if (transaction is null) return null;
         EnsureEditableTransaction(transaction);
 
+        // Si algo falla, restaura los saldos en memoria antes de propagar el error.
         var oldBalances = Balances.From(supplier);
         ApplyTransactionEffect(supplier, transaction, -1);
         try
@@ -188,6 +198,7 @@ public sealed class SupplierService(RestaurantContext db) : ISupplierService
         }
     }
 
+    // Elimina un movimiento y revierte su efecto.
     public async Task<SupplierResponse?> DeleteTransactionAsync(int supplierId, int transactionId, CancellationToken cancellationToken)
     {
         var supplier = await db.Suppliers.FirstOrDefaultAsync(item => item.Id == supplierId && item.IsActive, cancellationToken);
@@ -221,6 +232,7 @@ public sealed class SupplierService(RestaurantContext db) : ISupplierService
         return ToResponse(supplier, transactions, await db.CigaretteShiftCloses.ToDictionaryAsync(close => close.Id, cancellationToken));
     }
 
+    // Reconstruye el saldo de cuenta corriente tras cada movimiento, recorriendo desde el más nuevo hacia atrás.
     private static SupplierResponse ToResponse(Supplier supplier, IEnumerable<SupplierTransaction> transactions, IReadOnlyDictionary<int, CigaretteShiftClose> closes)
     {
         var ordered = transactions.OrderByDescending(transaction => transaction.CreatedAt).ToList();

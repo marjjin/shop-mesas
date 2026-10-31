@@ -1,3 +1,4 @@
+// Implementación real de IInvoiceFileStore sobre Cloudinary.
 using Microsoft.EntityFrameworkCore;
 
 namespace GestionMesas.Api;

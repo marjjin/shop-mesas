@@ -1,3 +1,4 @@
+// Pedido de un cliente que todavía no tiene mesa, con sus artículos.
 namespace GestionMesas.Api;
 
 public class PendingOrder

@@ -1,3 +1,4 @@
+// Carga los datos de una fecha, junto con cafetería, proveedores y ranking mensual.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { monthRange, previousShift } from '../domain/businessDate.js'
 import { normalizeCigaretteDashboard, buildMonthlyRanking } from '../domain/dashboard.js'
@@ -12,7 +13,9 @@ export default function useCigaretteDashboard({ api, date, shift, setMessage }) 
   const [monthlyRanking, setMonthlyRanking] = useState([])
   const [loadingRanking, setLoadingRanking] = useState(false)
   const [rankingError, setRankingError] = useState('')
+  // Identifica la última carga: las respuestas viejas se ignoran.
   const dashboardLoadId = useRef(0)
+  // allSettled permite seguir aunque falle cafetería o proveedores.
   const load = useCallback(async () => {
     const currentLoadId = ++dashboardLoadId.current
     try {
@@ -21,6 +24,7 @@ export default function useCigaretteDashboard({ api, date, shift, setMessage }) 
         api('/cafeteria/dashboard'),
         api('/suppliers')
       ])
+      // Solo los datos de cigarrillos son indispensables.
       if (cigarettesResult.status === 'rejected') throw cigarettesResult.reason
       if (currentLoadId !== dashboardLoadId.current) return
       setDashboard(normalizeCigaretteDashboard(cigarettesResult.value))
@@ -57,6 +61,7 @@ export default function useCigaretteDashboard({ api, date, shift, setMessage }) 
   useEffect(() => { load() }, [load])
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { loadMonthlyRanking() }, [loadMonthlyRanking])
+  // Busca el cambio dejado por el turno anterior, para sugerirlo en el arqueo.
   useEffect(() => {
     let cancelled = false
     const previous = previousShift(date, shift)

@@ -1,3 +1,4 @@
+// Pantalla Caja: saldos acumulados, detalle del día e historial.
 import { preciseMoney as money } from '../../../shared/utils/currency.js'
 import InventoryIcon from '../inventory/InventoryIcon.jsx'
 import useCigaretteCash from './useCigaretteCash.js'

@@ -1,3 +1,4 @@
+// Diálogo de edición de un movimiento.
 import SupplierIcon from './SupplierIcon.jsx'
 import { transactionLabel } from '../domain/transactions.js'
 

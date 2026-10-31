@@ -1,3 +1,4 @@
+// Historial por fecha, descartando respuestas que llegan tarde.
 import { useEffect, useState } from 'react'
 import { dateInputValue } from '../domain/cafeteriaView.js'
 
@@ -8,8 +9,10 @@ export default function useCafeteriaHistory(api, businessDate, refreshKey) {
   const setHistoryDate = (date) => {
     if (date) setSelection((current) => current.date === date ? current : { date })
   }
+  // Crear un objeto nuevo fuerza la repetición del efecto.
   const retryHistory = () => setSelection((current) => ({ ...current }))
   // Each selection and dashboard refresh identifies its own request.
+  // El resultado solo vale si corresponde a la consulta actual.
   const current = result?.selection === selection && result.api === api && result.refreshKey === refreshKey
   const loadingHistory = !current
   const shiftHistory = current ? result.items : []

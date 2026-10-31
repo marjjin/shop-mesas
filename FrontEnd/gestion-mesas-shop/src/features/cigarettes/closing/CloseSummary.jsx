@@ -1,6 +1,8 @@
+// Resúmenes de solo lectura dentro del cierre.
 import ClosingIcon from './ClosingIcon.jsx'
 import { money } from '../../../shared/utils/currency.js'
 
+// Caja Cafetería del turno.
 export function CafeteriaCloseSummary({ summary, error }) {
   return <section className="cafeteria-close-card" aria-label="Caja Cafetería">
     <span className="closing-block-icon"><ClosingIcon name="coffee" /></span><div className="cafeteria-close-heading"><h2>Caja Cafetería</h2></div>

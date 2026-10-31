@@ -1,3 +1,4 @@
+// Muestra la versión de package.json, la fuente única de verdad del número de versión.
 import { version } from '../../../package.json'
 import './AppVersion.css'
 

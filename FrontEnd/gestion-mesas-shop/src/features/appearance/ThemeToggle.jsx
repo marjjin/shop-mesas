@@ -1,3 +1,4 @@
+// Botón rápido que alterna entre claro y oscuro.
 import ThemeIcon from './ThemeIcon.jsx'
 
 export default function ThemeToggle({ resolvedTheme, onThemeChange }) {

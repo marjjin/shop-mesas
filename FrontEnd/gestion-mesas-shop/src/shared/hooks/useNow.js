@@ -1,3 +1,4 @@
+// Devuelve la hora actual y se actualiza cada segundo: mueve los relojes de las mesas.
 import { useEffect, useState } from 'react'
 
 export default function useNow() {

@@ -1,3 +1,4 @@
+// Tarjeta de un pedido: buscar artículos, ver su detalle, asignar mesa o cancelar.
 import { useEffect, useRef, useState } from 'react'
 import { parseProductSearch } from '../../../shared/utils/productSearch.js'
 import { findPendingProducts } from '../domain/pendingOrders.js'
@@ -14,6 +15,7 @@ export default function PendingOrderCard({ order, data, api, load, onChooseTable
   const productResultRefs = useRef([])
   const dialogRef = useRef(null)
   const actionRef = useRef(false)
+  // Une cada artículo con su producto; descarta los de productos ya borrados.
   const items = (data.pendingOrderItems || [])
     .filter((item) => item.pendingOrderId === order.id)
     .map((item) => ({ ...item, product: data.products.find((product) => product.id === item.productId) }))
@@ -27,6 +29,7 @@ export default function PendingOrderCard({ order, data, api, load, onChooseTable
   const createdAt = new Date(order.createdAt)
   const createdLabel = Number.isNaN(createdAt.getTime()) ? '' : createdAt.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 
+  // Al crear el pedido, el cursor salta a la búsqueda de esta tarjeta.
   useEffect(() => {
     if (!shouldFocusSearch) return
     searchInputRef.current?.focus()
@@ -37,6 +40,7 @@ export default function PendingOrderCard({ order, data, api, load, onChooseTable
     if (showResults) productResultRefs.current[selectedIndex]?.scrollIntoView({ block: 'nearest' })
   }, [selectedIndex, showResults])
 
+  // actionRef evita ejecutar dos operaciones a la vez.
   const addItem = async (productId) => {
     if (actionRef.current) return
     actionRef.current = true

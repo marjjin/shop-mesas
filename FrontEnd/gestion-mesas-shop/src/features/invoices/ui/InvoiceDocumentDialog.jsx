@@ -1,3 +1,4 @@
+// Visor de PDF. Pide el archivo con el token y lo muestra desde una URL temporal.
 import { useEffect, useState } from 'react'
 import InvoiceDialog from './InvoiceDialog.jsx'
 import InvoiceIcon from './InvoiceIcon.jsx'
@@ -6,6 +7,7 @@ import { loadInvoiceDocument } from '../api/invoicesApi.js'
 export default function InvoiceDocumentDialog({ api, invoice, onClose }) {
   const [result, setResult] = useState(null)
   const [retry, setRetry] = useState(0)
+  // Al cerrar, cancela la descarga y libera la URL.
   useEffect(() => {
     const controller = new AbortController()
     let active = true, url

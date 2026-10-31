@@ -1,3 +1,4 @@
+// Tiradas del día agrupadas por turno.
 import { shifts, formatTime } from '../cashDropPresentation.js'
 import { money } from '../../../shared/utils/currency.js'
 import CashDropIcon from './CashDropIcon.jsx'

@@ -1,7 +1,9 @@
+// Estado del formulario de cierre. Cada cambio se guarda como borrador.
 import { useState } from 'react'
 import { getCloseDraft, saveCloseDraft, clearCloseDraft } from '../domain/closeDrafts.js'
 
 export default function useCloseDraft({ products, date, shift, previousChangeCash, onAllocationsChange }) {
+  // Lee el borrador una sola vez, al montar.
   const [storedDraft] = useState(() => getCloseDraft(date, shift))
   const [finalStocks, setFinalStocks] = useState(() => Object.fromEntries(products.map((product) => [product.id, storedDraft?.finalStocks?.[product.id] ?? product.stock])))
   const [cigaretteReservation, setCigaretteReservation] = useState(() => storedDraft?.cigaretteReservation || { cash: '', mercadoPago: '' })
@@ -18,6 +20,7 @@ export default function useCloseDraft({ products, date, shift, previousChangeCas
       setEndingBalances((balances) => ({ ...balances, receivedChange: String(previousChangeCash) }))
   }
 
+  // Estas funciones actualizan el estado y guardan el borrador al mismo tiempo.
   const changeFinalStock = (productId, value) => {
     const updated = { ...finalStocks, [productId]: value }
     setFinalStocks(updated)
@@ -39,6 +42,7 @@ export default function useCloseDraft({ products, date, shift, previousChangeCas
     saveCloseDraft(date, shift, { cigaretteReservation: updated })
     setHasDraft(true)
   }
+  // Vuelve el formulario a su estado inicial.
   const discardDraft = () => {
     clearCloseDraft(date, shift)
     setFinalStocks(Object.fromEntries(products.map((product) => [product.id, product.stock])))

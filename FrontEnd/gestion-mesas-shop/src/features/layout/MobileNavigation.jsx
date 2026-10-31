@@ -1,3 +1,4 @@
+// Encabezado y menú móvil, hecho con un <dialog> nativo.
 import { useEffect, useId, useRef, useState } from 'react'
 import ThemeToggle from '../appearance/ThemeToggle.jsx'
 import NavigationMenu from './NavigationMenu.jsx'
@@ -10,12 +11,14 @@ export default function MobileNavigation({ user, section, pendingOrdersCount, on
   const titleId = useId()
   const [isOpen, setIsOpen] = useState(false)
   const closeMenu = () => dialogRef.current?.close()
+  // showModal abre el diálogo y bloquea el fondo.
   const openMenu = () => {
     if (dialogRef.current.open) return
     dialogRef.current.showModal()
     setIsOpen(true)
   }
 
+  // Mientras está abierto impide el scroll del fondo y se cierra al agrandar la ventana o navegar atrás.
   useEffect(() => {
     if (!isOpen) return
     const dialog = dialogRef.current
@@ -43,6 +46,7 @@ export default function MobileNavigation({ user, section, pendingOrdersCount, on
       <ThemeToggle resolvedTheme={resolvedTheme} onThemeChange={onThemeChange} />
     </header>
     <dialog ref={dialogRef} id={dialogId} className="mobile-nav-dialog" aria-labelledby={titleId} onClose={() => setIsOpen(false)} onClick={(event) => {
+      // Un clic fuera del cuadro, sobre el fondo, cierra el menú.
       if (event.target !== event.currentTarget) return
       const bounds = event.currentTarget.getBoundingClientRect()
       if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) closeMenu()

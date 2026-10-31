@@ -1,3 +1,4 @@
+// Web Worker: procesa imágenes en un hilo aparte para no congelar la interfaz.
 import { defaultCorners } from './geometry.js'
 import { scanImage } from './processImage.js'
 import { initializeOpenCv } from './openCvRuntime.js'
@@ -9,6 +10,7 @@ import cvModule from '@techstark/opencv-js'
 // self-resolving `then` export through a dynamic-import namespace.
 const engine = initializeOpenCv(cvModule).catch(() => null)
 
+// Recibe un pedido del hilo principal y responde con el mismo id.
 self.onmessage = async ({ data }) => {
   try {
     const scanner = await engine
@@ -19,6 +21,7 @@ self.onmessage = async ({ data }) => {
       self.postMessage({ id: data.id, result: result || { corners: defaultCorners(), detection: 'manual', engine: 'basic' } })
     } else {
       const result = scanner ? scanner.scan(data.image, data.corners, data.mode) : scanImage(data.image, data.corners, data.mode)
+      // Transferir el buffer pasa la memoria al otro hilo sin copiarla.
       self.postMessage({ id: data.id, result }, [result.data.buffer])
     }
   } catch (error) { self.postMessage({ id: data.id, error: typeof error === 'string' ? 'No se pudo corregir la imagen. Revisá las esquinas.' : error.message }) }

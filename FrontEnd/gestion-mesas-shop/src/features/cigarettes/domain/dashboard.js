@@ -1,3 +1,4 @@
+// Garantiza listas válidas aunque la respuesta venga incompleta: evita romper la pantalla.
 export function normalizeCigaretteDashboard(value) {
   const dashboard = value && typeof value === 'object' ? value : {}
   return {
@@ -15,6 +16,7 @@ export function normalizeCigaretteDashboard(value) {
   }
 }
 
+// Suma las unidades vendidas por producto y ordena de mayor a menor.
 export function buildMonthlyRanking(closes) {
   return [...(Array.isArray(closes) ? closes : []).flatMap((close) => Array.isArray(close.items) ? close.items : []).reduce((sales, item) => {
     const current = sales.get(item.cigaretteProductId) || { id: item.cigaretteProductId, name: item.productName, quantity: 0 }

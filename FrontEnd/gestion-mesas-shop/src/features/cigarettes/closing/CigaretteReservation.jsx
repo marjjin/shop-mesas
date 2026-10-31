@@ -1,3 +1,4 @@
+// Fondos reservados para la Caja de cigarrillos. Se usa editable y de solo lectura.
 import { preciseMoney as money } from '../../../shared/utils/currency.js'
 import ClosingIcon from './ClosingIcon.jsx'
 import './CigaretteReservation.css'

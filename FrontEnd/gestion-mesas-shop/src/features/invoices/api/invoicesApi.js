@@ -1,9 +1,11 @@
+// Comunicación con la API de facturas.
 const updateMessage = 'Facturas requiere la versión actualizada del servidor. Reinicialo o actualizá su despliegue y volvé a intentar.'
 const count = (value) => Number.isSafeInteger(value) && value >= 0
 const invoice = (value) => value != null && Number.isInteger(value.id) && Number.isInteger(value.supplierId)
   && ['supplierName', 'reference', 'note', 'issueDate'].every((key) => typeof value[key] === 'string')
   && count(value.sizeBytes) && count(value.pageCount) && value.pageCount > 0
 
+// Pide listado y proveedores a la vez, y valida la forma de la respuesta.
 export async function loadInvoiceArchive(api, filters, signal) {
   const query = new URLSearchParams({ page: String(filters.page), pageSize: '12' })
   if (filters.search) query.set('search', filters.search)
@@ -18,6 +20,7 @@ export async function loadInvoiceArchive(api, filters, signal) {
   } catch (error) { if (error.status === 404) throw new Error(updateMessage, { cause: error }); throw error }
 }
 
+// FormData envía el PDF y sus datos en una sola solicitud multipart.
 export function uploadInvoice(api, metadata, pages, blob) {
   const form = new FormData()
   for (const [field, value] of Object.entries(metadata)) form.set(field, String(value ?? ''))

@@ -1,3 +1,4 @@
+// Rutas de pedidos pendientes: crear, cargar artículos, cancelar y asignar a una mesa.
 using Microsoft.EntityFrameworkCore;
 
 namespace GestionMesas.Api;
@@ -37,9 +38,11 @@ public static class PendingOrdersEndpoints
     {
         if (!await db.PendingOrders.AnyAsync(order => order.Id == id)) return Results.NotFound();
         var product = await db.Products.FindAsync(request.ProductId);
+        // Los servicios de coworking no se pueden cargar a mano.
         if (product is null || product.Name is CoworkingBilling.HalfHourProductName or CoworkingBilling.HourProductName)
             return Results.BadRequest();
 
+        // Si el artículo ya está en el pedido, suma cantidad en lugar de crear otra fila.
         var item = await db.PendingOrderItems.FirstOrDefaultAsync(existing => existing.PendingOrderId == id && existing.ProductId == request.ProductId);
         if (item is null)
         {
@@ -62,6 +65,7 @@ public static class PendingOrdersEndpoints
         return Results.NoContent();
     }
 
+    // Traduce el resultado del workflow a un código HTTP. 409 significa que la mesa ya no está libre.
     private static async Task<IResult> AssignAsync(int id, AssignPendingOrderRequest request, RestaurantContext db, CancellationToken cancellationToken)
     {
         var assignment = await PendingOrderWorkflow.AssignAsync(db, id, request.TableId, DateTime.UtcNow, cancellationToken);

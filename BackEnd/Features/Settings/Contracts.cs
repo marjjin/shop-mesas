@@ -1,3 +1,4 @@
+// Datos editables del ticket de bienvenida. Los textos omitidos conservan su valor.
 namespace GestionMesas.Api;
 
 public sealed record UpdateWelcomeMessageSettingRequest(decimal Amount, string? BusinessName = null,

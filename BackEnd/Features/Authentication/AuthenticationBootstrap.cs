@@ -1,9 +1,12 @@
+// Se ejecuta al arrancar: sincroniza la cuenta administradora con las variables de entorno.
 namespace GestionMesas.Api;
 
 public static class AuthenticationBootstrap
 {
+    // Lanza una excepción, y frena el arranque, si la configuración de acceso es insegura o ambigua.
     public static void Initialize(RestaurantContext db, IConfiguration configuration)
     {
+        // Authentication:AdminPassword se lee de la variable Authentication__AdminPassword.
         var adminPassword = configuration["Authentication:AdminPassword"];
         var adminUsername = configuration["Authentication:AdminUsername"]?.Trim();
         if (adminUsername is not null && (string.IsNullOrWhiteSpace(adminUsername) || adminUsername.Length > 100 || adminUsername.Any(char.IsControl)))
@@ -21,11 +24,13 @@ public static class AuthenticationBootstrap
                 && string.Equals(user.Username, adminUsername, StringComparison.OrdinalIgnoreCase)))
                 throw new InvalidOperationException("Ese nombre de usuario ya pertenece a otra cuenta. No se modificó el acceso.");
 
+            // Sin contraseña configurada, se prohíbe seguir con la clave vacía o con admin/admin.
             if (adminPassword is null && (string.IsNullOrEmpty(administrator.Password) || administrator.Password == "admin"
                 || UserPasswords.Verify(administrator, "admin") != Microsoft.AspNetCore.Identity.PasswordVerificationResult.Failed))
                 throw new InvalidOperationException("Configurá Authentication__AdminPassword con una contraseña privada antes de iniciar. El acceso admin/admin ya no está permitido.");
 
             var credentialsChanged = false;
+            // Solo reescribe el hash si la contraseña realmente cambió.
             if (adminPassword is not null && UserPasswords.Verify(administrator, adminPassword) == Microsoft.AspNetCore.Identity.PasswordVerificationResult.Failed)
             {
                 administrator.Password = UserPasswords.Hash(administrator, adminPassword);
@@ -36,10 +41,12 @@ public static class AuthenticationBootstrap
                 administrator.Username = adminUsername;
                 credentialsChanged = true;
             }
+            // Cambiar credenciales invalida las sesiones abiertas de esa cuenta.
             if (credentialsChanged)
                 db.UserSessions.RemoveRange(db.UserSessions.Where(session => session.UserId == administrator.Id));
         }
 
+        // Migración: cualquier contraseña heredada en texto plano pasa a hash.
         foreach (var user in users)
         {
             if (!UserPasswords.IsHashed(user.Password))
@@ -48,6 +55,7 @@ public static class AuthenticationBootstrap
         db.SaveChanges();
     }
 
+    // Elige qué cuenta administrar. Si hay varias candidatas exige indicar el ID en lugar de adivinar.
     private static User? FindAdministrator(IReadOnlyList<User> users, IConfiguration configuration, bool changesRequested)
     {
         var configuredId = configuration["Authentication:AdminUserId"];

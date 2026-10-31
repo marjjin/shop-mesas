@@ -1,3 +1,4 @@
+// Un consumo cargado en una mesa abierta. Al cerrar la mesa se mueve al historial.
 namespace GestionMesas.Api;
 
 public class Order

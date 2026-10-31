@@ -1,3 +1,4 @@
+// Panel lateral de una mesa: apertura, consumos, relojes y cierre.
 import { useRef, useState } from 'react'
 import { datetimeLocal, clock, time, utcDate } from '../../../shared/utils/date.js'
 import { isCoworkingService } from '../../../shared/utils/products.js'
@@ -21,8 +22,11 @@ export default function TableMenu({ table, data, orders, now, api, load, closePa
   const [orderTime, setOrderTime] = useState('')
   const [savingOrderId, setSavingOrderId] = useState(null)
   const [orderError, setOrderError] = useState('')
+  // Separa cantidad y texto de búsqueda.
   const { quantity, query } = parseProductSearch(search)
+  // Límite máximo del campo de inicio: no puede ser posterior al primer consumo.
   const firstOrderTime = orders.reduce((earliest, order) => Math.min(earliest, new Date(utcDate(order.createdAt)).getTime()), now)
+  // Los servicios automáticos no aparecen en la búsqueda manual.
   const results = query ? data.products.filter((product) => !isCoworkingService(product)).filter((product) => product.name.toLowerCase().includes(query.toLowerCase())) : []
 
   const addConsumption = async (productId) => {
@@ -30,6 +34,7 @@ export default function TableMenu({ table, data, orders, now, api, load, closePa
     setSearch('')
     await load()
   }
+  // Abre la mesa. Lee la configuración antes para que el ticket quede actualizado.
   const openTable = async (event) => {
     event.preventDefault()
     const name = customerName.trim()
@@ -48,6 +53,7 @@ export default function TableMenu({ table, data, orders, now, api, load, closePa
       setOpenError('No se pudo abrir la mesa. Intentá nuevamente.')
     }
   }
+  // Reimprime la bienvenida; un candado evita abrir dos ventanas.
   const reprintWelcomeTicket = async () => {
     if (table.status !== 'occupied' || reprintLock.current) return
     reprintLock.current = true
@@ -79,6 +85,7 @@ export default function TableMenu({ table, data, orders, now, api, load, closePa
       setSavingStart(false)
     }
   }
+  // Quitar un cargo de coworking pausa los siguientes, y por eso el aviso es distinto.
   const removeConsumption = async (order) => {
     const isCoworking = isCoworkingService(order.product)
     const confirmation = isCoworking ? `¿Quitar este ${order.product.name}? Los próximos cargos quedarán pausados hasta volver a abrir la mesa.` : `¿Quitar ${order.quantity}× ${order.product.name} de la mesa?`
@@ -99,6 +106,7 @@ export default function TableMenu({ table, data, orders, now, api, load, closePa
     setOrderTime(datetimeLocal(order.createdAt))
     setOrderError('')
   }
+  // Corrige la hora de un consumo.
   const saveConsumptionTime = async (event, order) => {
     event.preventDefault()
     setSavingOrderId(order.id)

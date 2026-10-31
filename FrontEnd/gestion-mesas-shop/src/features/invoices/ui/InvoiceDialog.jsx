@@ -1,3 +1,4 @@
+// Marco común de los diálogos de facturas.
 import { useEffect, useRef } from 'react'
 import InvoiceIcon from './InvoiceIcon.jsx'
 

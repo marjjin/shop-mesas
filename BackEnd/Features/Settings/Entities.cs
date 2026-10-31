@@ -1,3 +1,4 @@
+// Configuración del ticket de bienvenida. Hay una sola fila, siempre con Id 1.
 namespace GestionMesas.Api;
 
 public class WelcomeMessageSetting

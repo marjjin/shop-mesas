@@ -1,3 +1,4 @@
+// Sección de arqueo del cierre.
 import ClosingIcon from './ClosingIcon.jsx'
 import { money } from '../../../shared/utils/currency.js'
 
@@ -5,8 +6,10 @@ export default function EndingBalances({ balances, cashDrops = [], onChange, onR
   const receivedChange = Number(balances.receivedChange || 0)
   const nextShiftChange = Number(balances.change || 0)
   const cashDropsTotal = cashDrops.reduce((total, drop) => total + drop.amount, 0)
+  // El campo muestra el efectivo total, con las tiradas incluidas.
   const cashInBox = Number(balances.cash || 0) + cashDropsTotal
   const totalCash = cashInBox + Number(balances.mercadoPago || 0) + Number(balances.posnet || 0) + nextShiftChange - receivedChange
+  // Al editarlo, resta las tiradas: en la base se guarda solo lo que quedó en caja.
   const changeCash = (event) => {
     const value = event.target.value
     onChange({ ...balances, cash: value === '' ? '' : String(Math.max(0, Number(value) - cashDropsTotal)) })

@@ -1,3 +1,4 @@
+// Tarjeta de una factura del archivo.
 import InvoiceIcon from './InvoiceIcon.jsx'
 import { displayFileSize } from '../api/invoicesApi.js'
 

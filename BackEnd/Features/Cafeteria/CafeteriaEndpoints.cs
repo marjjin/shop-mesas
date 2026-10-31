@@ -1,3 +1,4 @@
+// Rutas de Caja Cafetería.
 namespace GestionMesas.Api;
 
 public static class CafeteriaEndpoints

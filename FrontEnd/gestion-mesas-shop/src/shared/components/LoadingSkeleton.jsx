@@ -1,5 +1,7 @@
+// Esqueletos de carga: formas grises que imitan cada pantalla mientras llegan los datos.
 import './LoadingSkeleton.css'
 
+// Títulos por sección: [texto superior, título].
 const sections = {
   salon: ['OPERACIÓN EN VIVO', 'Salón principal'],
   pending: ['OPERACIÓN DEL SALÓN', 'Pedidos'],
@@ -46,6 +48,7 @@ export function SettingsSkeleton() {
   </div>
 }
 
+// Arma el esqueleto según la sección, para que el salto al contenido real sea mínimo.
 export default function LoadingSkeleton({ section = 'salon' }) {
   const [eyebrow, title] = sections[section] || sections.salon
   const hasSummary = ['pending', 'cafeteria', 'cigarettes', 'suppliers', 'cash-drops', 'invoices'].includes(section)
@@ -72,6 +75,7 @@ export default function LoadingSkeleton({ section = 'salon' }) {
   </div>
 }
 
+// Versión de pantalla completa, usada mientras se valida la sesión al recargar.
 export function SessionSkeleton({ section = 'salon' }) {
   return <main className="layout skeleton-session" aria-busy="true">
     <aside className="sidebar skeleton-sidebar" aria-hidden="true"><SkeletonBlock className="skeleton-brand" /><div className="skeleton-nav">{Array.from({ length: 7 }, (_, index) => <SkeletonBlock className="skeleton-control" key={index} />)}</div><SkeletonBlock className="skeleton-control" /></aside>

@@ -1,3 +1,4 @@
+// Pantalla de facturas: archivo, búsqueda y apertura de diálogos.
 import { useRef, useState } from 'react'
 import LoadingSkeleton from '../../shared/components/LoadingSkeleton.jsx'
 import useInvoices from './hooks/useInvoices.js'
@@ -13,6 +14,7 @@ import './Invoices.css'
 export default function Invoices({ api, onOpenSuppliers }) {
   const { archive, suppliers, loading, refreshing, error, filters, setFilters, reload } = useInvoices(api)
   const [search, setSearch] = useState('')
+  // dialog indica el diálogo abierto: create, edit o document.
   const [dialog, setDialog] = useState(null)
   const [notice, setNotice] = useState('')
   const [actionError, setActionError] = useState('')

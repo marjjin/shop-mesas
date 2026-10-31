@@ -1,3 +1,4 @@
+// Estado y acciones del salón: selección, edición del plano y asignación de pedidos.
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { isCoworkingService } from '../../../shared/utils/products.js'
 import { openReceiptPrintWindow, printReceipt, printWelcomeReceipt } from '../../printing/receipt.js'
@@ -8,13 +9,16 @@ export default function useSalon({ api, data, setData, load, loadHistory, setMes
   const [editingId, setEditingId] = useState(null)
   const [assigningPendingOrderId, setAssigningPendingOrderId] = useState(null)
   const [assigningTable, setAssigningTable] = useState(false)
+  // useRef bloquea doble clic al instante; el estado de React tardaría hasta el próximo render.
   const assignmentLock = useRef(false)
   const selected = data.tables.find((table) => table.id === selectedId)
   const assigningPendingOrder = data.pendingOrders?.find((order) => order.id === assigningPendingOrderId)
+  // useMemo recalcula solo cuando cambian los datos.
   const orders = useMemo(() => data.orders
     .filter((order) => order.tableId === selectedId)
     .map((order) => ({ ...order, product: data.products.find((product) => product.id === order.productId) }))
     .filter((order) => order.product), [data, selectedId])
+  // Mesas con un cargo de coworking cargado: se resaltan como alerta.
   const coworkingTableIds = useMemo(() => {
     const serviceIds = new Set(data.products.filter(isCoworkingService).map((product) => product.id))
     return new Set(data.orders.filter((order) => serviceIds.has(order.productId)).map((order) => order.tableId))
@@ -22,6 +26,7 @@ export default function useSalon({ api, data, setData, load, loadHistory, setMes
   const coworkingTables = data.tables.filter((table) => coworkingTableIds.has(table.id))
 
 
+  // Actualización optimista: cambia la pantalla antes de que el servidor responda.
   const saveTable = async (id, patch) => {
     setData((old) => ({ ...old, tables: old.tables.map((table) => table.id === id ? { ...table, ...patch } : table) }))
     const saved = await api(`/tables/${id}`, { method: 'PATCH', body: JSON.stringify(patch) })
@@ -41,6 +46,7 @@ export default function useSalon({ api, data, setData, load, loadHistory, setMes
     const saved = await api(`/tables/${id}`, { method: 'PATCH', body: JSON.stringify({ openedAt }) })
     setData((old) => ({ ...old, tables: old.tables.map((table) => table.id === id ? saved : table) }))
   }
+  // La ventana de impresión se abre antes de la llamada: si no nace de un clic, el navegador la bloquea.
   const closeTable = async (id) => {
     const printWindow = openReceiptPrintWindow()
     try {
@@ -71,6 +77,7 @@ export default function useSalon({ api, data, setData, load, loadHistory, setMes
       return false
     }
   }
+  // Al cambiar de sección se cierran paneles y modos que dejan de tener sentido.
   const changeSection = useCallback((nextSection) => {
     if (nextSection === 'pending') {
       setSelectedId(null)
@@ -101,6 +108,7 @@ export default function useSalon({ api, data, setData, load, loadHistory, setMes
       setAssigningPendingOrderId(null)
     }
   }, [])
+  // Lleva al salón para elegir la mesa de un pedido pendiente.
   const chooseTableForPendingOrder = (pendingOrderId) => {
     setSection('salon')
     setAssigningPendingOrderId(pendingOrderId)
@@ -109,6 +117,7 @@ export default function useSalon({ api, data, setData, load, loadHistory, setMes
     setSelectedId(null)
     setMessage('')
   }
+  // Asigna el pedido, imprime la bienvenida y abre la mesa.
   const assignPendingOrderToTable = async (tableId) => {
     if (!assigningPendingOrder || assigningTable || assignmentLock.current) return
     const table = data.tables.find((item) => item.id === tableId)
@@ -125,6 +134,7 @@ export default function useSalon({ api, data, setData, load, loadHistory, setMes
       await load()
       setSelectedId(result.table.id)
       if (!printStarted) setMessage('Pedido asignado. Habilitá las ventanas emergentes para imprimir el ticket de bienvenida.')
+    // Cualquier fallo, como que otra persona ocupó la mesa, recarga los datos y pide elegir otra.
     } catch {
       printWindow?.close()
       await load()

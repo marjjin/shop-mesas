@@ -1,13 +1,16 @@
+// Consultas compartidas sobre consumos.
 using Microsoft.EntityFrameworkCore;
 
 namespace GestionMesas.Api;
 
 internal static class OrderConsumption
 {
+    // Los cargos automáticos de coworking se identifican por el nombre del producto.
     public static Task<bool> IsCoworkingChargeAsync(RestaurantContext db, int productId) =>
         db.Products.AnyAsync(product => product.Id == productId
             && (product.Name == CoworkingBilling.HalfHourProductName || product.Name == CoworkingBilling.HourProductName));
 
+    // Último consumo real de la mesa, sin contar el pedido indicado ni los cargos automáticos.
     public static async Task<DateTime?> LatestOtherConsumptionAsync(RestaurantContext db, int tableId, int excludedOrderId)
     {
         var serviceProductIds = await db.Products

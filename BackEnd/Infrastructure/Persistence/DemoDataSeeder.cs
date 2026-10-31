@@ -1,9 +1,11 @@
+// Datos iniciales para que una instalación nueva tenga con qué empezar.
 namespace GestionMesas.Api;
 
 public static class DemoDataSeeder
 {
     public static void Seed(RestaurantContext db)
     {
+        // Sin usuarios significa base recién creada; si ya hay datos, no toca nada.
         if (!db.Users.Any())
         {
             var now = DateTime.UtcNow;

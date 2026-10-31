@@ -1,3 +1,4 @@
+// Del lado de la interfaz: convierte la mensajería con el worker en promesas.
 import { defaultCorners } from './geometry.js'
 import { scanImage } from './processImage.js'
 
@@ -8,7 +9,9 @@ export function createScanWorkerClient({
   timeoutMs = 45000,
 } = {}) {
   let worker = null, sequence = 0, disposed = false
+  // Solicitudes en curso por id: las respuestas pueden llegar en cualquier orden.
   const pending = new Map()
+  // Detener el worker rechaza todo lo pendiente.
   const stop = (error) => {
     worker?.terminate(); worker = null
     for (const request of [...pending.values()]) request.finish(error)
@@ -39,6 +42,7 @@ export function createScanWorkerClient({
         }
         const id = ++sequence
         const abort = () => stop(cancelled())
+        // Un temporizador evita esperar para siempre si el worker se cuelga.
         const timeout = setTimeout(() => stop(new Error('El escáner tardó demasiado en responder. Revisá la conexión y volvé a elegir la imagen.')), timeoutMs)
         pending.set(id, {
           finish(error, result) {

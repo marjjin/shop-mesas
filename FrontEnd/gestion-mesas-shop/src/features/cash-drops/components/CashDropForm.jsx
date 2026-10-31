@@ -1,3 +1,4 @@
+// Formulario de nueva tirada. Solo disponible con un turno abierto.
 import { shifts, quickAmounts } from '../cashDropPresentation.js'
 import { money } from '../../../shared/utils/currency.js'
 import CashDropIcon from './CashDropIcon.jsx'

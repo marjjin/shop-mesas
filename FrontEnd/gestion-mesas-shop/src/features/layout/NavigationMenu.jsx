@@ -1,6 +1,8 @@
+// Lista de enlaces. Son <a> reales: permiten abrir en otra pestaña con Ctrl+clic.
 import { navigationGroups } from './navigationItems.js'
 import { sectionPaths } from './sectionNavigation.js'
 
+// Con un clic normal evita recargar la página y navega por la app; otros clics siguen su curso.
 export default function NavigationMenu({ section, pendingOrdersCount, onSectionChange }) {
   return <nav className="sidebar-nav" aria-label="Navegación principal">
     {navigationGroups.map((group) => <div className="sidebar-nav-group" key={group.label}>

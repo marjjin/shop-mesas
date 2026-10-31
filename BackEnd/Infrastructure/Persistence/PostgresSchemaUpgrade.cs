@@ -1,3 +1,5 @@
+// Actualiza bases PostgreSQL ya existentes hasta el esquema actual.
+// CREATE TABLE/ADD COLUMN IF NOT EXISTS permiten ejecutar este código en cada arranque sin dañar datos.
 using Microsoft.EntityFrameworkCore;
 
 namespace GestionMesas.Api;
@@ -129,6 +131,7 @@ public static class PostgresSchemaUpgrade
         // recording those movements. Widen the existing column during startup so
         // deployed databases are upgraded without losing any data.
         db.Database.ExecuteSqlRaw("""ALTER TABLE "SupplierTransactions" ALTER COLUMN "Type" TYPE character varying(64);""");
+        // Las ventas de cafetería antiguas no tenían fecha ni turno: se agregan y se deducen de los cierres.
         db.Database.ExecuteSqlRaw("""ALTER TABLE "CafeteriaSales" ADD COLUMN IF NOT EXISTS "BusinessDate" date;""");
         db.Database.ExecuteSqlRaw("""ALTER TABLE "CafeteriaSales" ADD COLUMN IF NOT EXISTS "Shift" character varying(16);""");
         db.Database.ExecuteSqlRaw("""
@@ -151,11 +154,13 @@ public static class PostgresSchemaUpgrade
         db.Database.ExecuteSqlRaw("""ALTER TABLE "CafeteriaSales" ALTER COLUMN "BusinessDate" SET NOT NULL;""");
         db.Database.ExecuteSqlRaw("""ALTER TABLE "CafeteriaSales" ALTER COLUMN "Shift" SET NOT NULL;""");
         db.Database.ExecuteSqlRaw("""CREATE INDEX IF NOT EXISTS "IX_CafeteriaSales_BusinessDate_Shift" ON "CafeteriaSales" ("BusinessDate", "Shift");""");
+        // Columnas de arqueo agregadas a los cierres existentes.
         db.Database.ExecuteSqlRaw("""ALTER TABLE "CigaretteShiftCloses" ADD COLUMN IF NOT EXISTS "EndingCashBalance" numeric(12,2) NOT NULL DEFAULT 0;""");
         db.Database.ExecuteSqlRaw("""ALTER TABLE "CigaretteShiftCloses" ADD COLUMN IF NOT EXISTS "EndingMercadoPagoBalance" numeric(12,2) NOT NULL DEFAULT 0;""");
         db.Database.ExecuteSqlRaw("""ALTER TABLE "CigaretteShiftCloses" ADD COLUMN IF NOT EXISTS "NextShiftChangeCash" numeric(12,2) NOT NULL DEFAULT 0;""");
         db.Database.ExecuteSqlRaw("""ALTER TABLE "CigaretteShiftCloses" ADD COLUMN IF NOT EXISTS "ReceivedChangeCash" numeric(12,2) NOT NULL DEFAULT 0;""");
         db.Database.ExecuteSqlRaw("""ALTER TABLE "CigaretteShiftCloses" ADD COLUMN IF NOT EXISTS "PosnetTotal" numeric(12,2) NOT NULL DEFAULT 0;""");
+        // Migración de saldos: el saldo único Balance se dividió en reservado y cuenta corriente.
         db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ADD COLUMN IF NOT EXISTS "ReservedBalance" numeric(12,2);""");
         db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ADD COLUMN IF NOT EXISTS "ReservedCashBalance" numeric(12,2);""");
         db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ADD COLUMN IF NOT EXISTS "ReservedMercadoPagoBalance" numeric(12,2);""");
@@ -180,6 +185,7 @@ public static class PostgresSchemaUpgrade
         db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ALTER COLUMN "ReservedMercadoPagoBalance" SET NOT NULL;""");
         db.Database.ExecuteSqlRaw("""ALTER TABLE "SupplierTransactions" ADD COLUMN IF NOT EXISTS "CashAmount" numeric(12,2) NOT NULL DEFAULT 0;""");
         db.Database.ExecuteSqlRaw("""ALTER TABLE "SupplierTransactions" ADD COLUMN IF NOT EXISTS "MercadoPagoAmount" numeric(12,2) NOT NULL DEFAULT 0;""");
+        // Los movimientos antiguos no distinguían el medio de pago: se asumen en efectivo.
         db.Database.ExecuteSqlRaw("""UPDATE "SupplierTransactions" SET "CashAmount" = "Amount" WHERE "CashAmount" = 0 AND "MercadoPagoAmount" = 0 AND "Type" IN ('allocation', 'cash_purchase', 'reserved_purchase', 'payment', 'reserved_transfer_in', 'reserved_transfer_out', 'reserved_adjustment');""");
         db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ALTER COLUMN "CurrentAccountBalance" SET NOT NULL;""");
     }

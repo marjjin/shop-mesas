@@ -1,3 +1,4 @@
+// Equivalente de PostgresSchemaUpgrade para SQLite, usado en desarrollo local.
 using Microsoft.EntityFrameworkCore;
 
 namespace GestionMesas.Api;
@@ -12,6 +13,7 @@ public static class SqliteSchemaUpgrade
             CREATE TABLE IF NOT EXISTS "CafeteriaSales" ("Id" INTEGER PRIMARY KEY AUTOINCREMENT, "BusinessDate" TEXT NOT NULL, "Shift" TEXT NOT NULL, "CreatedAt" TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS "CafeteriaSaleItems" ("Id" INTEGER PRIMARY KEY AUTOINCREMENT, "CafeteriaSaleId" INTEGER NOT NULL REFERENCES "CafeteriaSales" ("Id") ON DELETE CASCADE, "CafeteriaProductId" INTEGER NOT NULL, "ProductName" TEXT NOT NULL, "UnitPrice" TEXT NOT NULL);
             """);
+        // '0001-01-01' marca ventas antiguas sin fecha; las consultas siguientes las completan.
         if (!SqliteColumnExists(db, "CafeteriaSales", "BusinessDate"))
             db.Database.ExecuteSqlRaw("""ALTER TABLE "CafeteriaSales" ADD COLUMN "BusinessDate" TEXT NOT NULL DEFAULT '0001-01-01';""");
         if (!SqliteColumnExists(db, "CafeteriaSales", "Shift"))
@@ -41,6 +43,7 @@ public static class SqliteSchemaUpgrade
             CREATE TABLE IF NOT EXISTS "CashDrops" ("Id" INTEGER PRIMARY KEY AUTOINCREMENT, "Amount" TEXT NOT NULL, "BusinessDate" TEXT NOT NULL, "Shift" TEXT NOT NULL, "CreatedAt" TEXT NOT NULL, "CigaretteShiftCloseId" INTEGER NULL REFERENCES "CigaretteShiftCloses" ("Id") ON DELETE SET NULL);
             CREATE INDEX IF NOT EXISTS "IX_CashDrops_BusinessDate_Shift" ON "CashDrops" ("BusinessDate", "Shift");
             """);
+        // Migra el saldo antiguo Balance hacia las columnas nuevas.
         if (!SqliteColumnExists(db, "Suppliers", "ReservedBalance"))
         {
             db.Database.ExecuteSqlRaw("""ALTER TABLE "Suppliers" ADD COLUMN "ReservedBalance" TEXT NOT NULL DEFAULT '0';""");
@@ -76,6 +79,7 @@ public static class SqliteSchemaUpgrade
             db.Database.ExecuteSqlRaw("""ALTER TABLE "CigaretteShiftCloses" ADD COLUMN "PosnetTotal" TEXT NOT NULL DEFAULT '0';""");
     }
 
+    // PRAGMA table_info devuelve las columnas reales de una tabla en SQLite.
     private static bool SqliteColumnExists(RestaurantContext db, string table, string column)
     {
         var connection = db.Database.GetDbConnection();

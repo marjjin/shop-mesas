@@ -1,3 +1,4 @@
+// Lista de proveedores y operaciones sobre la cuenta.
 import { useCallback, useEffect, useState } from 'react'
 import { normalizeSuppliers } from '../domain/transactions.js'
 
@@ -8,6 +9,7 @@ export default function useSupplierAccounts({ api, setMessage }) {
   const [balances, setBalances] = useState({ reservedCashBalance: '', reservedMercadoPagoBalance: '', currentAccountBalance: '', note: '' })
   const [editingBalances, setEditingBalances] = useState(false)
   const [creatingSupplier, setCreatingSupplier] = useState(false)
+  // Recuerda el proveedor abierto al recargar la página.
   const [selectedSupplierId, setSelectedSupplierId] = useState(() => {
     const storedSupplierId = Number(sessionStorage.getItem('mesa-supplier-id'))
     return Number.isInteger(storedSupplierId) && storedSupplierId > 0 ? storedSupplierId : null
@@ -22,6 +24,7 @@ export default function useSupplierAccounts({ api, setMessage }) {
     if (selectedSupplierId) sessionStorage.setItem('mesa-supplier-id', String(selectedSupplierId))
     else sessionStorage.removeItem('mesa-supplier-id')
   }, [selectedSupplierId])
+  // Si el proveedor abierto dejó de estar activo, vuelve a la lista.
   useEffect(() => {
     if (selectedSupplierId && suppliers.length && !suppliers.some((supplier) => supplier.id === selectedSupplierId && supplier.isActive))
       // eslint-disable-next-line react-hooks/set-state-in-effect

@@ -1,3 +1,4 @@
+// Ventas rápidas de cafetería, sin stock. Un clic registra una venta con todos los artículos activos.
 using Microsoft.EntityFrameworkCore;
 
 namespace GestionMesas.Api;
@@ -15,10 +16,12 @@ public interface ICafeteriaService
 
 public sealed class CafeteriaService(RestaurantContext db) : ICafeteriaService
 {
+    // Resumen de pantalla: turno activo, caja actual, día, mes y últimos 30 días.
     public async Task<CafeteriaDashboardResponse> GetDashboardAsync(DateOnly date, CancellationToken cancellationToken)
     {
         var products = await GetProductsAsync(cancellationToken);
         var lastClose = await GetLastCloseAsync(cancellationToken);
+        // El turno activo se deduce del último cierre: tras la mañana sigue la tarde, y viceversa.
         var activeShift = lastClose?.Shift == "morning" ? "afternoon" : "morning";
         var summary = await GetSummaryAsync(GetPendingSales(db), cancellationToken);
         var daySummary = await GetPeriodSummaryAsync(date, date.AddDays(1), cancellationToken);
@@ -28,6 +31,7 @@ public sealed class CafeteriaService(RestaurantContext db) : ICafeteriaService
         return new CafeteriaDashboardResponse(date, activeShift, products, summary, daySummary, monthSummary, recentShiftHistory);
     }
 
+    // Registra una venta en el turno activo.
     public async Task<CafeteriaDashboardResponse> RegisterSaleAsync(DateOnly date, CancellationToken cancellationToken)
     {
         var products = await db.CafeteriaProducts.Where(product => product.IsActive).OrderBy(product => product.CreatedAt).ToListAsync(cancellationToken);
@@ -36,6 +40,7 @@ public sealed class CafeteriaService(RestaurantContext db) : ICafeteriaService
         var lastClose = await GetLastCloseAsync(cancellationToken);
         var shift = lastClose?.Shift == "morning" ? "afternoon" : "morning";
         var businessDate = date;
+        // Si la fecha pedida ya quedó atrás, usa la fecha que corresponde al turno siguiente.
         if (lastClose is not null)
         {
             var nextShiftDate = lastClose.Shift == "afternoon" ? lastClose.BusinessDate.AddDays(1) : lastClose.BusinessDate;
@@ -102,10 +107,12 @@ public sealed class CafeteriaService(RestaurantContext db) : ICafeteriaService
     public Task<IReadOnlyList<CafeteriaShiftSalesHistoryResponse>> GetShiftHistoryAsync(DateOnly date, CancellationToken cancellationToken) =>
         GetShiftHistoryForPeriodAsync(date, date.AddDays(1), cancellationToken);
 
+    // Ventas pendientes: las de fecha y turno sin cierre. Son las que tomará el próximo cierre.
     internal static IQueryable<CafeteriaSale> GetPendingSales(RestaurantContext db) =>
         db.CafeteriaSales.Where(sale => !db.CigaretteShiftCloses.Any(close =>
             close.BusinessDate == sale.BusinessDate && close.Shift == sale.Shift));
 
+    // Agrupa por artículo y precio: un mismo artículo con dos precios se muestra en dos renglones.
     private static async Task<CafeteriaSalesSummaryResponse> GetSummaryAsync(
         IQueryable<CafeteriaSale> query,
         CancellationToken cancellationToken)

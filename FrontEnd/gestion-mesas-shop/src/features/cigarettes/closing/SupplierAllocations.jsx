@@ -1,3 +1,4 @@
+// Carga de lo que se reserva a cada proveedor en este cierre.
 import ClosingIcon from './ClosingIcon.jsx'
 import { money } from '../../../shared/utils/currency.js'
 

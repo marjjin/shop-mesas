@@ -1,3 +1,4 @@
+// Tarjeta de Configuraciones para elegir el tema.
 import ThemeIcon from './ThemeIcon.jsx'
 import './Appearance.css'
 

@@ -1,3 +1,4 @@
+// Edición y borrado de movimientos del historial.
 import { useState } from 'react'
 import { transactionFormValues, transactionLabel } from '../domain/transactions.js'
 

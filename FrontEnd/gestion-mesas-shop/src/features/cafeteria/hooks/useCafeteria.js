@@ -1,3 +1,4 @@
+// Estado de la pantalla Caja Cafetería.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { dateInputValue } from '../domain/cafeteriaView.js'
 
@@ -16,6 +17,7 @@ export default function useCafeteria({ api, onSummaryChange }) {
   const businessDateLabel = businessDate.toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })
   const monthLabel = businessDate.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
 
+  // loadingRef evita lanzar dos cargas simultáneas.
   const load = useCallback(async () => {
     if (loadingRef.current) return false
     loadingRef.current = true
@@ -39,6 +41,7 @@ export default function useCafeteria({ api, onSummaryChange }) {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load() }, [load])
 
+  // Envoltorio común de las operaciones: bloquea, ejecuta, recarga y avisa el resultado.
   const execute = async (operation, successMessage, action) => {
     if (actionRef.current || loadingRef.current || loadError) return false
     actionRef.current = true

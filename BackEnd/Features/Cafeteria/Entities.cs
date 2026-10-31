@@ -1,3 +1,4 @@
+// Tablas de Caja Cafetería.
 namespace GestionMesas.Api;
 
 public class CafeteriaProduct
@@ -9,6 +10,7 @@ public class CafeteriaProduct
     public DateTime CreatedAt { get; set; }
 }
 
+// Una venta rápida: incluye una unidad de cada artículo activo.
 public class CafeteriaSale
 {
     public int Id { get; set; }
@@ -18,6 +20,7 @@ public class CafeteriaSale
     public List<CafeteriaSaleItem> Items { get; set; } = [];
 }
 
+// Copia nombre y precio: cambiarlos no altera las ventas registradas.
 public class CafeteriaSaleItem
 {
     public int Id { get; set; }

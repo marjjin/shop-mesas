@@ -1,3 +1,4 @@
+// Pantalla principal: resumen, búsqueda, filtros y mesas en plano o lista.
 import { useRef, useState } from 'react'
 import FloorPlan from './components/FloorPlan.jsx'
 import TableEditor from './components/TableEditor.jsx'
@@ -11,6 +12,7 @@ export default function Salon({ data, message, onDismissMessage, salon, coffee }
   const { editingMode, setEditingMode, editingId, setEditingId, selectedId, setSelectedId, assigningPendingOrder, assigningTable,
     setAssigningPendingOrderId, coworkingTables, coworkingTableIds, saveTable, deleteTable, addTable, assignPendingOrderToTable } = salon
   const { sellingCoffee, registerCoffeeSale, coffeeSummary } = coffee
+  // En pantallas angostas arranca en lista, más cómoda que el plano.
   const [view, setView] = useState(() => window.matchMedia('(max-width: 680px)').matches ? 'list' : 'map')
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
@@ -18,6 +20,7 @@ export default function Salon({ data, message, onDismissMessage, salon, coffee }
   const searchRef = useRef(null)
   const editorRef = useRef(null)
   const summary = getSalonSummary(data.tables)
+  // Editar obliga a ver el plano completo; asignar un pedido muestra solo mesas libres.
   const activeView = editingMode ? 'map' : view
   const activeFilter = editingMode ? 'all' : assigningPendingOrder ? 'free' : filter
   const filteredTables = filterSalonTables(data.tables, { search: editingMode ? '' : search, status: activeFilter })
@@ -46,6 +49,7 @@ export default function Salon({ data, message, onDismissMessage, salon, coffee }
     searchRef.current?.focus()
   }
 
+  // Salón sin mesas, sin resultados, plano o lista: se dibuja una sola de estas vistas.
   return <div className="salon-page">
     <header className="salon-header">
       <div><p className="eyebrow">OPERACIÓN EN VIVO</p><h1>Salón principal</h1><p>Todo tu salón de un vistazo. Seleccioná una mesa para atenderla.</p></div>

@@ -1,3 +1,4 @@
+// Lista editable de los artículos que entran en cada venta rápida.
 import { useEffect, useRef, useState } from 'react'
 import { preciseMoney as money } from '../../../shared/utils/currency.js'
 import { saleConfigurationTotal } from '../domain/cafeteriaView.js'

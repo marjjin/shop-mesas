@@ -1,12 +1,15 @@
+// Pasos de imagen de la interfaz: abrir la foto, detectar bordes y comprimir la página.
 import { SCAN_MAX_EDGE, SCAN_PAGE_TARGET_BYTES, SCAN_JPEG_QUALITIES } from './scanQuality.js'
 import { createScanPageId } from './browserCapture.js'
 
 export const canvasBlob = (canvas, quality) => new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('No se pudo preparar la imagen.')), 'image/jpeg', quality))
 
+// Valida tamaño y formato, reduce la imagen y pide detectar los bordes.
 export async function readScanSource(file, signal, scanner) {
   if (file.size > 20 * 1024 * 1024) throw new Error('La imagen debe ocupar hasta 20 MB.')
   if (file.type && !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) throw new Error('Usá una imagen JPG, PNG o WebP. Desde el celular podés tomar una foto nueva.')
   let bitmap
+  // from-image respeta la rotación guardada por la cámara.
   try { bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' }) }
   catch { throw new Error('No se pudo abrir la imagen. Probá con una foto en formato JPG.') }
   try {
@@ -34,6 +37,7 @@ export async function createScannedPage(source, corners, mode, signal, scanner) 
   canvas.width = result.width; canvas.height = result.height
   canvas.getContext('2d').putImageData(new ImageData(result.data, result.width, result.height), 0, 0)
   let blob
+  // Prueba calidades de mayor a menor hasta alcanzar el peso objetivo.
   for (const quality of SCAN_JPEG_QUALITIES) {
     blob = await canvasBlob(canvas, quality)
     if (blob.size <= SCAN_PAGE_TARGET_BYTES) break

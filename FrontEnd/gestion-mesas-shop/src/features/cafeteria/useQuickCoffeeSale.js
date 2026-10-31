@@ -1,3 +1,4 @@
+// Botón Venta café del salón: un clic registra una venta y actualiza el contador del turno.
 import { useCallback, useEffect, useState } from 'react'
 
 export default function useQuickCoffeeSale(api, user, setMessage) {

@@ -1,3 +1,4 @@
+// Estado y acciones de stock y compras. La ejecución común llega por execute.
 import { useState } from 'react'
 import { filterStockProducts, inventoryRetailValue } from '../domain/inventoryView.js'
 
@@ -44,8 +45,10 @@ export default function useCigaretteInventory({ api, execute, dashboard, date, s
     return saved
   }
   const deletePurchase = (item) => execute(() => api(`/cigarettes/purchases/${item.id}`, { method: 'DELETE' }), 'Compra eliminada correctamente y cierre recalculado.')
+  // Valores derivados: se recalculan en cada render a partir del dashboard.
   const purchases = dashboard.purchases.filter((item) => item.shift === shift)
   const purchasedUnits = purchases.reduce((total, item) => total + item.quantity, 0)
+  // Muestra resultados solo mientras no haya un producto elegido.
   const purchaseResults = purchaseSearch.trim() && !purchase.cigaretteProductId
     ? filterStockProducts(dashboard.products, { search: purchaseSearch })
     : []

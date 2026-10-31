@@ -1,3 +1,4 @@
+// Barra de edición del plano: renombrar, agregar o eliminar mesas.
 import { useState } from 'react'
 import SalonIcon from './SalonIcon.jsx'
 

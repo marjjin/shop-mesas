@@ -1,3 +1,4 @@
+// Contrato del módulo de proveedores.
 namespace GestionMesas.Api;
 
 public interface ISupplierService

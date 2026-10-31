@@ -1,3 +1,4 @@
+// Validaciones compartidas por inventario y cierres.
 namespace GestionMesas.Api;
 
 internal static class CigaretteRules
@@ -8,6 +9,7 @@ internal static class CigaretteRules
             throw new CigaretteValidationException("El importe debe ser positivo o cero, con hasta dos decimales y menor a 10.000 millones.");
     }
 
+    // Convierte el texto recibido al valor canónico guardado en la base.
     public static string NormalizePaymentMethod(string? method) => method?.Trim().ToLowerInvariant() switch
     {
         "cash" => "cash",
@@ -15,6 +17,7 @@ internal static class CigaretteRules
         _ => throw new CigaretteValidationException("El medio de pago debe ser efectivo o Mercado Pago.")
     };
 
+    // Los turnos se guardan como morning o afternoon.
     public static string NormalizeShift(string shift) => shift.Trim().ToLowerInvariant() switch
     {
         "morning" => "morning",

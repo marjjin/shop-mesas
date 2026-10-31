@@ -1,3 +1,4 @@
+// Pantalla de pedidos sin mesa asignada.
 import { useRef, useState } from 'react'
 import PendingOrderCard from './components/PendingOrderCard.jsx'
 import PendingOrderForm from './components/PendingOrderForm.jsx'
@@ -12,6 +13,7 @@ export default function PendingOrders({ data, api, load, onChooseTable }) {
   const pendingOrders = data.pendingOrders || []
   const visibleOrders = filterPendingOrders(pendingOrders, search)
   const orderIds = new Set(pendingOrders.map((order) => order.id))
+  // Cuenta unidades solo de pedidos que siguen existiendo.
   const itemCount = (data.pendingOrderItems || []).filter((item) => orderIds.has(item.pendingOrderId)).reduce((total, item) => total + item.quantity, 0)
   const freeTableCount = data.tables.filter((table) => table.status === 'free').length
 

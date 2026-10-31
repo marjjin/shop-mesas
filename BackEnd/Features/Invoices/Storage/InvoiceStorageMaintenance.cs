@@ -1,3 +1,4 @@
+// Mantenimiento en segundo plano: borra archivos huérfanos y migra PDFs antiguos.
 using Microsoft.EntityFrameworkCore;
 
 namespace GestionMesas.Api;
@@ -5,6 +6,7 @@ namespace GestionMesas.Api;
 public sealed class InvoiceStorageMaintenance(RestaurantContext db, CloudinaryInvoiceClient cloudinary,
     CloudinaryInvoiceFileStore store, CloudinaryInvoiceOptions options, TimeProvider clock, ILogger<InvoiceStorageMaintenance> log)
 {
+    // Procesa hasta 10 tareas por ciclo, y después migra un documento.
     public async Task RunAsync(CancellationToken ct)
     {
         if (!options.IsConfigured) return;
@@ -14,6 +16,7 @@ public sealed class InvoiceStorageMaintenance(RestaurantContext db, CloudinaryIn
         {
             try
             {
+                // Nunca borra un archivo que una factura siga usando.
                 var referenced = await db.InvoiceDocuments.AnyAsync(x => x.CloudinaryCloudName == job.CloudName && x.CloudinaryPublicId == job.PublicId, ct);
                 if (!referenced) await cloudinary.DeleteAsync(job.CloudName, job.PublicId, ct);
                 db.InvoiceFileCleanups.Remove(job);
@@ -21,6 +24,7 @@ public sealed class InvoiceStorageMaintenance(RestaurantContext db, CloudinaryIn
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 job.Attempts++;
+                // Espera creciente entre reintentos, con un máximo de una hora.
                 job.NotBefore = now.AddSeconds(Math.Min(3600, 30 * Math.Pow(2, Math.Min(job.Attempts, 7))));
                 // Provider bodies and signed requests never enter application logs.
                 log.LogWarning("No se pudo completar la limpieza de documento {JobId}; se reintentará.", job.Id);
@@ -30,6 +34,7 @@ public sealed class InvoiceStorageMaintenance(RestaurantContext db, CloudinaryIn
         await MigrateOneAsync(ct);
     }
 
+    // Mueve a Cloudinary un PDF antiguo guardado en la base.
     private async Task MigrateOneAsync(CancellationToken ct)
     {
         var legacy = await db.InvoiceDocuments.AsNoTracking()
@@ -54,6 +59,7 @@ public sealed class InvoiceStorageMaintenance(RestaurantContext db, CloudinaryIn
     }
 }
 
+// Worker que ejecuta el mantenimiento cada 30 segundos.
 public sealed class InvoiceStorageWorker(IServiceScopeFactory scopes, ILogger<InvoiceStorageWorker> log) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

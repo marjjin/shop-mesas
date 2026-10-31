@@ -1,3 +1,4 @@
+// Contrato del módulo de cigarrillos: qué operaciones ofrece, sin decir cómo se implementan.
 namespace GestionMesas.Api;
 
 public interface ICigaretteService
@@ -16,5 +17,6 @@ public interface ICigaretteService
     Task<CigaretteShiftCloseResponse?> ConsolidateCloseAsync(int id, int? targetId, CancellationToken cancellationToken, DateOnly? targetDate = null, string? targetShift = null);
 }
 
+// Excepciones de negocio: los endpoints las traducen a 400 y 404.
 public sealed class CigaretteValidationException(string message) : InvalidOperationException(message);
 public sealed class CigaretteNotFoundException(string message) : KeyNotFoundException(message);

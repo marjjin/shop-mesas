@@ -1,3 +1,4 @@
+// Cliente HTTP de la API de Cloudinary: subir, leer y borrar documentos privados.
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
@@ -9,6 +10,7 @@ public sealed record CloudinaryInvoiceAsset(string AssetId, string PublicId);
 
 public sealed class CloudinaryInvoiceClient(HttpClient http, CloudinaryInvoiceOptions options, TimeProvider clock)
 {
+    // Sube el PDF y verifica que Cloudinary confirme exactamente lo pedido.
     public async Task<CloudinaryInvoiceAsset> UploadAsync(string publicId, byte[] pdf, CancellationToken ct)
     {
         options.RequireConfigured();
@@ -29,6 +31,7 @@ public sealed class CloudinaryInvoiceClient(HttpClient http, CloudinaryInvoiceOp
         }, ct);
     }
 
+    // Descarga el PDF, cortando la lectura si supera el tamaño permitido.
     public async Task<byte[]> ReadAsync(string cloudName, string assetId, CancellationToken ct)
     {
         options.RequireConfigured(cloudName);
@@ -49,6 +52,7 @@ public sealed class CloudinaryInvoiceClient(HttpClient http, CloudinaryInvoiceOp
         return bytes;
     }
 
+    // Borra el archivo. Not found también vale: la operación puede repetirse sin problema.
     public async Task DeleteAsync(string cloudName, string publicId, CancellationToken ct)
     {
         options.RequireConfigured(cloudName);
@@ -69,6 +73,7 @@ public sealed class CloudinaryInvoiceClient(HttpClient http, CloudinaryInvoiceOp
         { throw new InvoiceStorageException("Cloudinary devolvió una respuesta incompleta. Intentá nuevamente.", ex); }
     }
 
+    // Firma de Cloudinary: SHA-256 de los campos ordenados más el secreto, que nunca viaja por la red.
     private Dictionary<string, string> Signed(Dictionary<string, string> fields)
     {
         fields["timestamp"] = clock.GetUtcNow().ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture);

@@ -1,3 +1,4 @@
+// Diálogo de corrección manual de saldos.
 import SupplierIcon from './SupplierIcon.jsx'
 
 export default function BalanceDialog({ selectedSupplier, setEditingBalances, editBalances, balances, setBalances }) {

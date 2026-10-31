@@ -1,9 +1,11 @@
+// Debe coincidir con los tipos que el backend permite editar.
 export const editableTransactionTypes = new Set(['purchase', 'reserved_purchase', 'payment', 'reserved_adjustment', 'current_account_adjustment', 'reserved_exchange'])
 
 export function transactionLabel(type) {
   return type === 'allocation' ? 'Reserva de cierre' : type === 'purchase' ? 'Compra a cuenta corriente' : type === 'reserved_purchase' ? 'Compra con fondos reservados' : type === 'reserved_transfer_in' ? 'Fondos recibidos de otro proveedor' : type === 'reserved_transfer_out' ? 'Fondos transferidos a otro proveedor' : type === 'reserved_exchange' ? 'Movimiento entre efectivo y Mercado Pago' : type === 'reserved_adjustment' ? 'Ajuste de fondos reservados' : type === 'current_account_adjustment' ? 'Ajuste de cuenta corriente' : 'Pago de cuenta corriente'
 }
 
+// Los formularios muestran importes positivos, aunque compras y pagos se guarden en negativo.
 export function transactionFormValues(transaction) {
   const splitType = transaction.type === 'reserved_purchase' || transaction.type === 'payment'
   return {
@@ -14,6 +16,7 @@ export function transactionFormValues(transaction) {
   }
 }
 
+// Garantiza que cada proveedor tenga una lista de movimientos.
 export function normalizeSuppliers(value) {
   return (Array.isArray(value) ? value : []).map((supplier) => ({
     ...supplier,

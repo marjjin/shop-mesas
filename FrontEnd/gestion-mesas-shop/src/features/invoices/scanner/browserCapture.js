@@ -1,3 +1,4 @@
+// Compatibilidad del navegador: getUserMedia solo funciona en HTTPS o localhost.
 let pageSequence = 0
 
 export function canUseInlineCamera(secureContext, mediaDevices) {

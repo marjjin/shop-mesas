@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GestionMesas.Api;
 
+// Una transacción garantiza que no quede una mesa a medio cerrar si algo falla.
 // Archives the consumed items and frees a validated, open table atomically.
 internal static class TableClosing
 {
@@ -12,10 +13,12 @@ internal static class TableClosing
         var orders = await db.Orders.Where(order => order.TableId == table.Id).OrderBy(order => order.CreatedAt).ToListAsync();
         var productIds = orders.Select(order => order.ProductId).Distinct().ToList();
         var products = await db.Products.Where(product => productIds.Contains(product.Id)).ToDictionaryAsync(product => product.Id);
+        // Primero se guarda el encabezado para obtener su Id.
         var history = new ClosedTableHistory { TableName = table.Name, OpenedAt = table.OpenedAt!.Value, ClosedAt = closedAt };
         db.ClosedTableHistories.Add(history);
         await db.SaveChangesAsync();
 
+        // Copia el nombre del producto: el historial debe sobrevivir aunque el artículo se borre después.
         db.ClosedTableHistoryItems.AddRange(orders.Select(order => new ClosedTableHistoryItem
         {
             ClosedTableHistoryId = history.Id,
@@ -23,6 +26,7 @@ internal static class TableClosing
             Quantity = order.Quantity,
             CreatedAt = order.CreatedAt
         }));
+        // Libera la mesa y borra sus consumos, ya archivados.
         table.Status = "free";
         table.CustomerName = null;
         table.CoworkingDisabled = false;

@@ -1,3 +1,4 @@
+// Tarjetas de resumen del inventario.
 import { SkeletonBlock } from '../../../shared/components/LoadingSkeleton.jsx'
 import { preciseMoney as money } from '../../../shared/utils/currency.js'
 import InventoryIcon from './InventoryIcon.jsx'

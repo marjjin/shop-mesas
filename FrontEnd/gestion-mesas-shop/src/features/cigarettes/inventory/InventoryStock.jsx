@@ -1,3 +1,4 @@
+// Listado editable del inventario y alta de variedades.
 import { useEffect, useRef, useState } from 'react'
 import { preciseMoney as money } from '../../../shared/utils/currency.js'
 import { stockStatus } from '../domain/inventoryView.js'
@@ -16,6 +17,7 @@ export default function InventoryStock({ dashboard, stockSearch, setStockSearch,
   const searchRef = useRef(null)
   const editRef = useRef(null)
   const editingId = editing?.id
+  // Cantidad de productos por estado, para los filtros.
   const counts = { all: dashboard.products.length, available: 0, low: 0, out: 0 }
   dashboard.products.forEach((item) => { counts[stockStatus(item.stock)] += 1 })
   const validNew = product.name.trim() && Number(product.price) > 0 && product.initialStock !== '' && Number.isInteger(Number(product.initialStock)) && Number(product.initialStock) >= 0

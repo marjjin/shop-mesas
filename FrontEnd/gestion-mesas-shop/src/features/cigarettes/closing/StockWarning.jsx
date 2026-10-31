@@ -1,3 +1,4 @@
+// Aviso cuando el stock final supera lo disponible en el turno.
 import { useEffect, useRef } from 'react'
 
 export default function StockWarning({ rows, onClose }) {

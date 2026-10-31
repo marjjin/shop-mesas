@@ -1,3 +1,4 @@
+// Pantalla de ingreso. El estado de usuario y contraseña vive en useSession.
 import { useState } from 'react'
 import ThemeToggle from '../appearance/ThemeToggle.jsx'
 import AppVersion from '../../shared/components/AppVersion.jsx'
@@ -8,8 +9,10 @@ import './LoginForm.css'
 export default function LoginForm({ login, error, onLoginChange, onSubmit, resolvedTheme, onThemeChange, busy, restoring }) {
   const [passwordVisible, setPasswordVisible] = useState(false)
   const [capsLock, setCapsLock] = useState(false)
+  // Bloquea el formulario mientras se envía o se valida una sesión guardada.
   const unavailable = busy || restoring
   const invalidCredentials = error === 'Usuario o contraseña incorrectos.'
+  // Avisa si Bloq Mayús está activo mientras se escribe la contraseña.
   const updateCapsLock = (event) => setCapsLock(event.getModifierState('CapsLock'))
 
   return <main className="auth-page">

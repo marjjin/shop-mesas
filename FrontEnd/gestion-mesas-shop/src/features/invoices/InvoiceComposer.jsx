@@ -1,3 +1,4 @@
+// Asistente de escaneo: capturar, recortar, revisar y guardar.
 import { useEffect, useRef, useState } from 'react'
 import InvoiceDialog from './ui/InvoiceDialog.jsx'
 import InvoiceMetadataFields from './ui/InvoiceMetadataFields.jsx'
@@ -19,11 +20,14 @@ export default function InvoiceComposer({ api, suppliers, initialSupplierId, onC
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
+  // URLs temporales de imágenes en memoria: deben liberarse para no acumular memoria.
   const urls = useRef(new Set())
   const operation = useRef(null)
   const mounted = useRef(false)
+  // lock evita ejecutar dos procesos pesados a la vez.
   const lock = useRef(false)
   const scanner = useRef(null)
+  // Crea el cliente del worker al abrir, y al cerrar cancela y libera todo.
   useEffect(() => {
     mounted.current = true
     const client = createScanWorkerClient()
@@ -32,6 +36,7 @@ export default function InvoiceComposer({ api, suppliers, initialSupplierId, onC
     return () => { mounted.current = false; operation.current?.abort(); client.dispose(); for (const url of ownedUrls) URL.revokeObjectURL(url); ownedUrls.clear() }
   }, [])
   const release = (url) => { URL.revokeObjectURL(url); urls.current.delete(url) }
+  // Recibe la foto y detecta los bordes.
   const image = async (file) => {
     if (lock.current) return
     lock.current = true; setBusy(true); setError(''); setStatus('Preparando escáner y detectando bordes…')
@@ -43,6 +48,7 @@ export default function InvoiceComposer({ api, suppliers, initialSupplierId, onC
     } catch (failure) { if (mounted.current && failure.name !== 'AbortError') setError(failure.message) }
     finally { lock.current = false; if (mounted.current) { setBusy(false); setStatus('') } }
   }
+  // Aplica el recorte y genera la página final.
   const apply = async (corners, mode) => {
     if (lock.current) return
     lock.current = true; setBusy(true); setError(''); setStatus('Corrigiendo perspectiva y comprimiendo la página…')
@@ -57,6 +63,7 @@ export default function InvoiceComposer({ api, suppliers, initialSupplierId, onC
   const removePage = (page) => { release(page.url); const remaining = pages.filter((item) => item.id !== page.id); setPages(remaining); if (!remaining.length) setAdding(true) }
   const movePage = (index, offset) => { const next = [...pages]; [next[index], next[index + offset]] = [next[index + offset], next[index]]; setPages(next) }
   const close = () => { if (!busy && (!(pages.length || source) || window.confirm('¿Descartar este escaneo sin guardar?'))) onClose() }
+  // Arma el PDF en el navegador y lo sube.
   const save = async (event) => {
     event.preventDefault()
     if (lock.current || !pages.length) return

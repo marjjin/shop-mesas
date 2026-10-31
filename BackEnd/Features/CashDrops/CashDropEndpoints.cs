@@ -1,3 +1,4 @@
+// Rutas de tiradas. Reutilizan CigaretteValidationException porque forman parte del flujo de cierre.
 namespace GestionMesas.Api;
 
 public static class CashDropEndpoints

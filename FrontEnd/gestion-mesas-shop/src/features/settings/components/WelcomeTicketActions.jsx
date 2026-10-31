@@ -1,3 +1,4 @@
+// Barra inferior con el estado de los cambios y los botones Descartar y Guardar.
 import Icon from './SettingsIcon.jsx'
 
 export default function WelcomeTicketActions({ editor }) {

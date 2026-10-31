@@ -1,3 +1,4 @@
+// Espera a que el motor WASM de OpenCV esté listo. Su inicialización varía según la distribución.
 import { createOpenCvScanner } from './openCvScanner.js'
 
 export function initializeOpenCv(module) {

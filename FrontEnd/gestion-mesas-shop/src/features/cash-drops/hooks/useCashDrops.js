@@ -1,3 +1,4 @@
+// Lógica de las tiradas.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { openReceiptPrintWindow, printCashDropReceipt } from '../../printing/receipt.js'
 import { money } from '../../../shared/utils/currency.js'
@@ -16,6 +17,7 @@ export default function useCashDrops(api) {
   const loadId = useRef(0)
   const amountInputRef = useRef(null)
 
+  // loadId descarta la respuesta si el usuario cambió de fecha mientras tanto.
   const load = useCallback(async () => {
     const currentLoadId = ++loadId.current
     try {
@@ -46,6 +48,7 @@ export default function useCashDrops(api) {
   const activeTotal = activeDrops.reduce((total, drop) => total + drop.amount, 0)
   const totalForDate = [...drops.morning, ...drops.afternoon].reduce((total, drop) => total + drop.amount, 0)
 
+  // Registra la tirada e imprime el ticket que acompaña al efectivo.
   const create = async (event) => {
     event.preventDefault()
     const parsedAmount = Number(amount)
