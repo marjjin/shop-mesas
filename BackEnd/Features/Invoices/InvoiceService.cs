@@ -28,7 +28,8 @@ public sealed class InvoiceService(RestaurantContext db, IInvoiceFileStore files
         }
         var count = await query.CountAsync(ct);
         page = Math.Min(page, Math.Max(1, (count + pageSize - 1) / pageSize));
-        var items = await Responses(query.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id).Skip((page - 1) * pageSize).Take(pageSize)).ToListAsync(ct);
+        // Más reciente por fecha de factura; con la misma fecha, la última cargada primero.
+        var items = await Responses(query.OrderByDescending(x => x.IssueDate).ThenByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id).Skip((page - 1) * pageSize).Take(pageSize)).ToListAsync(ct);
         var summary = new InvoiceArchiveSummary(await db.Invoices.CountAsync(ct),
             await db.Invoices.Select(x => x.SupplierId).Distinct().CountAsync(ct),
             await db.Invoices.SumAsync(x => (long)x.SizeBytes, ct));

@@ -32,6 +32,17 @@ public sealed class InvoiceServiceTests
     }
 
     [Fact]
+    public async Task ListOrdersByInvoiceDateNewestFirstRegardlessOfUploadOrder()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        await fixture.Service.CreateAsync(new(fixture.SupplierId, Date.AddDays(-5), "VIEJA"), Pdf, 1, 100, default);
+        await fixture.Service.CreateAsync(new(fixture.SupplierId, Date, "NUEVA"), Pdf, 1, 100, default);
+        await fixture.Service.CreateAsync(new(fixture.SupplierId, Date.AddDays(-2), "MEDIA"), Pdf, 1, 100, default);
+        var list = await fixture.Service.ListAsync(null, null, 1, 12, default);
+        Assert.Equal(["NUEVA", "MEDIA", "VIEJA"], list.Items.Select(x => x.Reference));
+    }
+
+    [Fact]
     public async Task SearchAndSupplierFiltersKeepGlobalSummaryAndPaginatedResults()
     {
         await using var fixture = await Fixture.CreateAsync();
