@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { filterSalonTables, fitFloorToWidth, getFloorBounds, getSalonSummary } from './salonPresentation.js'
+import { filterSalonTables, fitFloorToWidth, getFloorBounds, getSalonSummary, placeTablesOnFloor } from './salonPresentation.js'
 
 const tables = [
   { id: 1, name: 'Mesa 1', status: 'free', customerName: null, x: 40, y: 60, width: 138, height: 96 },
@@ -36,4 +36,11 @@ test('fit-to-width leaves space around the plan, avoids enlargement and keeps zo
   assert.equal(fitFloorToWidth(1800, 800), 1)
   assert.equal(fitFloorToWidth(200, 2000), .25)
   assert.equal(fitFloorToWidth(0, 800), 1)
+})
+
+test('tables saved outside the floor area are drawn at its edge so they stay visible', () => {
+  const placed = placeTablesOnFloor([tables[0], { ...tables[2], x: 9000, y: -40 }])
+  assert.equal(placed[0], tables[0])
+  assert.deepEqual([placed[1].x, placed[1].y], [2400, 0])
+  assert.deepEqual(getFloorBounds(placed), { width: 2598, height: 560 })
 })

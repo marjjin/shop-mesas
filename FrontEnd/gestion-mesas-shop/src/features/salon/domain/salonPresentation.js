@@ -15,6 +15,19 @@ export function getSalonSummary(tables) {
     occupancy: tables.length ? Math.round(occupied / tables.length * 100) : 0 }
 }
 
+// Área máxima del plano. Coincide con el límite que aplica la API al guardar.
+export const FLOOR_LIMITS = { x: 2400, y: 1600 }
+const clamp = (value, min, max) => Math.min(max, Math.max(min, Number(value) || 0))
+
+// Mesas con posición fuera del área (negativa o enorme) se dibujan en el borde, así siempre se ven.
+export function placeTablesOnFloor(tables) {
+  return tables.map((table) => {
+    const x = clamp(table.x, 0, FLOOR_LIMITS.x)
+    const y = clamp(table.y, 0, FLOOR_LIMITS.y)
+    return x === table.x && y === table.y ? table : { ...table, x, y }
+  })
+}
+
 // El lienzo crece según la mesa más alejada, con un tamaño mínimo.
 export function getFloorBounds(tables) {
   return {

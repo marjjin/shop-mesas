@@ -3,10 +3,11 @@ import { useEffect, useId, useRef, useState } from 'react'
 import Moveable from 'react-moveable'
 import { clock } from '../../../shared/utils/date.js'
 import useNow from '../../../shared/hooks/useNow.js'
-import { fitFloorToWidth, getFloorBounds } from '../domain/salonPresentation.js'
+import { fitFloorToWidth, getFloorBounds, placeTablesOnFloor } from '../domain/salonPresentation.js'
 import SalonIcon from './SalonIcon.jsx'
 
-export default function FloorPlan({ tables, visibleTableIds, coworkingTableIds, selectedId, editingMode, editingId, assignmentOrder, assigningTable, onSelect, onEdit, onAssign, saveTable }) {
+export default function FloorPlan({ tables: savedTables, visibleTableIds, coworkingTableIds, selectedId, editingMode, editingId, assignmentOrder, assigningTable, onSelect, onEdit, onAssign, saveTable }) {
+  const tables = placeTablesOnFloor(savedTables)
   const [target, setTarget] = useState(null)
   const [zoom, setZoom] = useState('fit')
   const [viewportWidth, setViewportWidth] = useState(0)

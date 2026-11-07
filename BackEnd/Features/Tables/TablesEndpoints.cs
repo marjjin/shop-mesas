@@ -5,6 +5,10 @@ namespace GestionMesas.Api;
 
 public static class TablesEndpoints
 {
+    // Mismo límite que FLOOR_LIMITS en el frontend.
+    private const int MaxX = 2400;
+    private const int MaxY = 1600;
+
     public static RouteGroupBuilder MapTablesEndpoints(this RouteGroupBuilder api)
     {
         api.MapPost("/tables", CreateAsync);
@@ -64,8 +68,9 @@ public static class TablesEndpoints
         // El operador ?? conserva el valor actual si el campo no vino.
         table.Name = patch.Name ?? table.Name;
         table.Seats = patch.Seats ?? table.Seats;
-        table.X = patch.X ?? table.X;
-        table.Y = patch.Y ?? table.Y;
+        // La posición se limita al área del plano para que ninguna mesa quede fuera de vista.
+        table.X = Math.Clamp(patch.X ?? table.X, 0, MaxX);
+        table.Y = Math.Clamp(patch.Y ?? table.Y, 0, MaxY);
         table.Width = patch.Width ?? table.Width;
         table.Height = patch.Height ?? table.Height;
         await db.SaveChangesAsync();

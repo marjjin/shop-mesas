@@ -59,6 +59,9 @@ public sealed class ApiContractTests
         var productId = product.GetProperty("id").GetInt32();
         var table = await SendJson(http, HttpMethod.Post, "/api/tables", new { name = "Mesa prueba", seats = 2 }, HttpStatusCode.Created);
         var tableId = table.GetProperty("id").GetInt32();
+        var outside = await SendJson(http, HttpMethod.Patch, $"/api/tables/{tableId}", new { x = 9000, y = -50 }, HttpStatusCode.OK);
+        Assert.Equal(2400, outside.GetProperty("x").GetInt32());
+        Assert.Equal(0, outside.GetProperty("y").GetInt32());
         var pending = await SendJson(http, HttpMethod.Post, "/api/pending-orders", new { customerName = "Ana" }, HttpStatusCode.Created);
         var pendingId = pending.GetProperty("id").GetInt32();
         await SendJson(http, HttpMethod.Post, $"/api/pending-orders/{pendingId}/items", new { productId, quantity = 2 }, HttpStatusCode.OK);
