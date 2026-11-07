@@ -1,2 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
 * { box-sizing:border-box } body { margin:0; min-width:320px; background:#f7f7f4; color:#25262a; font-family:'DM Sans',sans-serif } button,input,select { font:inherit } button { cursor:pointer }
+
+/* Campos numéricos: sin flechas de incremento y sin placeholder mientras se escribe. */
+input[type='number'] { appearance: textfield; -moz-appearance: textfield }
+input[type='number']::-webkit-inner-spin-button, input[type='number']::-webkit-outer-spin-button { margin: 0; -webkit-appearance: none; appearance: none }
+input:focus::placeholder, textarea:focus::placeholder { color: transparent !important }

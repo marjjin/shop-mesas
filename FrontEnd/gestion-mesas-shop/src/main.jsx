@@ -3,6 +3,9 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
+import { setupNumberInputs } from './shared/utils/numberInputs.js'
+
+setupNumberInputs()
 
 // StrictMode ejecuta dos veces ciertas rutinas en desarrollo para detectar errores.
 createRoot(document.getElementById('root')).render(
